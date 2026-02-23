@@ -1435,11 +1435,6 @@ app.whenReady().then(async () => {
   await ses.cookies.set({ url: 'https://www.youtube.com', name: 'PREF', value: 'f6=400', domain: '.youtube.com', path: '/' });
   await ses.cookies.set({ url: 'https://www.google.com', name: 'PREF', value: 'f6=400', domain: '.google.com', path: '/' });
 
-  // First run: show import wizard
-  if (isFirstRun()) {
-    await createImportWindow();
-  }
-
   createWindow();
   setupAutoUpdate();
 });
