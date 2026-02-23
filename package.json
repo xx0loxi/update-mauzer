@@ -1,0 +1,64 @@
+{
+    "name": "mauzer",
+    "productName": "Mauzer",
+    "version": "1.0.0",
+    "description": "Mauzer — Fast, Dark, Minimal Web Browser",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/xx0loxi/update-mauzer.git"
+    },
+    "main": "main.js",
+    "scripts": {
+        "start": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron .\"",
+        "dev": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron . --dev\"",
+        "build": "electron-builder --win"
+    },
+    "build": {
+        "appId": "com.mauzer.browser",
+        "productName": "Mauzer",
+        "directories": {
+            "output": "dist"
+        },
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "xx0loxi",
+                "repo": "update-mauzer"
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "icon_black.png"
+        },
+        "files": [
+            "main.js",
+            "preload.js",
+            "src/**/*",
+            "MAUZER LOGO/**/*",
+            "icon_black.png",
+            ".env",
+            "node_modules/**/*"
+        ],
+        "extraResources": [],
+        "asar": true
+    },
+    "author": "mono yt developer",
+    "license": "MIT",
+    "devDependencies": {
+        "electron": "^30.5.1",
+        "electron-builder": "^25.1.8"
+    },
+    "dependencies": {
+        "better-sqlite3": "^11.9.0",
+        "electron-updater": "^6.8.3",
+        "msedge-tts": "^2.0.4",
+        "ws": "^8.19.0"
+    }
+}
