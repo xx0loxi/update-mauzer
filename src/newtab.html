@@ -318,6 +318,115 @@
         [data-theme="light"] .quick-link-add .quick-link-icon {
             color: rgba(0, 0, 0, 0.6);
         }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(6px);
+        }
+
+        .modal-card {
+            position: relative;
+            width: min(92vw, 420px);
+            background: rgba(20, 20, 20, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .modal-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .modal-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .modal-input {
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 0 12px;
+            outline: none;
+        }
+
+        .modal-input:focus {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .modal-btn {
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 0 14px;
+            cursor: pointer;
+        }
+
+        .modal-btn.ghost {
+            background: transparent;
+        }
+
+        [data-theme="light"] .modal-backdrop {
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        [data-theme="light"] .modal-card {
+            background: rgba(245, 245, 245, 0.98);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .modal-label {
+            color: rgba(0, 0, 0, 0.55);
+        }
+
+        [data-theme="light"] .modal-input {
+            background: rgba(0, 0, 0, 0.04);
+            border-color: rgba(0, 0, 0, 0.08);
+            color: rgba(0, 0, 0, 0.9);
+        }
+
+        [data-theme="light"] .modal-btn {
+            background: rgba(0, 0, 0, 0.06);
+            border-color: rgba(0, 0, 0, 0.12);
+            color: rgba(0, 0, 0, 0.8);
+        }
     </style>
 </head>
 
@@ -343,6 +452,25 @@
         <div class="quick-links" id="quick-links"></div>
     </div>
 
+    <div class="modal" id="add-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true">
+            <div class="modal-title">Добавить сайт</div>
+            <div class="modal-field">
+                <label class="modal-label" for="add-url">Ссылка</label>
+                <input id="add-url" class="modal-input" type="text" placeholder="https://example.com" spellcheck="false" autocomplete="off">
+            </div>
+            <div class="modal-field">
+                <label class="modal-label" for="add-title">Название</label>
+                <input id="add-title" class="modal-input" type="text" placeholder="Example" spellcheck="false" autocomplete="off">
+            </div>
+            <div class="modal-actions">
+                <button id="add-cancel" class="modal-btn ghost" type="button">Отмена</button>
+                <button id="add-save" class="modal-btn" type="button">Добавить</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const defaultLinks = [
             { url: 'https://www.youtube.com', title: 'YouTube' },
@@ -350,6 +478,11 @@
         ];
 
         let quickLinks = [];
+        const addModal = document.getElementById('add-modal');
+        const addUrlInput = document.getElementById('add-url');
+        const addTitleInput = document.getElementById('add-title');
+        const addCancel = document.getElementById('add-cancel');
+        const addSave = document.getElementById('add-save');
 
         function normalizeUrl(input) {
             const trimmed = input.trim();
@@ -398,20 +531,8 @@
           <div class="quick-link-icon">+</div>
           <span class="quick-link-title">Добавить</span>
         `;
-            add.addEventListener('click', async () => {
-                const rawUrl = prompt('Введите ссылку');
-                if (!rawUrl) return;
-                const url = normalizeUrl(rawUrl);
-                if (!url) return;
-                let hostname = '';
-                try { hostname = new URL(url).hostname; } catch (e) { }
-                const title = (prompt('Название', hostname) || hostname || url).trim();
-                if (!title) return;
-                quickLinks.push({ url, title });
-                if (window.mauzer?.quicklinks?.save) {
-                    await window.mauzer.quicklinks.save(quickLinks);
-                }
-                renderLinks(quickLinks);
+            add.addEventListener('click', () => {
+                openAddModal();
             });
             container.appendChild(add);
         }
@@ -434,6 +555,51 @@
         }
 
         loadLinks();
+
+        function openAddModal() {
+            addUrlInput.value = '';
+            addTitleInput.value = '';
+            addModal.classList.add('show');
+            setTimeout(() => addUrlInput.focus(), 0);
+        }
+
+        function closeAddModal() {
+            addModal.classList.remove('show');
+        }
+
+        async function saveQuickLink() {
+            const rawUrl = addUrlInput.value;
+            const url = normalizeUrl(rawUrl);
+            if (!url) {
+                addUrlInput.focus();
+                return;
+            }
+            let hostname = '';
+            try { hostname = new URL(url).hostname; } catch (e) { }
+            const title = (addTitleInput.value || hostname || url).trim();
+            if (!title) return;
+            quickLinks.push({ url, title });
+            if (window.mauzer?.quicklinks?.save) {
+                await window.mauzer.quicklinks.save(quickLinks);
+            }
+            renderLinks(quickLinks);
+            closeAddModal();
+        }
+
+        addCancel.addEventListener('click', closeAddModal);
+        addSave.addEventListener('click', saveQuickLink);
+        addModal.addEventListener('click', (e) => {
+            if (e.target === addModal || e.target.classList.contains('modal-backdrop')) closeAddModal();
+        });
+        addUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveQuickLink();
+        });
+        addTitleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveQuickLink();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && addModal.classList.contains('show')) closeAddModal();
+        });
 
         document.getElementById('search-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {

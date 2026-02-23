@@ -1391,6 +1391,21 @@ function createImportWindow() {
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
   autoUpdater.autoDownload = true;
+  let checking = false;
+  let lastCheck = 0;
+  const minIntervalMs = 5 * 60 * 1000;
+  const runCheck = () => {
+    const now = Date.now();
+    if (checking) return;
+    if (now - lastCheck < minIntervalMs) return;
+    checking = true;
+    lastCheck = now;
+    autoUpdater.checkForUpdates().catch((err) => {
+      sendUpdateStatus({ status: 'error', message: err?.message || String(err) });
+    }).finally(() => {
+      checking = false;
+    });
+  };
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ status: 'checking' }));
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', info }));
   autoUpdater.on('update-not-available', (info) => sendUpdateStatus({ status: 'not-available', info }));
@@ -1402,7 +1417,9 @@ function setupAutoUpdate() {
   }));
   autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ status: 'downloaded', info }));
   autoUpdater.on('error', (err) => sendUpdateStatus({ status: 'error', message: err?.message || String(err) }));
-  autoUpdater.checkForUpdatesAndNotify();
+  runCheck();
+  setInterval(runCheck, minIntervalMs);
+  app.on('browser-window-focus', runCheck);
 }
 
 // ============================================================

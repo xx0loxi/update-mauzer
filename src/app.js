@@ -224,7 +224,8 @@
     function createTab(url = '', opts = {}) {
         // Block creating duplicate MAUZER home tabs (unless forced)
         const isHomeTab = !url && !opts.incognito;
-        if (isHomeTab && !opts._force) {
+        const allowDuplicateHome = !!opts._force || !!opts.allowDuplicateHome;
+        if (isHomeTab && !allowDuplicateHome) {
             const existing = state.tabs.find(tab => !tab.url || tab.url.includes('newtab.html'));
             if (existing) { switchTab(existing.id); return existing.id; }
         }
@@ -669,7 +670,7 @@
     // ============================================================
     function showDropdownMenu() {
         const items = [
-            { label: t('menuNewTab'), icon: ICONS.newTab, kbd: 'Ctrl+T', action: () => createTab() },
+            { label: t('menuNewTab'), icon: ICONS.newTab, kbd: 'Ctrl+T', action: () => createTab('', { allowDuplicateHome: true }) },
             { label: t('menuNewWindow'), icon: ICONS.window, kbd: 'Ctrl+N', action: () => window.mauzer.window.newWindow() },
             { label: t('menuIncognito'), icon: ICONS.incognito, kbd: 'Ctrl+Shift+N', action: () => createIncognitoTab() },
             { separator: true },
@@ -697,7 +698,7 @@
     function showTabContextMenu(e, tabId) {
         const tab = state.tabs.find(x => x.id === tabId);
         showContextMenu(e.clientX, e.clientY, [
-            { label: t('cmNewTab'), icon: ICONS.newTab, action: () => createTab() },
+            { label: t('cmNewTab'), icon: ICONS.newTab, action: () => createTab('', { allowDuplicateHome: true }) },
             { label: t('cmDuplicate'), icon: ICONS.duplicate, action: () => duplicateTab(tabId) },
             { separator: true },
             { label: tab?.pinned ? (state.settings.language === 'en' ? 'Unpin' : 'Открепить') : t('cmPin'), icon: ICONS.pin, action: () => pinTab(tabId) },
@@ -1106,7 +1107,7 @@
     // KEYBOARD SHORTCUTS
     // ============================================================
     function handleShortcut(key, ctrl, shift) {
-        if (ctrl && (key === 't' || key === 'T') && !shift) { createTab(); return true; }
+        if (ctrl && (key === 't' || key === 'T') && !shift) { createTab('', { allowDuplicateHome: true }); return true; }
         if (ctrl && (key === 'w' || key === 'W') && !shift) { closeTab(state.activeTabId); return true; }
         if (ctrl && !shift && (key === 'n' || key === 'N')) { window.mauzer.window.newWindow(); return true; }
         if (ctrl && shift && (key === 'n' || key === 'N')) { createIncognitoTab(); return true; }
@@ -1185,8 +1186,8 @@
         dom.btnReload.addEventListener('click', () => document.getElementById('wv-' + state.activeTabId)?.reload());
         dom.btnHome.addEventListener('click', () => { const wv = document.getElementById('wv-' + state.activeTabId); if (wv) wv.src = newtabUrl(); });
 
-        dom.btnNewTab.addEventListener('click', () => createTab());
-        dom.tabStrip.addEventListener('dblclick', (e) => { if (!e.target.closest('.tab') && !e.target.closest('.btn-new-tab')) createTab(); });
+        dom.btnNewTab.addEventListener('click', () => createTab('', { allowDuplicateHome: true }));
+        dom.tabStrip.addEventListener('dblclick', (e) => { if (!e.target.closest('.tab') && !e.target.closest('.btn-new-tab')) createTab('', { allowDuplicateHome: true }); });
         dom.tabStrip.addEventListener('wheel', (e) => { e.preventDefault(); dom.tabStrip.scrollLeft += e.deltaY; }, { passive: false });
 
         dom.urlInput.addEventListener('keydown', (e) => {
