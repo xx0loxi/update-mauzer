@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
