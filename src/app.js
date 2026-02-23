@@ -105,6 +105,8 @@
         updateBannerTitle: $('#update-banner-title'),
         updateBannerSubtitle: $('#update-banner-subtitle'),
         updateBannerBtn: $('#update-banner-btn'),
+        updateBannerHide: $('#update-banner-hide'),
+        updateMini: $('#update-mini'),
         shell: $('#browser-shell'),
         tabsContainer: $('#tabs-container'),
         tabStrip: $('#tab-strip'),
@@ -221,6 +223,7 @@
     }
 
     let _updateBannerAction = null;
+    let _updateBannerMinimized = false;
     function updateLabels() {
         const lang = state.settings.language || 'ru';
         if (lang === 'en') {
@@ -232,6 +235,8 @@
                 ready: 'Update ready',
                 install: 'Install',
                 downloadingBtn: 'Downloading',
+                hide: 'Hide',
+                mini: 'Update',
             };
         }
         return {
@@ -242,23 +247,41 @@
             ready: 'Обновление готово',
             install: 'Установить',
             downloadingBtn: 'Скачивается',
+            hide: 'Скрыть',
+            mini: 'Обнова',
         };
+    }
+
+    function applyUpdateBannerVisibility() {
+        if (!dom.updateBanner || !dom.updateMini) return;
+        if (_updateBannerMinimized) {
+            dom.updateBanner.classList.remove('show');
+            dom.updateMini.classList.add('show');
+        } else {
+            dom.updateBanner.classList.add('show');
+            dom.updateMini.classList.remove('show');
+        }
     }
 
     function showUpdateBanner({ title, subtitle, button, action, disabled }) {
         if (!dom.updateBanner) return;
+        const labels = updateLabels();
         dom.updateBannerTitle.textContent = title || '';
         dom.updateBannerSubtitle.textContent = subtitle || '';
         dom.updateBannerBtn.textContent = button || '';
         dom.updateBannerBtn.disabled = !!disabled;
+        if (dom.updateBannerHide) dom.updateBannerHide.textContent = labels.hide;
+        if (dom.updateMini) dom.updateMini.textContent = labels.mini;
         _updateBannerAction = action || null;
-        dom.updateBanner.classList.add('show');
+        applyUpdateBannerVisibility();
     }
 
     function hideUpdateBanner() {
         if (!dom.updateBanner) return;
         dom.updateBanner.classList.remove('show');
+        dom.updateMini?.classList.remove('show');
         _updateBannerAction = null;
+        _updateBannerMinimized = false;
     }
 
     // ============================================================
@@ -1349,6 +1372,14 @@
         dom.updateBannerBtn?.addEventListener('click', () => {
             if (_updateBannerAction) _updateBannerAction();
         });
+        dom.updateBannerHide?.addEventListener('click', () => {
+            _updateBannerMinimized = true;
+            applyUpdateBannerVisibility();
+        });
+        dom.updateMini?.addEventListener('click', () => {
+            _updateBannerMinimized = false;
+            applyUpdateBannerVisibility();
+        });
 
         // IPC listeners
         window.mauzer.window.onStateChanged((d) => { dom.btnMaximize.title = d.maximized ? 'Восстановить' : 'Развернуть'; });
@@ -1375,12 +1406,16 @@
                 if (d.status === 'available') {
                     _updatePct = -1;
                     const version = d.info?.version || '';
+                    const manualUrl = d.info?.manualUrl || '';
+                    const isManual = !!manualUrl;
                     showUpdateBanner({
                         title: labels.available,
                         subtitle: version ? labels.version(version) : '',
                         button: labels.download,
                         disabled: false,
-                        action: async () => {
+                        action: isManual ? () => {
+                            window.mauzer.shell.openExternal?.(manualUrl);
+                        } : async () => {
                             showUpdateBanner({
                                 title: labels.available,
                                 subtitle: labels.downloading(0),

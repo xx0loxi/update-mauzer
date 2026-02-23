@@ -35,6 +35,8 @@ app.userAgentFallback = SPOOFED_UA;
 // --- Globals ---
 let mainWindow = null;
 let windows = [];
+const GITHUB_OWNER = 'xx0loxi';
+const GITHUB_REPO = 'update-mauzer';
 
 // --- Pulse Stats ---
 let pulseStats = {
@@ -64,6 +66,71 @@ function sendUpdateStatus(payload) {
       w.webContents.send('update-status', payload);
     }
   });
+}
+
+function normalizeVersion(v) {
+  return String(v || '').replace(/^v/i, '').split('-')[0];
+}
+
+function compareVersions(a, b) {
+  const pa = normalizeVersion(a).split('.').map(n => parseInt(n || '0', 10));
+  const pb = normalizeVersion(b).split('.').map(n => parseInt(n || '0', 10));
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function fetchGithubReleases() {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mauzer',
+        'Accept': 'application/vnd.github+json'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data || '[]');
+          resolve(Array.isArray(json) ? json : []);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+let lastFallbackCheck = 0;
+const fallbackMinIntervalMs = 5 * 60 * 1000;
+async function checkGithubFallback(currentVersion) {
+  const now = Date.now();
+  if (now - lastFallbackCheck < fallbackMinIntervalMs) return;
+  lastFallbackCheck = now;
+  try {
+    const releases = await fetchGithubReleases();
+    const latest = releases.find(r => !r?.draft);
+    if (!latest) return;
+    const version = normalizeVersion(latest.tag_name || latest.name || '');
+    if (!version) return;
+    if (compareVersions(version, currentVersion) <= 0) return;
+    const assets = Array.isArray(latest.assets) ? latest.assets : [];
+    const exe = assets.find(a => typeof a?.name === 'string' && a.name.toLowerCase().endsWith('.exe')) || assets[0];
+    const manualUrl = exe?.browser_download_url || latest.html_url || '';
+    if (!manualUrl) return;
+    sendUpdateStatus({ status: 'available', info: { version, manualUrl, manual: true } });
+  } catch (e) { }
 }
 
 function readJSON(file, fallback = []) {
@@ -1402,21 +1469,27 @@ function setupAutoUpdate() {
     if (now - lastCheck < minIntervalMs) return;
     checking = true;
     lastCheck = now;
+    const currentVersion = app.getVersion();
     autoUpdater.checkForUpdates().catch((err) => {
       const message = err?.message || String(err);
       const lower = message.toLowerCase();
       if (lower.includes('no published') || lower.includes('no published version')) {
         sendUpdateStatus({ status: 'not-available' });
+        checkGithubFallback(currentVersion);
         return;
       }
       sendUpdateStatus({ status: 'error', message });
+      checkGithubFallback(currentVersion);
     }).finally(() => {
       checking = false;
     });
   };
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ status: 'checking' }));
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', info }));
-  autoUpdater.on('update-not-available', (info) => sendUpdateStatus({ status: 'not-available', info }));
+  autoUpdater.on('update-not-available', (info) => {
+    sendUpdateStatus({ status: 'not-available', info });
+    checkGithubFallback(app.getVersion());
+  });
   autoUpdater.on('download-progress', (progress) => sendUpdateStatus({
     status: 'downloading',
     percent: Math.round(progress.percent || 0),
