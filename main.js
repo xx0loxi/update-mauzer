@@ -1393,6 +1393,7 @@ function createImportWindow() {
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
   autoUpdater.autoDownload = false;
+  autoUpdater.allowPrerelease = true;
   let checking = false;
   let lastCheck = 0;
   const minIntervalMs = 5 * 60 * 1000;
@@ -1403,7 +1404,13 @@ function setupAutoUpdate() {
     checking = true;
     lastCheck = now;
     autoUpdater.checkForUpdates().catch((err) => {
-      sendUpdateStatus({ status: 'error', message: err?.message || String(err) });
+      const message = err?.message || String(err);
+      const lower = message.toLowerCase();
+      if (lower.includes('no published') || lower.includes('no published version')) {
+        sendUpdateStatus({ status: 'not-available' });
+        return;
+      }
+      sendUpdateStatus({ status: 'error', message });
     }).finally(() => {
       checking = false;
     });
