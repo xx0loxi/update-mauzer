@@ -111,6 +111,7 @@ contextBridge.exposeInMainWorld('mauzer', {
 
     updater: {
         restart: () => ipcRenderer.invoke('update:restart'),
+        download: () => ipcRenderer.invoke('update:download'),
         onStatus: (cb) => ipcRenderer.on('update-status', (_, data) => cb(data)),
     },
 

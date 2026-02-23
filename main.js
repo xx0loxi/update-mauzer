@@ -913,7 +913,6 @@ function createWindow(isIncognito = false) {
 
   win.once('ready-to-show', () => {
     win.show();
-    win.webContents.openDevTools({ mode: 'detach' }); // Auto-open DevTools for debugging
     if (isIncognito) {
       win.webContents.send('set-incognito', true);
     }
@@ -1158,6 +1157,9 @@ ipcMain.handle('update:restart', () => {
   autoUpdater.quitAndInstall();
   return true;
 });
+ipcMain.handle('update:download', () => {
+  return autoUpdater.downloadUpdate();
+});
 
 // --- Pulse ---
 ipcMain.handle('pulse:getStats', () => ({ ...pulseStats }));
@@ -1390,7 +1392,7 @@ function createImportWindow() {
 
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   let checking = false;
   let lastCheck = 0;
   const minIntervalMs = 5 * 60 * 1000;

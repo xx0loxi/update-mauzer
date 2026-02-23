@@ -101,6 +101,10 @@
         introVideo: $('#intro-video'),
         introSkip: $('#intro-skip'),
         toastContainer: $('#toast-container'),
+        updateBanner: $('#update-banner'),
+        updateBannerTitle: $('#update-banner-title'),
+        updateBannerSubtitle: $('#update-banner-subtitle'),
+        updateBannerBtn: $('#update-banner-btn'),
         shell: $('#browser-shell'),
         tabsContainer: $('#tabs-container'),
         tabStrip: $('#tab-strip'),
@@ -214,6 +218,47 @@
         el.textContent = msg;
         dom.toastContainer.appendChild(el);
         setTimeout(() => el.remove(), 3000);
+    }
+
+    let _updateBannerAction = null;
+    function updateLabels() {
+        const lang = state.settings.language || 'ru';
+        if (lang === 'en') {
+            return {
+                available: 'Update available',
+                version: (v) => `Version ${v}`,
+                download: 'Download',
+                downloading: (pct) => `Downloading ${pct}%`,
+                ready: 'Update ready',
+                install: 'Install',
+                downloadingBtn: 'Downloading',
+            };
+        }
+        return {
+            available: 'Доступно обновление',
+            version: (v) => `Версия ${v}`,
+            download: 'Скачать',
+            downloading: (pct) => `Скачивание ${pct}%`,
+            ready: 'Обновление готово',
+            install: 'Установить',
+            downloadingBtn: 'Скачивается',
+        };
+    }
+
+    function showUpdateBanner({ title, subtitle, button, action, disabled }) {
+        if (!dom.updateBanner) return;
+        dom.updateBannerTitle.textContent = title || '';
+        dom.updateBannerSubtitle.textContent = subtitle || '';
+        dom.updateBannerBtn.textContent = button || '';
+        dom.updateBannerBtn.disabled = !!disabled;
+        _updateBannerAction = action || null;
+        dom.updateBanner.classList.add('show');
+    }
+
+    function hideUpdateBanner() {
+        if (!dom.updateBanner) return;
+        dom.updateBanner.classList.remove('show');
+        _updateBannerAction = null;
     }
 
     // ============================================================
@@ -1301,6 +1346,9 @@
         dom.downloadBarClose.addEventListener('click', () => {
             dom.downloadBar.style.display = 'none';
         });
+        dom.updateBannerBtn?.addEventListener('click', () => {
+            if (_updateBannerAction) _updateBannerAction();
+        });
 
         // IPC listeners
         window.mauzer.window.onStateChanged((d) => { dom.btnMaximize.title = d.maximized ? 'Восстановить' : 'Развернуть'; });
@@ -1323,26 +1371,59 @@
         if (window.mauzer.updater?.onStatus) {
             window.mauzer.updater.onStatus((d) => {
                 if (!d || !d.status) return;
-                if (d.status === 'checking') {
-                    toast('Проверка обновлений...');
-                } else if (d.status === 'available') {
-                    toast('Найдено обновление. Скачиваю...');
+                const labels = updateLabels();
+                if (d.status === 'available') {
+                    _updatePct = -1;
+                    const version = d.info?.version || '';
+                    showUpdateBanner({
+                        title: labels.available,
+                        subtitle: version ? labels.version(version) : '',
+                        button: labels.download,
+                        disabled: false,
+                        action: async () => {
+                            showUpdateBanner({
+                                title: labels.available,
+                                subtitle: labels.downloading(0),
+                                button: labels.downloadingBtn,
+                                disabled: true
+                            });
+                            try {
+                                await window.mauzer.updater.download?.();
+                            } catch (e) {
+                                hideUpdateBanner();
+                                toast('Ошибка обновления: ' + (e?.message || 'неизвестно'), 'error');
+                            }
+                        }
+                    });
                 } else if (d.status === 'downloading') {
                     const pct = Math.max(0, Math.min(100, Math.round(d.percent || 0)));
                     if (_updatePct < 0 || pct === 100 || pct - _updatePct >= 5) {
                         _updatePct = pct;
-                        toast(`Обновление: ${pct}%`);
+                        showUpdateBanner({
+                            title: labels.available,
+                            subtitle: labels.downloading(pct),
+                            button: labels.downloadingBtn,
+                            disabled: true
+                        });
                     }
                 } else if (d.status === 'downloaded') {
                     _updatePct = -1;
-                    const ok = confirm('Обновление загружено. Перезапустить браузер сейчас?');
-                    if (ok) {
-                        window.mauzer.updater.restart();
-                    } else {
-                        toast('Обновление установится при следующем запуске');
-                    }
+                    const version = d.info?.version || '';
+                    showUpdateBanner({
+                        title: labels.ready,
+                        subtitle: version ? labels.version(version) : '',
+                        button: labels.install,
+                        disabled: false,
+                        action: () => window.mauzer.updater.restart?.()
+                    });
+                } else if (d.status === 'not-available') {
+                    _updatePct = -1;
+                    hideUpdateBanner();
                 } else if (d.status === 'error') {
                     _updatePct = -1;
+                    hideUpdateBanner();
+                    const msg = (d.message || '').toLowerCase();
+                    if (msg.includes('unpublish') || msg.includes('not found') || msg.includes('publish')) return;
                     toast('Ошибка обновления: ' + (d.message || 'неизвестно'), 'error');
                 }
             });
