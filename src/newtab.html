@@ -492,7 +492,7 @@
         }
 
         function filterBlocked(links) {
-            const blocked = new Set(['telegram.org', 'www.telegram.org', 'google.com', 'www.google.com', 'reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com']);
+            const blocked = new Set(['telegram.org', 'www.telegram.org', 'google.com', 'www.google.com', 'reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'github.com', 'www.github.com']);
             return links.filter(link => {
                 try {
                     return !blocked.has(new URL(link.url).hostname);
@@ -505,7 +505,7 @@
         function renderLinks(links) {
             const container = document.getElementById('quick-links');
             container.innerHTML = '';
-            links.forEach(link => {
+            links.forEach((link, index) => {
                 const a = document.createElement('a');
                 a.className = 'quick-link';
                 a.href = link.url;
@@ -520,6 +520,14 @@
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
                     window.location.href = link.url;
+                });
+                a.addEventListener('contextmenu', async (e) => {
+                    e.preventDefault();
+                    quickLinks = quickLinks.filter((_, i) => i !== index);
+                    if (window.mauzer?.quicklinks?.save) {
+                        await window.mauzer.quicklinks.save(quickLinks);
+                    }
+                    renderLinks(quickLinks);
                 });
                 container.appendChild(a);
             });

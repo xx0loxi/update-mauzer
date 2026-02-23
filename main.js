@@ -244,11 +244,10 @@ function getQuickLinks() {
   const links = readJSON('quicklinks.json', [
     { url: 'https://www.google.com', title: 'Google' },
     { url: 'https://www.youtube.com', title: 'YouTube' },
-    { url: 'https://github.com', title: 'GitHub' },
     { url: 'https://reddit.com', title: 'Reddit' },
     { url: 'https://twitter.com', title: 'X (Twitter)' },
   ]);
-  const blocked = new Set(['google.com', 'www.google.com', 'reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com']);
+  const blocked = new Set(['google.com', 'www.google.com', 'reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'github.com', 'www.github.com']);
   return links.filter(link => {
     try {
       return !blocked.has(new URL(link.url).hostname);
