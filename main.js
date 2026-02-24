@@ -35,7 +35,7 @@ try {
 } catch (e) { }
 
 // --- Fingerprint Evasion ---
-const CHROME_VERSION = '120.0.0.0'; // As requested: Chrome 120
+const CHROME_VERSION = '124.0.0.0'; // Updated to match Electron 30
 const SPOOFED_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
 
 // Strip Electron/Mauzer from the default user agent at the app level
@@ -48,8 +48,9 @@ app.userAgentFallback = SPOOFED_UA;
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 // Other helpful flags for stealth
 // WebAuthentication,WebAuth,WebAuthn - kills "Windows Security" popup
-app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors,WebAuthentication,WebAuth,WebAuthn,NetworkService'); 
-app.commandLine.appendSwitch('disable-site-isolation-trials');
+// REMOVED: NetworkService (deprecated/dangerous), OutOfBlinkCors (might break layout/resources)
+app.commandLine.appendSwitch('disable-features', 'WebAuthentication,WebAuth,WebAuthn'); 
+// app.commandLine.appendSwitch('disable-site-isolation-trials'); // Removed as it can cause rendering issues
 
 // --- Globals ---
 let mainWindow = null;
@@ -500,6 +501,7 @@ const BLOCKED_DOMAINS = [
   'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
   'google-analytics.com', 'googletagmanager.com', 'googletagservices.com',
   'pagead2.googlesyndication.com', 'adservice.google.com', 'ads.google.com',
+  'tpc.googlesyndication.com', 'googleads.g.doubleclick.net',
   // Facebook
   'connect.facebook.net', 'pixel.facebook.com', 'an.facebook.com', 'analytics.facebook.com',
   // Ad Networks
@@ -521,6 +523,7 @@ const BLOCKED_DOMAINS = [
   'an.yandex.ru', 'yandexadexchange.net', 'mc.yandex.ru', 'bs.yandex.ru',
   'ad.mail.ru', 'target.my.com', 'top-fwz1.mail.ru', 'counter.yadro.ru',
   'tns-counter.ru', 'rambler.ru', 'begun.ru', 'sape.ru',
+  'rs.mail.ru', 'relap.io', 'videonow.ru', 'marketgid.com',
   // Yandex Distribution / Hijackers
   'browser.yandex.ru', 'dl.browser.yandex.ru', 'downloader.yandex.ru',
   'distribution.yandex.ru', 'soft.yandex.ru', 'clck.yandex.ru',
@@ -557,6 +560,7 @@ let pulseEnabled = true;
 
 function setupAdBlocker() {
   // Block specific URL patterns regardless of domain
+  // Relaxed patterns to avoid breaking site functionality (false positives)
   const BLOCKED_URL_PATTERNS = [
     /yandex.*pack.*loader/i,
     /yandex.*browser.*setup/i,
@@ -566,11 +570,11 @@ function setupAdBlocker() {
     /browser\.yandex.*\.exe/i,
     /google_ads/i,
     /doubleclick/i,
-    /ad_status/i,
-    /ads\?/i,
-    /pagead/i,
-    /\/ads\.js/i,
-    /\/ad\.js/i
+    // /ad_status/i, // Too aggressive
+    // /ads\?/i,     // Too aggressive (matches uploads?name=ads)
+    // /pagead/i,    // Too aggressive (matches pageadmin)
+    // /\/ads\.js/i, // Too aggressive
+    // /\/ad\.js/i   // Too aggressive
   ];
 
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
@@ -652,9 +656,9 @@ function getAntiDetectScript() {
         Object.defineProperty(navigator, 'userAgentData', {
           get: () => ({
             brands: [
-              { brand: 'Chromium', version: '${CHROME_VERSION}'.split('.')[0] },
-              { brand: 'Google Chrome', version: '${CHROME_VERSION}'.split('.')[0] },
-              { brand: 'Not_A Brand', version: '24' }
+              { brand: 'Not-A.Brand', version: '99' },
+              { brand: 'Chromium', version: '124' },
+              { brand: 'Google Chrome', version: '124' }
             ],
             mobile: false,
             platform: 'Windows',
@@ -664,15 +668,15 @@ function getAntiDetectScript() {
                 bitness: '64',
                 brands: this.brands,
                 fullVersionList: [
-                  { brand: 'Chromium', version: '${CHROME_VERSION}' },
-                  { brand: 'Google Chrome', version: '${CHROME_VERSION}' },
-                  { brand: 'Not_A Brand', version: '24.0.0.0' }
+                  { brand: 'Not-A.Brand', version: '99.0.0.0' },
+                  { brand: 'Chromium', version: '124.0.0.0' },
+                  { brand: 'Google Chrome', version: '124.0.0.0' }
                 ],
                 mobile: false,
                 model: '',
                 platform: 'Windows',
                 platformVersion: '10.0.0',
-                uaFullVersion: '${CHROME_VERSION}'
+                uaFullVersion: '124.0.0.0'
               });
             }
           })
@@ -708,78 +712,92 @@ function getAntiDetectScript() {
 }
 
 // ============================================================
-// GOOGLE LOGIN POPUP — Opens Google OAuth in a BrowserWindow
-// instead of webview to bypass Google's embedded browser block
+// GOOGLE LOGIN — EXTERNAL BROWSER FLOW
 // ============================================================
-function openGoogleLoginPopup(url, webviewContents) {
-  const loginWin = new BrowserWindow({
-    width: 500,
-    height: 700,
-    parent: mainWindow,
-    modal: true,
-    show: true,
-    title: 'Google Sign In',
-    backgroundColor: '#ffffff',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      enableRemoteModule: false,
-      nodeIntegrationInSubFrames: false,
-      sandbox: true,
-      webSecurity: true,
-      // Use the same session so cookies are shared with webviews
-      partition: undefined,
-      // CRITICAL: Use dedicated preload script for early evasion
-      preload: path.join(__dirname, 'src', 'main', 'preload-login.js')
-    },
-    icon: path.join(__dirname, 'icon_black.png'),
+async function handleGoogleLoginExternal(url, webContents) {
+  // 1. Open system browser (Chrome/Edge)
+  await shell.openExternal(url);
+
+  // 2. Show dialog asking user to complete login
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Вход через внешний браузер',
+    message: 'Мы открыли страницу входа в вашем системном браузере (Chrome/Edge).',
+    detail: 'Пожалуйста, войдите в аккаунт там. Когда закончите, нажмите кнопку "Синхронизировать", чтобы перенести сессию в Mauzer.',
+    buttons: ['Синхронизировать сессию', 'Отмена'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
   });
 
-  loginWin.setMenuBarVisibility(false);
-  loginWin.webContents.setUserAgent(SPOOFED_UA);
-
-  // --- CRITICAL: Spoof Headers for Login Window ---
-  // Since it uses default session, the global onBeforeSendHeaders should apply,
-  // BUT we must ensure the User-Agent is set correctly on load.
-  loginWin.loadURL(url, { userAgent: SPOOFED_UA });
-
-  // When Google login finishes, it will redirect to the original service
-  // Detect when we leave accounts.google.com = login complete
-  const handleNavigation = (e, navUrl) => {
-    try {
-      const u = new URL(navUrl);
-      // If navigated away from Google login pages, login is complete
-      // We only keep the popup open for accounts.google.com (auth flow)
-      if (u.hostname !== 'accounts.google.com' && u.hostname !== 'accounts.youtube.com') {
-        // Login complete — redirect webview to final URL and close popup
-        if (webviewContents && !webviewContents.isDestroyed()) {
-          webviewContents.loadURL(navUrl);
+  if (response === 0) {
+    // 3. Import cookies from Chrome
+    // We try Chrome first, then Edge, etc. or just try all.
+    // Ideally we detect which browser is default, but that's hard.
+    // Let's try Chrome then Edge.
+    let imported = false;
+    const browsers = ['chrome', 'edge', 'yandex', 'brave'];
+    
+    for (const browser of browsers) {
+      try {
+        const result = await importer.importCookies(browser);
+        if (result.count > 0) {
+          // Filter for Google/YouTube cookies
+          const googleCookies = result.items.filter(c => 
+            c.domain.includes('google.com') || 
+            c.domain.includes('youtube.com') || 
+            c.domain.includes('gstatic.com')
+          );
+          
+          if (googleCookies.length > 0) {
+            console.log(`[Import] Found ${googleCookies.length} Google cookies from ${browser}`);
+            
+            // Inject into current session
+            for (const cookie of googleCookies) {
+              const scheme = cookie.secure ? 'https' : 'http';
+              const domain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+              const cookieUrl = scheme + '://' + domain + cookie.path;
+              
+              await session.defaultSession.cookies.set({
+                url: cookieUrl,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                secure: cookie.secure,
+                httpOnly: cookie.httpOnly,
+                expirationDate: cookie.expirationDate,
+                sameSite: cookie.sameSite
+              }).catch(e => {}); // Ignore errors for individual cookies
+            }
+            imported = true;
+            break; // Stop after first successful import
+          }
         }
-        loginWin.close();
+      } catch (e) {
+        console.error('Import error for', browser, e);
       }
-    } catch (err) { /* ignore */ }
-  };
-
-  loginWin.webContents.on('will-redirect', handleNavigation);
-  loginWin.webContents.on('did-navigate', (e, navUrl) => {
-    try {
-      const u = new URL(navUrl);
-      // If we're back on a non-Google page, login is done
-      if (u.hostname !== 'accounts.google.com' && u.hostname !== 'accounts.youtube.com') {
-        if (webviewContents && !webviewContents.isDestroyed()) {
-          webviewContents.loadURL(navUrl);
-        }
-        loginWin.close();
-      }
-    } catch (err) { /* ignore */ }
-  });
-
-  // If user closes popup manually, reload webview so it reflects any login state
-  loginWin.on('closed', () => {
-    if (webviewContents && !webviewContents.isDestroyed()) {
-      webviewContents.reload();
     }
-  });
+
+    if (imported) {
+      // Reload the page to apply cookies
+      if (webContents && !webContents.isDestroyed()) {
+        webContents.reload();
+      }
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Успешно',
+        message: 'Сессия Google успешно синхронизирована! Теперь вы авторизованы.'
+      });
+    } else {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Ошибка',
+        message: 'Не удалось найти активную сессию Google в других браузерах.',
+        detail: 'Убедитесь, что вы вошли в аккаунт в Chrome или Edge.'
+      });
+    }
+  }
 }
 
 function setupAntiFingerprint() {
@@ -791,11 +809,11 @@ function setupAntiFingerprint() {
 
     // Intercept Google login navigations — open in popup BrowserWindow
     wc.on('will-navigate', (e, url) => {
-      if (isGoogleLoginUrl(url)) {
-        e.preventDefault();
-        openGoogleLoginPopup(url, wc);
-        return;
-      }
+      // if (isGoogleLoginUrl(url)) {
+      //   e.preventDefault();
+      //   handleGoogleLoginExternal(url, wc);
+      //   return;
+      // }
     });
 
     // CRITICAL: Register preload for local file:// pages (settings, newtab)
@@ -833,65 +851,71 @@ function setupAntiFingerprint() {
           `).catch(() => { });
         }
 
-        // YouTube Ad Blocker — auto-skip and speed-up ads
-        if (url.includes('youtube.com')) {
+    // YouTube Ad Blocker — Pulse Engine v2 (CSS Only for stability)
+        if (url.includes('youtube.com') && pulseEnabled) {
+          // Relaxed CSS: avoid hiding generic containers that might contain content
           wc.insertCSS(`
-            .ytp-ad-overlay-container,
-            .ytp-ad-text-overlay,
-            .ytp-ad-image-overlay,
-            #player-ads,
-            #masthead-ad,
-            ytd-banner-promo-renderer,
-            ytd-promoted-sparkles-web-renderer,
-            ytd-display-ad-renderer,
-            ytd-promoted-video-renderer,
-            ytd-compact-promoted-video-renderer,
-            ytd-action-companion-ad-renderer,
-            .ytd-mealbar-promo-renderer,
-            ytd-ad-slot-renderer,
-            .ytp-ad-overlay-slot,
-            #offer-module { display: none !important; }
+            /* 1. Video Ads (Pre-roll, Mid-roll) */
+            .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
+            .ytp-ad-text-overlay, .ytp-ad-overlay-container, 
+            .ytp-ad-player-overlay-flyout-cta, .ytp-ad-button-icon,
+            .ytp-ad-preview-container, .ytp-ad-skip-button-slot,
+            /* 2. Banner Ads (Home, Search, Sidebar) */
+            #masthead-ad, ytd-ad-slot-renderer, ytd-rich-item-renderer:has(> .ytd-ad-slot-renderer),
+            ytd-display-ad-renderer, ytd-statement-banner-renderer,
+            ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer,
+            ytd-promoted-sparkles-web-renderer, ytd-promoted-sparkles-text-search-renderer,
+            /* 3. Shorts/Feed Ads */
+            ytd-reel-video-renderer:has(.ytd-ad-slot-renderer),
+            /* 4. Companion Ads */
+            #player-ads, #offer-module, .ytd-mealbar-promo-renderer,
+            /* 5. Merch Shelf (optional, often annoying) */
+            ytd-merch-shelf-renderer
+            { display: none !important; }
           `).catch(() => { });
 
+          // Auto-skip logic (minimal & safe)
           wc.executeJavaScript(`
-            (function() {
-              if (window.__mauzerYTAdBlock) return;
-              window.__mauzerYTAdBlock = true;
-              
-              const adBlocker = setInterval(() => {
-                try {
-                  const video = document.querySelector('video');
-                  if (!video) return;
-                  
-                  // Detect if ad is playing
-                  const adShowing = document.querySelector('.ad-showing, .ad-interrupting');
-                  if (adShowing) {
-                    // Try skip button first
-                    const skipBtn = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, button.ytp-ad-skip-button-modern');
-                    if (skipBtn) {
-                      skipBtn.click();
-                      return;
-                    }
-                    // Speed up non-skippable ads + mute
-                    video.playbackRate = 16;
-                    video.muted = true;
-                    video.currentTime = video.duration || video.currentTime + 999;
-                  } else {
-                    // Restore normal playback
-                    if (video.playbackRate === 16) {
-                      video.playbackRate = 1;
-                      video.muted = false;
-                    }
-                  }
-                  
-                  // Remove overlay ads
-                  document.querySelectorAll('.ytp-ad-overlay-close-button').forEach(b => b.click());
-                } catch(e) {}
-              }, 500);
-              
-              // Cleanup on navigation
-              window.addEventListener('beforeunload', () => clearInterval(adBlocker));
-            })();
+             (function() {
+               if(window.__mauzerAdSkip) return;
+               window.__mauzerAdSkip = true;
+               
+               setInterval(() => {
+                 const video = document.querySelector('video');
+                 const ad = document.querySelector('.ad-showing');
+                 if (video && ad) {
+                   video.muted = true; // Mute ad
+                   if(isFinite(video.duration)) video.currentTime = video.duration; // Skip to end
+                   // Click skip button if present
+                   const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                   if(skipBtn) skipBtn.click();
+                 }
+                 // Close overlay ads
+                 const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
+                 if(closeBtn) closeBtn.click();
+               }, 500);
+             })();
+          `).catch(() => {});
+        }
+
+        // Generic Cosmetic Ad Blocking (Global)
+        if (pulseEnabled && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
+          wc.insertCSS(`
+            /* Common Ad Containers */
+            .adsbygoogle, .google-auto-placed,
+            div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
+            iframe[id^="google_ads_frame"],
+            /* Generic Names */
+            .ad-banner, .ad-box, .ad-container, .ad-slot,
+            .banner-ad, .sidebar-ad, .text-ad, .sponsored-link,
+            /* Yandex / RU specific */
+            [class*="yandex_ad"], [id*="yandex_ad"],
+            .ya-share2, .ya-context-panel, 
+            div[class*="ya-site-form"],
+            /* Mail.ru */
+            #ad_banner, .b-banner,
+            /* Social Widgets (often distracting) */
+            .share-buttons, .social-share
           `).catch(() => { });
         }
       }
@@ -924,10 +948,10 @@ function setupAntiFingerprint() {
     });
     
     // Force Chrome User-Agent
-    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    headers['User-Agent'] = SPOOFED_UA;
     
     // Set other Chrome-like headers for consistency
-    headers['sec-ch-ua'] = `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`;
+    headers['sec-ch-ua'] = `"Not-A.Brand";v="99", "Chromium";v="124", "Google Chrome";v="124"`;
     headers['sec-ch-ua-mobile'] = '?0';
     headers['sec-ch-ua-platform'] = '"Windows"';
     
@@ -1005,7 +1029,7 @@ function createWindow(isIncognito = false) {
       contextIsolation: true,
       enableRemoteModule: false,
       nodeIntegrationInSubFrames: false,
-      sandbox: false,
+      sandbox: true, // Enabled for better security and site compatibility (YouTube/Google)
       webSecurity: true,
     },
     show: false,
@@ -1109,10 +1133,10 @@ function setupWebViewPermissions() {
   mainWindow.webContents.on('did-attach-webview', (event, wc) => {
     wc.setWindowOpenHandler(({ url }) => {
       // Intercept Google login popups (e.g. "Sign in with Google" buttons)
-      if (isGoogleLoginUrl(url)) {
-        openGoogleLoginPopup(url, wc);
-        return { action: 'deny' };
-      }
+      // if (isGoogleLoginUrl(url)) {
+      //   handleGoogleLoginExternal(url, wc);
+      //   return { action: 'deny' };
+      // }
       mainWindow.webContents.send('open-url-in-new-tab', url);
       return { action: 'deny' };
     });
@@ -1503,6 +1527,11 @@ ipcMain.handle('import:passwords', async (_, browser) => {
   return { count: 0 };
 });
 
+// Import cookies
+ipcMain.handle('import:cookies', async (_, browser) => {
+  return await importer.importCookies(browser);
+});
+
 // Mark import as done
 ipcMain.handle('import:done', async () => {
   fs.writeFileSync(IMPORT_MARKER, new Date().toISOString());
@@ -1601,6 +1630,65 @@ function setupAutoUpdate() {
 // ============================================================
 app.name = 'Mauzer';
 app.setAppUserModelId('com.mauzer.browser');
+
+// --- DEEP LINKING (mauzer://) ---
+// Register protocol
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('mauzer', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('mauzer');
+}
+
+// Handle deep links on Windows (second instance)
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+      // Someone tried to run a second instance, we should focus our window.
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+        
+        // Find deep link in args (Windows puts it as an argument)
+        const url = commandLine.find(arg => arg.startsWith('mauzer://'));
+        if (url) {
+          handleDeepLink(url);
+        }
+      }
+    });
+  
+    // Handle deep links on macOS
+    app.on('open-url', (event, url) => {
+      event.preventDefault();
+      handleDeepLink(url);
+    });
+  }
+
+function handleDeepLink(url) {
+  console.log('[DeepLink] Received:', url);
+  
+  try {
+    const u = new URL(url);
+    // mauzer://auth?token=...
+    if (u.hostname === 'auth') {
+      const token = u.searchParams.get('token');
+      if (token) {
+        // Here we would use the token to set cookies or session
+        // For now, let's just show it works
+        dialog.showMessageBox(mainWindow, {
+          title: 'Deep Link Auth',
+          message: 'Received Auth Token via Deep Link!',
+          detail: 'Token: ' + token.substring(0, 10) + '...'
+        });
+      }
+    }
+  } catch(e) {
+    console.error('Deep link parse error:', e);
+  }
+}
 
 app.whenReady().then(async () => {
   // 1. Устанавливаем User-Agent как у обычного Chrome (Global fix)

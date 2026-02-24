@@ -264,6 +264,89 @@ async function importPasswords(browserId) {
   return { count: items.length, items };
 }
 
+// Import cookies (NEW)
+async function importCookies(browserId) {
+  const browsers = getBrowserPaths();
+  const b = browsers[browserId];
+  if (!b) return { count: 0, items: [] };
+  
+  // Chrome > 96 stores cookies in "Network/Cookies", older in "Cookies"
+  let cookiesPath = path.join(b.userData, b.profile, 'Network', 'Cookies');
+  if (!fs.existsSync(cookiesPath)) {
+    cookiesPath = path.join(b.userData, b.profile, 'Cookies');
+  }
+  
+  if (!fs.existsSync(cookiesPath)) return { count: 0, items: [] };
+  
+  // 1. Get Master Key
+  const masterKey = await getMasterKey(b.userData);
+  if (!masterKey) return { count: 0, items: [], error: 'Key decryption failed' };
+  
+  // 2. Copy DB
+  const tmpPath = path.join(app.getPath('temp'), `import-cookies-${Date.now()}.db`);
+  fs.copyFileSync(cookiesPath, tmpPath);
+  
+  const items = [];
+  try {
+    const db = new Database(tmpPath, { readonly: true });
+    // is_httponly, samesite might be in newer schemas only, check columns if needed.
+    // Standard schema usually has them.
+    const rows = db.prepare(`
+      SELECT host_key, name, encrypted_value, path, is_secure, expires_utc, is_httponly, samesite
+      FROM cookies
+    `).all();
+    
+    for (const r of rows) {
+      if (!r.encrypted_value) continue;
+      
+      let value = '';
+      const buffer = r.encrypted_value;
+      
+      if (buffer.length > 3 && buffer.slice(0, 3).toString() === 'v10') {
+        value = decryptValue(buffer, masterKey);
+      } else {
+        continue;
+      }
+      
+      if (value !== null) {
+        // Convert Chrome time (micros since 1601) to Unix (seconds since 1970)
+        let expirationDate = 0;
+        if (r.expires_utc > 0) {
+          expirationDate = Math.floor((r.expires_utc / 1000000) - 11644473600);
+        }
+
+        // Construct URL from domain for Electron
+        let domain = r.host_key;
+        let url = '';
+        if (domain.startsWith('.')) {
+          url = (r.is_secure ? 'https://' : 'http://') + domain.substring(1) + r.path;
+        } else {
+          url = (r.is_secure ? 'https://' : 'http://') + domain + r.path;
+        }
+
+        items.push({
+          url: url,
+          domain: domain,
+          name: r.name,
+          value: value,
+          path: r.path,
+          secure: !!r.is_secure,
+          httpOnly: !!r.is_httponly,
+          expirationDate: expirationDate > 0 ? expirationDate : undefined,
+          sameSite: r.samesite === 1 ? 'lax' : (r.samesite === 2 ? 'strict' : 'no_restriction')
+        });
+      }
+    }
+    db.close();
+  } catch (e) {
+    console.error('Cookies import failed:', e);
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch(e) {}
+  }
+  
+  return { count: items.length, items };
+}
+
 // Detect available browsers
 function detectBrowsers() {
   const paths = getBrowserPaths();
@@ -281,5 +364,6 @@ module.exports = {
   detectBrowsers,
   importHistory,
   importBookmarks,
-  importPasswords
+  importPasswords,
+  importCookies
 };

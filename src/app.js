@@ -324,7 +324,9 @@
              else wv.setAttribute('partition', 'incognito-' + id);
         }
         wv.setAttribute('allowpopups', '');
-        wv.setAttribute('webpreferences', 'contextIsolation=yes');
+        // Security & Compatibility: Enable sandbox and disable node integration for guest pages
+        // This fixes YouTube/Google interface issues by making the environment look like a standard browser
+        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no');
         // Add preload for local file:// URLs so they get window.mauzer API
         const targetUrl = url || (isIncog ? incognitoUrl() : newtabUrl());
         if (targetUrl.startsWith('file://') && _preloadPath) {
@@ -938,6 +940,9 @@
     let _webviewResizeObserver = null;
     let _updatePct = -1;
     function updateWebviewSize() {
+        // CSS handles sizing now (width: 100%; height: 100%)
+        // Manual JS sizing can cause issues with responsive layouts
+        /*
         if (dom.webviewContainer.classList.contains('split-view')) return;
         const rect = dom.webviewContainer.getBoundingClientRect();
         const w = Math.max(0, Math.ceil(rect.width));
@@ -948,6 +953,7 @@
             wv.style.height = h + 'px';
             wv.style.transform = 'translateZ(0)';
         });
+        */
     }
     function positionContextMenu(x, y, anchor) {
         let left = x;
@@ -1555,8 +1561,26 @@
         dom.zoomReset.addEventListener('click', resetZoom);
 
         // Feature buttons
-        dom.btnPulse.addEventListener('click', () => { dom.pulsePanel.style.display = dom.pulsePanel.style.display === 'none' ? '' : 'none'; updatePulse(); });
+        dom.btnPulse.addEventListener('click', (e) => { 
+            e.stopPropagation();
+            dom.pulsePanel.style.display = dom.pulsePanel.style.display === 'none' ? '' : 'none'; 
+            updatePulse(); 
+        });
         dom.pulseClose.addEventListener('click', () => { dom.pulsePanel.style.display = 'none'; });
+
+        // Close Pulse panel on outside click
+        document.addEventListener('mousedown', (e) => {
+            if (dom.pulsePanel.style.display !== 'none' && !dom.pulsePanel.contains(e.target) && !dom.btnPulse.contains(e.target)) {
+                dom.pulsePanel.style.display = 'none';
+            }
+        });
+
+        // Close panels when window loses focus (e.g. clicking into webview)
+        window.addEventListener('blur', () => {
+            if (dom.pulsePanel.style.display !== 'none') dom.pulsePanel.style.display = 'none';
+            if (dom.downloadsPanel.style.display !== 'none') dom.downloadsPanel.style.display = 'none';
+            hideUrlSuggestions();
+        });
 
         dom.btnScreenshot.addEventListener('click', takeScreenshot);
 
