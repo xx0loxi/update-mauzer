@@ -136,7 +136,7 @@
             background: linear-gradient(90deg, transparent 0%, transparent 30%, rgba(255, 255, 255, 0.6) 50%, transparent 70%, transparent 100%);
             background-size: 200% 100%;
             background-position: -100% 0;
-            opacity: 0;
+            opacity: 1;
             z-index: -1;
             /* Mask: only border ring visible */
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -144,17 +144,13 @@
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask-composite: exclude;
             padding: 2px;
-        }
-
-        .search-wrap.neon-flash::before {
-            opacity: 1;
-            animation: neon-flash 2s ease-in-out forwards;
+            animation: neon-flash 2.4s ease-in-out infinite;
         }
 
         @keyframes neon-flash {
             0% {
                 background-position: -100% 0;
-                opacity: 0;
+                opacity: 0.2;
             }
 
             15% {
@@ -167,7 +163,7 @@
 
             100% {
                 background-position: 200% 0;
-                opacity: 0;
+                opacity: 0.2;
             }
         }
 
@@ -638,16 +634,10 @@
             }
         });
 
-        // Neon flash on hover — single sweep then fade
         const searchWrap = document.querySelector('.search-wrap');
-        searchWrap.addEventListener('mouseenter', () => {
+        if (searchWrap) {
             searchWrap.classList.remove('neon-flash');
-            void searchWrap.offsetWidth; // force reflow to restart animation
-            searchWrap.classList.add('neon-flash');
-        });
-        searchWrap.addEventListener('animationend', () => {
-            searchWrap.classList.remove('neon-flash');
-        });
+        }
 
         // Apply theme from URL param
         const params = new URLSearchParams(window.location.search);
