@@ -9,20 +9,28 @@ const https = require('https');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const { autoUpdater } = require('electron-updater');
 
-// Load .env file (no dotenv dependency needed)
+function loadEnvFile(p) {
+  try {
+    if (fs.existsSync(p)) {
+      fs.readFileSync(p, 'utf-8').split('\n').forEach(line => {
+        const l = line.trim();
+        if (l && !l.startsWith('#') && l.includes('=')) {
+          const [key, ...vals] = l.split('=');
+          process.env[key.trim()] = vals.join('=').trim();
+        }
+      });
+    }
+  } catch (e) { }
+}
 try {
-  const envPath = path.join(__dirname, '.env');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf-8');
-    envContent.split('\n').forEach(line => {
-      const l = line.trim();
-      if (l && !l.startsWith('#') && l.includes('=')) {
-        const [key, ...vals] = l.split('=');
-        process.env[key.trim()] = vals.join('=').trim();
-      }
-    });
-  }
-} catch (e) { /* silent */ }
+  const envFiles = [
+    path.join(app.getPath('userData'), 'mauzer-data', '.env'),
+    path.join(app.getPath('userData'), '.env'),
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '.env'),
+  ];
+  envFiles.forEach(loadEnvFile);
+} catch (e) { }
 
 // --- Fingerprint Evasion ---
 const CHROME_VERSION = '133.0.0.0';

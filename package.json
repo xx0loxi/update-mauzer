@@ -43,9 +43,9 @@
             "src/**/*",
             "MAUZER LOGO/**/*",
             "icon_black.png",
-            ".env",
             "node_modules/**/*"
         ],
+        "extraResources": [],
         "extraResources": [],
         "asar": true
     },
