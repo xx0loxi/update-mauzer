@@ -87,24 +87,39 @@ function compareVersions(a, b) {
 
 function fetchGithubReleases() {
   return new Promise((resolve, reject) => {
+    const meta = readJSON('update_meta.json', {});
+    const etag = meta.etag || '';
+    const lastModified = meta.lastModified || '';
+    const token = process.env.GITHUB_TOKEN || '';
     const req = https.request({
       hostname: 'api.github.com',
       path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
       method: 'GET',
       headers: {
         'User-Agent': 'Mauzer',
-        'Accept': 'application/vnd.github+json'
+        'Accept': 'application/vnd.github+json',
+        ...(etag ? { 'If-None-Match': etag } : {}),
+        ...(lastModified ? { 'If-Modified-Since': lastModified } : {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       }
     }, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
+        if (res.statusCode === 304) {
+          resolve({ status: 304, releases: [] });
+          return;
+        }
         try {
           const json = JSON.parse(data || '[]');
-          resolve(Array.isArray(json) ? json : []);
-        } catch (e) {
-          reject(e);
-        }
+          const releases = Array.isArray(json) ? json : [];
+          const newMeta = {
+            etag: res.headers?.etag || etag || '',
+            lastModified: res.headers?.['last-modified'] || lastModified || '',
+          };
+          writeJSON('update_meta.json', newMeta);
+          resolve({ status: res.statusCode || 200, releases });
+        } catch (e) { reject(e); }
       });
     });
     req.on('error', reject);
@@ -113,14 +128,16 @@ function fetchGithubReleases() {
 }
 
 let lastFallbackCheck = 0;
-const fallbackMinIntervalMs = 5 * 60 * 1000;
+const fallbackMinIntervalMs = 30 * 1000;
 async function checkGithubFallback(currentVersion) {
   const now = Date.now();
   if (now - lastFallbackCheck < fallbackMinIntervalMs) return;
   lastFallbackCheck = now;
   try {
-    const releases = await fetchGithubReleases();
-    const latest = releases.find(r => !r?.draft);
+    const r = await fetchGithubReleases();
+    if (r && r.status === 304) return;
+    const list = Array.isArray(r) ? r : (r?.releases || []);
+    const latest = list.find(r => !r?.draft);
     if (!latest) return;
     const version = normalizeVersion(latest.tag_name || latest.name || '');
     if (!version) return;
@@ -1457,12 +1474,13 @@ function createImportWindow() {
 }
 
 function setupAutoUpdate() {
-  if (!app.isPackaged) return;
+  // Work in both packaged and dev.
+  // autoUpdater will throw in dev — we catch and fall back to GitHub API.
   autoUpdater.autoDownload = false;
   autoUpdater.allowPrerelease = true;
   let checking = false;
   let lastCheck = 0;
-  const minIntervalMs = 5 * 60 * 1000;
+  const minIntervalMs = 30 * 1000;
   const runCheck = () => {
     const now = Date.now();
     if (checking) return;
@@ -1470,19 +1488,25 @@ function setupAutoUpdate() {
     checking = true;
     lastCheck = now;
     const currentVersion = app.getVersion();
-    autoUpdater.checkForUpdates().catch((err) => {
-      const message = err?.message || String(err);
-      const lower = message.toLowerCase();
-      if (lower.includes('no published') || lower.includes('no published version')) {
-        sendUpdateStatus({ status: 'not-available' });
+    Promise.resolve()
+      .then(() => autoUpdater.checkForUpdates())
+      .catch((err) => {
+        const message = err?.message || String(err);
+        const lower = message.toLowerCase();
+        if (lower.includes('not packed') || lower.includes('packaged') || lower.includes('no published')) {
+          // In dev or no provider metadata — silently use fallback.
+          sendUpdateStatus({ status: 'not-available' });
+          checkGithubFallback(currentVersion);
+          return;
+        }
+        sendUpdateStatus({ status: 'error', message });
         checkGithubFallback(currentVersion);
-        return;
-      }
-      sendUpdateStatus({ status: 'error', message });
-      checkGithubFallback(currentVersion);
-    }).finally(() => {
-      checking = false;
-    });
+      })
+      .finally(() => {
+        checking = false;
+      });
+    // Also trigger fallback in parallel so UI appears quickly even if updater lags
+    checkGithubFallback(currentVersion);
   };
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ status: 'checking' }));
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', info }));
