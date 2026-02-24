@@ -118,8 +118,18 @@ function fetchGithubReleases() {
           resolve({ status: 304, releases: [] });
           return;
         }
+        let json = [];
         try {
-          const json = JSON.parse(data || '[]');
+          json = JSON.parse(data || '[]');
+        } catch (e) { }
+
+        if (res.statusCode >= 400) {
+          console.log('[UPDATE] GitHub API Error:', res.statusCode, json);
+          resolve({ status: res.statusCode, releases: [] });
+          return;
+        }
+
+        try {
           const releases = Array.isArray(json) ? json : [];
           const newMeta = {
             etag: res.headers?.etag || etag || '',
@@ -1501,7 +1511,7 @@ function setupAutoUpdate() {
       .catch((err) => {
         const message = err?.message || String(err);
         const lower = message.toLowerCase();
-        if (lower.includes('not packed') || lower.includes('packaged') || lower.includes('no published')) {
+        if (lower.includes('not packed') || lower.includes('packaged') || lower.includes('no published') || lower.includes('404') || lower.includes('cannot find')) {
           // In dev or no provider metadata — silently use fallback.
           sendUpdateStatus({ status: 'not-available' });
           checkGithubFallback(currentVersion);
