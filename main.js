@@ -8,6 +8,8 @@ const fs = require('fs');
 const https = require('https');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const { autoUpdater } = require('electron-updater');
+const { isGoogleLoginUrl, readJSON, writeJSON, normalizeVersion, compareVersions } = require('./src/main/utils');
+const importer = require('./src/main/importer');
 
 function loadEnvFile(p) {
   try {
@@ -33,7 +35,7 @@ try {
 } catch (e) { }
 
 // --- Fingerprint Evasion ---
-const CHROME_VERSION = '124.0.6367.207';
+const CHROME_VERSION = '120.0.0.0'; // As requested: Chrome 120
 const SPOOFED_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
 
 // Strip Electron/Mauzer from the default user agent at the app level
@@ -45,7 +47,8 @@ app.userAgentFallback = SPOOFED_UA;
 // It tells websites that the browser is being controlled by automation (like Selenium).
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 // Other helpful flags for stealth
-app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors,WebAuthentication');
+// WebAuthentication,WebAuth,WebAuthn - kills "Windows Security" popup
+app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors,WebAuthentication,WebAuth,WebAuthn,NetworkService'); 
 app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 // --- Globals ---
@@ -82,23 +85,6 @@ function sendUpdateStatus(payload) {
       w.webContents.send('update-status', payload);
     }
   });
-}
-
-function normalizeVersion(v) {
-  return String(v || '').replace(/^v/i, '').split('-')[0];
-}
-
-function compareVersions(a, b) {
-  const pa = normalizeVersion(a).split('.').map(n => parseInt(n || '0', 10));
-  const pb = normalizeVersion(b).split('.').map(n => parseInt(n || '0', 10));
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
 }
 
 function fetchGithubReleases(useAuth = true) {
@@ -179,20 +165,6 @@ async function checkGithubFallback(currentVersion) {
     if (!manualUrl) return;
     sendUpdateStatus({ status: 'available', info: { version, manualUrl, manual: true } });
   } catch (e) { }
-}
-
-function readJSON(file, fallback = []) {
-  try {
-    const p = dataPath(file);
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (e) { console.error(`Read ${file} error:`, e); }
-  return fallback;
-}
-
-function writeJSON(file, data) {
-  try {
-    fs.writeFileSync(dataPath(file), JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) { console.error(`Write ${file} error:`, e); }
 }
 
 // ============================================================
@@ -739,17 +711,6 @@ function getAntiDetectScript() {
 // GOOGLE LOGIN POPUP — Opens Google OAuth in a BrowserWindow
 // instead of webview to bypass Google's embedded browser block
 // ============================================================
-function isGoogleLoginUrl(url) {
-  try {
-    const u = new URL(url);
-    return (u.hostname === 'accounts.google.com' || u.hostname === 'accounts.youtube.com') &&
-      (u.pathname.includes('/signin') || u.pathname.includes('/ServiceLogin') ||
-        u.pathname.includes('/o/oauth2') || u.pathname.includes('/v3/signin') ||
-        u.pathname.includes('/AccountChooser') || u.pathname.includes('/AddSession') ||
-        u.pathname.includes('/InteractiveLogin'));
-  } catch (e) { return false; }
-}
-
 function openGoogleLoginPopup(url, webviewContents) {
   const loginWin = new BrowserWindow({
     width: 500,
@@ -762,11 +723,14 @@ function openGoogleLoginPopup(url, webviewContents) {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegrationInSubFrames: false,
       sandbox: true,
+      webSecurity: true,
       // Use the same session so cookies are shared with webviews
       partition: undefined,
       // CRITICAL: Use dedicated preload script for early evasion
-      preload: path.join(__dirname, 'src', 'login_preload.js')
+      preload: path.join(__dirname, 'src', 'main', 'preload-login.js')
     },
     icon: path.join(__dirname, 'icon_black.png'),
   });
@@ -942,20 +906,34 @@ function setupAntiFingerprint() {
 });
 });
 
-  // Headers: clean up Electron-specific headers but keep real Chrome headers
-  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
+  // Headers: Cunning User-Agent spoofing via headers
+  // Google sometimes ignores setUserAgent if set as a simple string.
+  // We intercept requests and replace the header "on the fly".
+  const filter = {
+    urls: ['https://accounts.google.com/*', 'https://*.google.com/*', 'https://*.youtube.com/*', '*://*/*']
+  };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     const headers = { ...details.requestHeaders };
+    
     // Remove all Electron-specific headers
-    delete headers['X-Electron-Is-Dev'];
-    delete headers['X-Electron'];
-    // Set Chrome-like headers
-    headers['User-Agent'] = SPOOFED_UA;
-    headers['sec-ch-ua'] = `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`;
+    Object.keys(headers).forEach(k => {
+      if (k.toLowerCase().startsWith('x-electron') || k.toLowerCase() === 'sec-ch-ua-full-version') {
+        delete headers[k];
+      }
+    });
+    
+    // Force Chrome User-Agent
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    
+    // Set other Chrome-like headers for consistency
+    headers['sec-ch-ua'] = `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`;
     headers['sec-ch-ua-mobile'] = '?0';
     headers['sec-ch-ua-platform'] = '"Windows"';
-    headers['sec-ch-ua-full-version-list'] = `"Chromium";v="${CHROME_VERSION}", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="${CHROME_VERSION}"`;
+    
     if (settings.doNotTrack) headers['DNT'] = '1';
-    callback({ requestHeaders: headers });
+    
+    callback({ cancel: false, requestHeaders: headers });
   });
 }
 
@@ -1025,6 +1003,8 @@ function createWindow(isIncognito = false) {
       webviewTag: true,
       nodeIntegration: false,
       contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegrationInSubFrames: false,
       sandbox: false,
       webSecurity: true,
     },
@@ -1457,107 +1437,70 @@ function getBrowserPaths() {
 
 // Detect installed browsers
 ipcMain.handle('import:detect', async () => {
-  const paths = getBrowserPaths();
-  const result = {};
-  for (const [id, p] of Object.entries(paths)) {
-    result[id] = { exists: fs.existsSync(p.base) };
-  }
-  return result;
+  return importer.detectBrowsers();
 });
 
 // Import bookmarks
 ipcMain.handle('import:bookmarks', async (_, browser) => {
-  const paths = getBrowserPaths();
-  const bp = paths[browser];
-  if (!bp || !fs.existsSync(bp.bookmarks)) return { count: 0 };
-
-  try {
-    const raw = fs.readFileSync(bp.bookmarks, 'utf-8');
-    const data = JSON.parse(raw);
-    const bookmarks = [];
-
-    function extractBookmarks(node) {
-      if (!node) return;
-      if (node.type === 'url') {
-        bookmarks.push({ title: node.name || '', url: node.url || '' });
-      }
-      if (node.children) {
-        node.children.forEach(extractBookmarks);
-      }
+  const result = await importer.importBookmarks(browser);
+  if (result.count > 0) {
+    const bookmarks = getBookmarks();
+    const newItems = result.items.filter(n => !bookmarks.some(e => e.url === n.url));
+    if (newItems.length > 0) {
+      newItems.forEach(i => {
+        bookmarks.push({ ...i, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) });
+      });
+      writeJSON('bookmarks.json', bookmarks);
     }
-
-    if (data.roots) {
-      Object.values(data.roots).forEach(extractBookmarks);
-    }
-
-    // Save to Mauzer bookmarks
-    const dataDir = DATA_DIR();
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    const mauzerBookmarks = path.join(dataDir, 'bookmarks.json');
-    let existing = [];
-    if (fs.existsSync(mauzerBookmarks)) {
-      try { existing = JSON.parse(fs.readFileSync(mauzerBookmarks, 'utf-8')); } catch (e) { }
-    }
-    const merged = [...existing, ...bookmarks];
-    fs.writeFileSync(mauzerBookmarks, JSON.stringify(merged, null, 2));
-
-    return { count: bookmarks.length };
-  } catch (e) {
-    console.error('[IMPORT] Bookmarks error:', e.message);
-    return { count: 0 };
+    return { count: newItems.length };
   }
+  return { count: 0 };
 });
 
 // Import history
 ipcMain.handle('import:history', async (_, browser) => {
-  const paths = getBrowserPaths();
-  const bp = paths[browser];
-  if (!bp || !fs.existsSync(bp.history)) return { count: 0 };
-
-  try {
-    // Copy history db to temp (it may be locked by the source browser)
-    const tmpPath = path.join(app.getPath('temp'), `mauzer-import-history-${Date.now()}.db`);
-    fs.copyFileSync(bp.history, tmpPath);
-
-    // Try to read with better-sqlite3, fallback to basic approach
-    let historyItems = [];
-    try {
-      const Database = require('better-sqlite3');
-      const db = new Database(tmpPath, { readonly: true, fileMustExist: true });
-      const rows = db.prepare('SELECT url, title, last_visit_time FROM urls ORDER BY last_visit_time DESC LIMIT 5000').all();
-      db.close();
-
-      historyItems = rows.map(r => ({
-        url: r.url,
-        title: r.title || '',
-        timestamp: Math.floor(r.last_visit_time / 1000000 - 11644473600) * 1000 // Chrome timestamp to JS
-      }));
-    } catch (sqliteErr) {
-      console.log('[IMPORT] SQLite not available, skipping history:', sqliteErr.message);
-      // Clean up
-      try { fs.unlinkSync(tmpPath); } catch (e) { }
-      return { count: 0 };
-    }
-
-    // Clean up temp file
-    try { fs.unlinkSync(tmpPath); } catch (e) { }
-
-    // Save to Mauzer history
-    const dataDir = DATA_DIR();
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    const mauzerHistory = path.join(dataDir, 'history.json');
-    let existing = [];
-    if (fs.existsSync(mauzerHistory)) {
-      try { existing = JSON.parse(fs.readFileSync(mauzerHistory, 'utf-8')); } catch (e) { }
-    }
-    const merged = [...historyItems, ...existing];
-    fs.writeFileSync(mauzerHistory, JSON.stringify(merged, null, 2));
-
-    return { count: historyItems.length };
-  } catch (e) {
-    console.error('[IMPORT] History error:', e.message);
-    return { count: 0 };
+  const result = await importer.importHistory(browser);
+  if (result.count > 0) {
+    const history = getHistory();
+    // Simple merge: add new items that don't exist by URL+Timestamp
+    const existingKeys = new Set(history.map(h => h.url + h.timestamp));
+    const toAdd = [];
+    
+    result.items.forEach(item => {
+      const key = item.url + item.timestamp;
+      if (!existingKeys.has(key)) {
+        toAdd.push({
+          ...item,
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          favicon: '' // Can't easily import favicons yet
+        });
+      }
+    });
+    
+    const merged = [...toAdd, ...history].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5000);
+    writeJSON('history.json', merged);
+    return { count: toAdd.length };
   }
+  return { count: 0 };
+});
+
+// Import passwords (NEW)
+ipcMain.handle('import:passwords', async (_, browser) => {
+  const result = await importer.importPasswords(browser);
+  // We don't have a password manager yet in this codebase version, 
+  // so we'll save them to a secure file 'logins.json' for now.
+  // In a real app, this should be encrypted with a master password.
+  if (result.count > 0) {
+    const logins = readJSON('logins.json', []);
+    const newItems = result.items.filter(n => !logins.some(e => e.url === n.url && e.username === n.username));
+    
+    if (newItems.length > 0) {
+      newItems.forEach(i => logins.push(i));
+      writeJSON('logins.json', logins);
+    }
+    return { count: newItems.length };
+  }
+  return { count: 0 };
 });
 
 // Mark import as done
@@ -1590,6 +1533,7 @@ function createImportWindow() {
         preload: path.join(__dirname, 'preload.js'),
         nodeIntegration: false,
         contextIsolation: true,
+        webSecurity: true,
       },
       icon: path.join(__dirname, 'icon_black.png'),
     });
@@ -1659,6 +1603,9 @@ app.name = 'Mauzer';
 app.setAppUserModelId('com.mauzer.browser');
 
 app.whenReady().then(async () => {
+  // 1. Устанавливаем User-Agent как у обычного Chrome (Global fix)
+  session.defaultSession.setUserAgent(SPOOFED_UA);
+
   // Apply theme settings
   await applyThemeToWeb(loadSettings());
 

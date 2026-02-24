@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
@@ -47,7 +47,6 @@
             "node_modules/**/*"
         ],
         "extraResources": [],
-        "extraResources": [],
         "asar": true
     },
     "author": "mono yt developer",
@@ -57,9 +56,10 @@
         "electron-builder": "^25.1.8"
     },
     "dependencies": {
-        "better-sqlite3": "^11.9.0",
+        "better-sqlite3": "^11.10.0",
         "electron-updater": "^6.8.3",
         "msedge-tts": "^2.0.4",
+        "sqlite3": "^5.1.7",
         "ws": "^8.19.0"
     }
 }

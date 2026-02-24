@@ -662,10 +662,33 @@
     // ============================================================
     // SIDEBAR
     // ============================================================
+    function openSidebar(panel) {
+        if (panel) state.sidebarPanel = panel;
+        
+        if (!state.sidebarOpen) {
+            state.sidebarOpen = true;
+            dom.sidebar.style.display = '';
+            requestAnimationFrame(() => {
+                dom.sidebar.classList.add('open');
+            });
+        }
+        
+        renderSidebarPanel(state.sidebarPanel);
+    }
+
+    function closeSidebar() {
+        if (state.sidebarOpen) {
+            state.sidebarOpen = false;
+            dom.sidebar.classList.remove('open');
+            dom.sidebar.addEventListener('transitionend', () => {
+                if (!state.sidebarOpen) dom.sidebar.style.display = 'none';
+            }, { once: true });
+        }
+    }
+
     function toggleSidebar() {
-        state.sidebarOpen = !state.sidebarOpen;
-        dom.sidebar.style.display = state.sidebarOpen ? '' : 'none';
-        if (state.sidebarOpen) renderSidebarPanel(state.sidebarPanel);
+        if (state.sidebarOpen) closeSidebar();
+        else openSidebar();
     }
 
     async function renderSidebarPanel(panel) {
@@ -833,10 +856,10 @@
             { label: t('menuNewWindow'), icon: ICONS.window, kbd: 'Ctrl+N', action: () => window.mauzer.window.newWindow() },
             { label: t('menuIncognito'), icon: ICONS.incognito, kbd: 'Ctrl+Shift+N', action: () => createIncognitoTab() },
             { separator: true },
-            { label: t('menuBookmarks'), icon: ICONS.bookmark, action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('bookmarks'); } },
-            { label: t('menuHistory'), icon: ICONS.history, kbd: 'Ctrl+H', action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('history'); } },
-            { label: t('menuDownloads'), icon: ICONS.download, kbd: 'Ctrl+J', action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('downloads'); } },
-            { label: state.settings.language === 'en' ? 'Notes' : 'Заметки', icon: ICONS.note, action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('notes'); } },
+            { label: t('menuBookmarks'), icon: ICONS.bookmark, action: () => openSidebar('bookmarks') },
+            { label: t('menuHistory'), icon: ICONS.history, kbd: 'Ctrl+H', action: () => openSidebar('history') },
+            { label: t('menuDownloads'), icon: ICONS.download, kbd: 'Ctrl+J', action: () => openSidebar('downloads') },
+            { label: state.settings.language === 'en' ? 'Notes' : 'Заметки', icon: ICONS.note, action: () => openSidebar('notes') },
             { separator: true },
             { label: state.settings.language === 'en' ? 'Find on Page' : 'Поиск на странице', icon: ICONS.search, kbd: 'Ctrl+F', action: () => toggleFindBar() },
             { label: t('menuScreenshot'), icon: ICONS.screenshot, action: takeScreenshot },
@@ -884,9 +907,9 @@
             { title: t('menuNewTab'), kbd: 'Ctrl+T', action: () => createTab() },
             { title: t('menuIncognito'), kbd: 'Ctrl+Shift+N', action: () => createIncognitoTab() },
             { title: t('menuSettings'), action: () => createTab(settingsUrl(), { title: t('menuSettings') }) },
-            { title: t('menuHistory'), kbd: 'Ctrl+H', action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('history'); } },
-            { title: t('menuDownloads'), kbd: 'Ctrl+J', action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('downloads'); } },
-            { title: t('menuBookmarks'), action: () => { state.sidebarOpen = true; dom.sidebar.style.display = ''; renderSidebarPanel('bookmarks'); } },
+            { title: t('menuHistory'), kbd: 'Ctrl+H', action: () => openSidebar('history') },
+            { title: t('menuDownloads'), kbd: 'Ctrl+J', action: () => openSidebar('downloads') },
+            { title: t('menuBookmarks'), action: () => openSidebar('bookmarks') },
             { title: state.settings.language === 'en' ? 'Restore Tab' : 'Восстановить вкладку', kbd: 'Ctrl+Shift+T', action: restoreClosedTab },
             { title: t('menuFullscreen'), kbd: 'F11', action: () => window.mauzer.window.fullscreen() },
             { title: state.settings.language === 'en' ? 'Find on Page' : 'Поиск на странице', kbd: 'Ctrl+F', action: () => toggleFindBar() },

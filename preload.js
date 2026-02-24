@@ -177,6 +177,7 @@ contextBridge.exposeInMainWorld('mauzer', {
         detect: () => ipcRenderer.invoke('import:detect'),
         bookmarks: (browser) => ipcRenderer.invoke('import:bookmarks', browser),
         history: (browser) => ipcRenderer.invoke('import:history', browser),
+        passwords: (browser) => ipcRenderer.invoke('import:passwords', browser),
         done: () => ipcRenderer.invoke('import:done'),
         close: () => ipcRenderer.send('import:close'),
         minimize: () => ipcRenderer.send('import:minimize'),

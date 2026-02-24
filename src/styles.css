@@ -1372,26 +1372,20 @@ body {
 
 /* === SIDEBAR === */
 .sidebar {
-  width: var(--sidebar-w);
+  width: 0;
+  opacity: 0;
   background: var(--bg-primary);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  animation: sidebar-in 0.3s var(--ease);
   overflow: hidden;
+  transition: width 0.3s var(--ease), opacity 0.3s var(--ease);
 }
 
-@keyframes sidebar-in {
-  from {
-    width: 0;
-    opacity: 0;
-  }
-
-  to {
-    width: var(--sidebar-w);
-    opacity: 1;
-  }
+.sidebar.open {
+  width: var(--sidebar-w);
+  opacity: 1;
 }
 
 .sidebar-tabs {

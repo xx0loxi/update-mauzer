@@ -456,7 +456,7 @@
             if (!selectedBrowser) return;
             showStep('step-importing');
 
-            let bookmarks = 0, history = 0;
+            let bookmarks = 0, history = 0, passwords = 0;
 
             try {
                 // Import bookmarks
@@ -465,9 +465,14 @@
                 bookmarks = bResult.count || 0;
 
                 // Import history
-                updateProgress(60, 'Импортирую историю...');
+                updateProgress(50, 'Импортирую историю...');
                 const hResult = await window.mauzer.import.history(selectedBrowser);
                 history = hResult.count || 0;
+                
+                // Import passwords
+                updateProgress(80, 'Импортирую пароли...');
+                const pResult = await window.mauzer.import.passwords(selectedBrowser);
+                passwords = pResult.count || 0;
 
                 updateProgress(100, 'Завершено!');
             } catch (e) {
@@ -482,6 +487,7 @@
                 const stats = [];
                 if (bookmarks > 0) stats.push(`<span>${bookmarks}</span> закладок`);
                 if (history > 0) stats.push(`<span>${history}</span> записей истории`);
+                if (passwords > 0) stats.push(`<span>${passwords}</span> паролей`);
                 document.getElementById('done-stats').innerHTML =
                     stats.length > 0 ? 'Импортировано: ' + stats.join(', ') : 'Ничего не найдено для импорта';
             }, 600);
