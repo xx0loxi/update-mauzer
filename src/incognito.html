@@ -13,119 +13,390 @@
             padding: 0;
             box-sizing: border-box;
         }
+        
+        /* Suggestions Styles */
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 24px;
+            right: 52px;
+            background: rgba(40, 30, 60, 0.98);
+            border: 1px solid rgba(140, 100, 255, 0.3);
+            border-top: none;
+            border-radius: 0 0 24px 24px;
+            padding: 8px 0;
+            list-style: none;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .suggestions.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 10px 20px;
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: background 0.1s;
+        }
+
+        .suggestion-item:hover, .suggestion-item.selected {
+            background: rgba(140, 100, 255, 0.15);
+            color: #fff;
+        }
+
+        .suggestion-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.5;
+            color: #8c64ff;
+            flex-shrink: 0;
+        }
+
+        .search-bar.has-suggestions {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom-color: transparent;
+            background: rgba(40, 30, 60, 0.98);
+            box-shadow: none;
+        }
+
+        /* Scrollbar for suggestions */
+        .suggestions::-webkit-scrollbar {
+            width: 6px;
+        }
+        .suggestions::-webkit-scrollbar-thumb {
+            background: rgba(140, 100, 255, 0.3);
+            border-radius: 3px;
+        }
+        .suggestions::-webkit-scrollbar-track {
+            background: transparent;
+        }
 
         html,
         body {
-            min-height: 100vh;
+            height: 100%;
             font-family: 'Inter', sans-serif;
-            background: #0d0d0d;
-            color: rgba(255, 255, 255, 0.8);
+            background: #1a1025; /* Dark Purple Background */
+            color: rgba(255, 255, 255, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
 
         .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            padding: 0 24px;
             text-align: center;
-            max-width: 520px;
-            padding: 48px 32px;
+        }
+
+        /* === ICON & TITLE === */
+        .incognito-header {
+            margin-bottom: 40px;
         }
 
         .incognito-icon {
-            width: 72px;
-            height: 72px;
-            margin: 0 auto 28px;
-            opacity: 0.6;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            color: #8c64ff;
+            opacity: 0.9;
         }
 
         .incognito-icon svg {
             width: 100%;
             height: 100%;
+            filter: drop-shadow(0 0 20px rgba(140, 100, 255, 0.3));
         }
 
         h1 {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.85);
-            margin-bottom: 16px;
-            letter-spacing: 0.3px;
+            color: #e0d0ff;
+            margin-bottom: 12px;
         }
 
         .desc {
             font-size: 14px;
-            line-height: 1.7;
-            color: rgba(255, 255, 255, 0.4);
-            margin-bottom: 28px;
+            line-height: 1.6;
+            color: rgba(224, 208, 255, 0.6);
+            max-width: 500px;
+            margin: 0 auto;
         }
 
-        .features {
+        /* === SEARCH BAR === */
+        .search-wrap {
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+            margin-top: 20px;
+            margin-bottom: 60px;
+        }
+
+        .search-bar {
+            width: 100%;
+            height: 52px;
+            padding: 0 52px 0 24px;
+            background: rgba(40, 30, 60, 0.6);
+            border: 1px solid rgba(140, 100, 255, 0.2);
+            border-radius: 26px;
+            outline: none;
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .search-bar:hover, .search-bar:focus {
+            background: rgba(50, 40, 80, 0.8);
+            border-color: rgba(140, 100, 255, 0.5);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(140, 100, 255, 0.1);
+        }
+
+        .search-bar::placeholder {
+            color: rgba(224, 208, 255, 0.3);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(140, 100, 255, 0.5);
+            pointer-events: none;
+        }
+
+        /* === INFO CARDS === */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 700px;
             text-align: left;
-            display: inline-block;
-            margin-bottom: 32px;
         }
 
-        .feature {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 12px;
+        .info-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .info-title {
             font-size: 13px;
+            font-weight: 600;
+            color: #e0d0ff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-list {
+            list-style: none;
+        }
+
+        .info-list li {
+            font-size: 12px;
             color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 8px;
+            position: relative;
+            padding-left: 14px;
         }
 
-        .feature-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            margin-top: 5px;
-            flex-shrink: 0;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 6px 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 20px;
-            font-size: 11px;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.3);
+        .info-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: rgba(140, 100, 255, 0.5);
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <div class="incognito-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M3 7V5h18v2" />
-                <path d="M5 11l4 9h6l4-9" />
-                <path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+        <div class="incognito-header">
+            <div class="incognito-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7V5h18v2" />
+                    <path d="M5 11l4 9h6l4-9" />
+                    <path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                </svg>
+            </div>
+            <h1>Режим Инкогнито</h1>
+            <p class="desc">
+                Mauzer не сохраняет историю посещений, файлы cookie и данные сайтов.
+                <br>Ваша активность остается приватной.
+            </p>
+        </div>
+
+        <div class="search-wrap">
+            <input type="text" class="search-bar" id="search-input" placeholder="Поиск в Инкогнито" spellcheck="false" autocomplete="off" autofocus>
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
+            <ul class="suggestions" id="suggestions"></ul>
         </div>
-        <h1>Режим инкогнито</h1>
-        <p class="desc">
-            Вы находитесь в приватном режиме. Ваша активность в этой вкладке не сохраняется.
-        </p>
-        <div class="features">
-            <div class="feature">
-                <div class="feature-dot"></div>История посещений не сохраняется
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                    Не сохраняется:
+                </div>
+                <ul class="info-list">
+                    <li>История просмотра</li>
+                    <li>Файлы cookie и данные сайтов</li>
+                    <li>Информация, введенная в формы</li>
+                </ul>
             </div>
-            <div class="feature">
-                <div class="feature-dot"></div>Куки удаляются при закрытии вкладки
-            </div>
-            <div class="feature">
-                <div class="feature-dot"></div>Данные форм не запоминаются
-            </div>
-            <div class="feature">
-                <div class="feature-dot"></div>Загруженные файлы остаются на устройстве
+            <div class="info-card">
+                <div class="info-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Может быть видно:
+                </div>
+                <ul class="info-list">
+                    <li>Веб-сайтам, которые вы посещаете</li>
+                    <li>Вашему системному администратору</li>
+                    <li>Вашему интернет-провайдеру</li>
+                </ul>
             </div>
         </div>
-        <div class="badge">Incognito Mode</div>
     </div>
+
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const suggestionsBox = document.getElementById('suggestions');
+        let selectedIndex = -1;
+        let debounceTimer;
+
+        // Auto-focus on load
+        window.addEventListener('load', () => searchInput.focus());
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            clearTimeout(debounceTimer);
+            if (!val) {
+                hideSuggestions();
+                return;
+            }
+            
+            debounceTimer = setTimeout(async () => {
+                if (window.mauzer && window.mauzer.search) {
+                    try {
+                        const results = await window.mauzer.search.suggest(val);
+                        renderSuggestions(results);
+                    } catch (e) {
+                        hideSuggestions();
+                    }
+                }
+            }, 150);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            const items = suggestionsBox.querySelectorAll('.suggestion-item');
+            if (e.key === 'ArrowDown') {
+                if (suggestionsBox.classList.contains('show')) {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    updateSelection(items);
+                }
+            } else if (e.key === 'ArrowUp') {
+                if (suggestionsBox.classList.contains('show')) {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    updateSelection(items);
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedIndex >= 0 && items[selectedIndex]) {
+                    performSearch(items[selectedIndex].dataset.val);
+                } else {
+                    performSearch(searchInput.value);
+                }
+                hideSuggestions();
+            } else if (e.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+
+        function updateSelection(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === selectedIndex);
+                if (i === selectedIndex) {
+                    // Optional: update input value on selection or keep original?
+                    // Usually input value updates or stays as query. Let's keep query but highlight item.
+                    // Or copy to input:
+                    searchInput.value = item.dataset.val;
+                }
+            });
+        }
+
+        function renderSuggestions(list) {
+            if (!list || !list.length) {
+                hideSuggestions();
+                return;
+            }
+            
+            suggestionsBox.innerHTML = list.map(text => `
+                <li class="suggestion-item" data-val="${text.replace(/"/g, '&quot;')}">
+                    <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span>${text}</span>
+                </li>
+            `).join('');
+            
+            suggestionsBox.classList.add('show');
+            searchInput.classList.add('has-suggestions');
+            selectedIndex = -1;
+        }
+
+        function hideSuggestions() {
+            suggestionsBox.classList.remove('show');
+            searchInput.classList.remove('has-suggestions');
+            selectedIndex = -1;
+        }
+
+        function performSearch(val) {
+            val = val.trim();
+            if (!val) return;
+            const isUrl = /^(https?:\/\/|[\w-]+\.[\w-]+)/.test(val);
+            window.location.href = isUrl
+                ? (val.startsWith('http') ? val : 'https://' + val)
+                : 'https://www.google.com/search?q=' + encodeURIComponent(val);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                hideSuggestions();
+            }
+        });
+
+        suggestionsBox.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item');
+            if (item) {
+                performSearch(item.dataset.val);
+            }
+        });
+    </script>
 </body>
 
 </html>

@@ -99,6 +99,14 @@
                 </svg>
             </button>
 
+            <!-- Incognito Indicator -->
+            <div id="incognito-indicator" class="incognito-indicator" title="Режим Инкогнито" style="display:none">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M2 12h20M9.5 12a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5zm5 0a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+                    <path d="M4.5 12a8.5 8.5 0 0 1 15 0" stroke-width="1.5"/>
+                </svg>
+            </div>
+
             <!-- Navigation Buttons -->
             <div class="nav-buttons">
                 <button id="btn-back" class="nav-btn" title="Назад (Alt+←)" disabled>
@@ -145,6 +153,8 @@
                     spellcheck="false" autocomplete="off">
                 <!-- URL autocomplete dropdown -->
                 <div id="url-autocomplete" class="url-autocomplete" style="display:none"></div>
+                <!-- Suggestions -->
+                <ul id="url-suggestions" class="url-suggestions" style="display:none"></ul>
                 <div class="url-actions">
                     <!-- Page load time -->
                     <span id="page-load-time" class="page-load-time" style="display:none">0ms</span>
@@ -362,31 +372,30 @@
                 </svg>
                 Pulse
             </h3>
-            <button id="pulse-close" class="panel-close-btn" title="Закрыть">✕</button>
+            <div class="pulse-controls">
+                <label class="pulse-switch" title="Вкл/Выкл защиту">
+                    <input type="checkbox" id="pulse-toggle-input" checked>
+                    <span class="pulse-slider"></span>
+                </label>
+                <button id="pulse-close" class="panel-close-btn" title="Закрыть">✕</button>
+            </div>
         </div>
         <div class="pulse-stats">
             <div class="pulse-stat">
                 <div class="pulse-stat-value" id="pulse-ads">0</div>
-                <div class="pulse-stat-label">Реклама заблокирована</div>
+                <div class="pulse-stat-label">Реклама</div>
             </div>
             <div class="pulse-stat">
                 <div class="pulse-stat-value" id="pulse-trackers">0</div>
-                <div class="pulse-stat-label">Трекеры остановлены</div>
+                <div class="pulse-stat-label">Трекеры</div>
             </div>
             <div class="pulse-stat">
                 <div class="pulse-stat-value" id="pulse-data">0 KB</div>
-                <div class="pulse-stat-label">Трафик сэкономлен</div>
+                <div class="pulse-stat-label">Трафик</div>
             </div>
             <div class="pulse-stat">
                 <div class="pulse-stat-value" id="pulse-time">0s</div>
-                <div class="pulse-stat-label">Время сессии</div>
-            </div>
-        </div>
-        <div class="pulse-frost-section">
-            <h4>Frost Mode</h4>
-            <div class="pulse-frost-stats">
-                <span id="pulse-frost-count">0</span> вкладок заморожено •
-                <span id="pulse-frost-saved">0 MB</span> RAM сэкономлено
+                <div class="pulse-stat-label">Сессия</div>
             </div>
         </div>
     </div>

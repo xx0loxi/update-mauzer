@@ -94,6 +94,75 @@
             transform: scale(1.02);
         }
 
+        /* === WEATHER WIDGET === */
+        .weather-widget {
+            position: absolute;
+            top: 16px;
+            left: 24px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            cursor: default;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .weather-widget:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .weather-icon {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        .weather-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .weather-temp {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.1;
+        }
+
+        .weather-loc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        [data-theme="light"] .weather-widget {
+            background: rgba(255, 255, 255, 0.6);
+            border-color: rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+        }
+        [data-theme="light"] .weather-widget:hover {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+        [data-theme="light"] .weather-loc {
+            color: rgba(0, 0, 0, 0.5);
+        }
+        [data-theme="light"] .weather-temp {
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        @keyframes fadeInDown {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .search-bar {
             width: 100%;
             height: 56px;
@@ -122,6 +191,98 @@
             box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4),
                 0 0 20px rgba(255, 255, 255, 0.06),
                 0 0 40px rgba(255, 255, 255, 0.03);
+        }
+
+        /* Suggestions Styles */
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 24px;
+            right: 56px;
+            background: rgba(30, 30, 30, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: none;
+            border-radius: 0 0 24px 24px;
+            padding: 8px 0;
+            list-style: none;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+            max-height: 300px;
+            overflow-y: auto;
+            backdrop-filter: blur(12px);
+        }
+
+        .suggestions.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 10px 20px;
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: background 0.1s;
+        }
+
+        .suggestion-item:hover, .suggestion-item.selected {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .suggestion-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.5;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .search-bar.has-suggestions {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom-color: transparent;
+            background: rgba(30, 30, 30, 0.98);
+            box-shadow: none;
+        }
+
+        /* Scrollbar for suggestions */
+        .suggestions::-webkit-scrollbar {
+            width: 6px;
+        }
+        .suggestions::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        .suggestions::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        /* Light Theme Suggestions */
+        [data-theme="light"] .suggestions {
+            background: rgba(255, 255, 255, 0.98);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #222;
+        }
+        [data-theme="light"] .suggestion-item {
+            color: #333;
+        }
+        [data-theme="light"] .suggestion-item:hover, 
+        [data-theme="light"] .suggestion-item.selected {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="light"] .suggestion-icon {
+            color: #555;
+        }
+        [data-theme="light"] .search-bar.has-suggestions {
+            background: #ffffff;
+            border-bottom-color: transparent;
+        }
+        [data-theme="light"] .suggestions::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
         }
 
         /* Animated neon sweep — single flash on hover */
@@ -518,6 +679,15 @@
     <div class="glow glow-1"></div>
     <div class="glow glow-2"></div>
 
+    <!-- Weather Widget -->
+    <div id="weather-widget" class="weather-widget">
+        <img id="weather-icon" class="weather-icon" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fbbf24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='5'/><path d='M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'/></svg>" alt="">
+        <div class="weather-info">
+            <span id="weather-temp" class="weather-temp">--°</span>
+            <span id="weather-loc" class="weather-loc">Поиск...</span>
+        </div>
+    </div>
+
     <div class="container">
         <div class="logo-block">
             <img src="../MAUZER LOGO/main.png" class="logo" alt="Mauzer">
@@ -531,6 +701,7 @@
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
+            <ul class="suggestions" id="suggestions"></ul>
         </div>
 
         <div class="quick-links" id="quick-links"></div>
@@ -573,6 +744,129 @@
         const addTitleInput = document.getElementById('add-title');
         const addCancel = document.getElementById('add-cancel');
         const addSave = document.getElementById('add-save');
+
+        const searchInput = document.getElementById('search-input');
+        const suggestionsBox = document.getElementById('suggestions');
+        let selectedIndex = -1;
+        let debounceTimer;
+
+        // Auto-focus on load
+        window.addEventListener('load', () => {
+            searchInput.focus();
+            if (!window.mauzer) {
+                console.error('Mauzer API missing in newtab');
+                // Optional: try to indicate error visually
+                // searchInput.style.borderColor = 'red';
+            }
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            clearTimeout(debounceTimer);
+            if (!val) {
+                hideSuggestions();
+                return;
+            }
+            
+            debounceTimer = setTimeout(async () => {
+                if (window.mauzer && window.mauzer.search) {
+                    try {
+                        const results = await window.mauzer.search.suggest(val);
+                        renderSuggestions(results);
+                    } catch (e) {
+                        hideSuggestions();
+                    }
+                }
+            }, 150);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            const items = suggestionsBox.querySelectorAll('.suggestion-item');
+            if (e.key === 'ArrowDown') {
+                if (suggestionsBox.classList.contains('show')) {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    updateSelection(items);
+                }
+            } else if (e.key === 'ArrowUp') {
+                if (suggestionsBox.classList.contains('show')) {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    updateSelection(items);
+                }
+            } else if (e.key === 'Enter') {
+                if (selectedIndex >= 0 && items[selectedIndex]) {
+                    e.preventDefault();
+                    performSearch(items[selectedIndex].dataset.val);
+                    hideSuggestions();
+                } else {
+                    // Default enter behavior handled by existing listener, just hide suggestions
+                    hideSuggestions();
+                }
+            } else if (e.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+
+        function updateSelection(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === selectedIndex);
+                if (i === selectedIndex) {
+                    searchInput.value = item.dataset.val;
+                }
+            });
+        }
+
+        function renderSuggestions(list) {
+            if (!list || !list.length) {
+                hideSuggestions();
+                return;
+            }
+            
+            suggestionsBox.innerHTML = list.map(text => `
+                <li class="suggestion-item" data-val="${text.replace(/"/g, '&quot;')}">
+                    <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span>${text}</span>
+                </li>
+            `).join('');
+            
+            suggestionsBox.classList.add('show');
+            searchInput.classList.add('has-suggestions');
+            // Remove rounded corners from search bar wrapper too if needed, 
+            // but search-bar class handles it.
+            selectedIndex = -1;
+        }
+
+        function hideSuggestions() {
+            suggestionsBox.classList.remove('show');
+            searchInput.classList.remove('has-suggestions');
+            selectedIndex = -1;
+        }
+
+        function performSearch(val) {
+            val = val.trim();
+            if (!val) return;
+            const isUrl = /^(https?:\/\/|[\w-]+\.[\w-]+)/.test(val);
+            window.location.href = isUrl
+                ? (val.startsWith('http') ? val : 'https://' + val)
+                : 'https://www.google.com/search?q=' + encodeURIComponent(val);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                hideSuggestions();
+            }
+        });
+
+        suggestionsBox.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item');
+            if (item) {
+                performSearch(item.dataset.val);
+            }
+        });
 
         function normalizeUrl(input) {
             const trimmed = input.trim();
@@ -784,6 +1078,78 @@
         if (params.get('theme') === 'light') {
             document.documentElement.setAttribute('data-theme', 'light');
         }
+
+        // === WEATHER LOGIC ===
+        async function initWeather() {
+            const widget = document.getElementById('weather-widget');
+            const iconEl = document.getElementById('weather-icon');
+            const tempEl = document.getElementById('weather-temp');
+            const locEl = document.getElementById('weather-loc');
+
+            try {
+                // 1. Try ip-api.com (more reliable free tier, no HTTPS block usually)
+                // Use http if https fails, but we are in file:// so we can fetch https
+                let lat, lon, city;
+                
+                try {
+                    const geoRes = await fetch('http://ip-api.com/json/?fields=status,message,lat,lon,city,regionName');
+                    const geo = await geoRes.json();
+                    if (geo.status !== 'success') throw new Error(geo.message || 'Geo failed');
+                    lat = geo.lat;
+                    lon = geo.lon;
+                    city = geo.city || geo.regionName || 'Unknown';
+                } catch (err1) {
+                    console.warn('Primary geo failed, trying backup:', err1);
+                    // Backup: ipapi.co
+                    const geoRes2 = await fetch('https://ipapi.co/json/');
+                    if (!geoRes2.ok) throw new Error('Backup geo failed');
+                    const geo2 = await geoRes2.json();
+                    lat = geo2.latitude;
+                    lon = geo2.longitude;
+                    city = geo2.city || geo2.region || 'Unknown';
+                }
+
+                // 2. Get weather from Open-Meteo
+                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                if (!weatherRes.ok) throw new Error('Weather failed');
+                const weather = await weatherRes.json();
+                
+                const temp = Math.round(weather.current_weather.temperature);
+                const code = weather.current_weather.weathercode;
+                
+                // Map WMO codes to icons
+                // 0=Clear, 1-3=Cloudy, 45/48=Fog, 51-67=Drizzle/Rain, 71-77=Snow, 95-99=Thunderstorm
+                let icon = 'sun';
+                if (code > 0 && code <= 3) icon = 'cloud-sun';
+                else if (code >= 45 && code <= 48) icon = 'fog';
+                else if (code >= 51 && code <= 67) icon = 'rain';
+                else if (code >= 71 && code <= 86) icon = 'snow';
+                else if (code >= 95) icon = 'thunder';
+
+                // Use simple SVG data URIs for icons
+                const icons = {
+                    'sun': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>',
+                    'cloud-sun': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><path d="M16 16a5 5 0 1 1-5 5"/></svg>',
+                    'rain': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2360a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16a5 5 0 1 1-5 5"/><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="16" y1="13" x2="16" y2="15"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="12" y1="15" x2="12" y2="17"/></svg>',
+                    'snow': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16a5 5 0 1 1-5 5"/><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><line x1="8" y1="15" x2="8" y2="15.01"/><line x1="12" y1="18" x2="12" y2="18.01"/><line x1="16" y1="15" x2="16" y2="15.01"/></svg>',
+                    'thunder': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16a5 5 0 1 1-5 5"/><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"/><path d="M13 19l-2 3h4l-2 3"/></svg>',
+                    'fog': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M5 16h14"/><path d="M5 20h14"/><path d="M5 8h14"/></svg>'
+                };
+
+                // Update UI
+                iconEl.src = icons[icon] || icons['sun'];
+                tempEl.textContent = `${temp > 0 ? '+' : ''}${temp}°`;
+                locEl.textContent = city;
+                // widget.style.display = 'flex'; // Always visible now
+
+            } catch (e) {
+                console.error('Weather error:', e);
+                // widget.style.display = 'none'; // Don't hide on error
+                locEl.textContent = 'Нет данных';
+            }
+        }
+
+        initWeather();
     </script>
 </body>
 

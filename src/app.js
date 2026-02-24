@@ -123,6 +123,7 @@
         urlQr: $('#url-qr'),
         urlBookmark: $('#url-bookmark'),
         urlAutocomplete: $('#url-autocomplete'),
+        urlSuggestions: $('#url-suggestions'),
         securityIcon: $('#security-icon'),
         pageLoadTime: $('#page-load-time'),
         loadingBar: $('#loading-bar'),
@@ -304,7 +305,8 @@
         }
 
         const id = genId();
-        const isIncog = opts.incognito || false;
+        // In Incognito Window, ALL tabs are incognito by default
+        const isIncog = state.isIncognitoWindow || opts.incognito || false;
         const tab = {
             id, url: url || '', title: isIncog ? (state.settings.language === 'en' ? 'Incognito' : 'Инкогнито') : (isHomeTab ? 'MAUZER' : (opts.title || t('newTab'))),
             favicon: url ? favicon(url) : '', loading: false,
@@ -316,7 +318,11 @@
 
         const wv = document.createElement('webview');
         wv.id = 'wv-' + id;
-        if (isIncog) wv.setAttribute('partition', 'incognito-' + id);
+        // Shared partition for Incognito Window to allow session sharing between tabs
+        if (isIncog) {
+             if (state.isIncognitoWindow) wv.setAttribute('partition', 'incognito');
+             else wv.setAttribute('partition', 'incognito-' + id);
+        }
         wv.setAttribute('allowpopups', '');
         wv.setAttribute('webpreferences', 'contextIsolation=yes');
         // Add preload for local file:// URLs so they get window.mauzer API
@@ -332,6 +338,8 @@
         updateTabCounter();
         if (state.tabs.length >= (state.settings.tabCountWarning || 50))
             toast(`Открыто ${state.tabs.length} вкладок`, 'error');
+        
+        saveSessionState();
         return id;
     }
 
@@ -340,8 +348,23 @@
     }
 
     function createIncognitoTab() {
-        createTab('', { incognito: true });
+        // Open new Incognito Window instead of tab
+        window.mauzer.window.newIncognito();
     }
+
+    // Handle Incognito Window Mode
+    window.mauzer.on.incognito((val) => {
+        if (val) {
+            state.isIncognitoWindow = true;
+            document.body.classList.add('incognito-window');
+            // Close the default tab created on start and create an incognito one
+            if (state.tabs.length > 0) {
+                const defId = state.tabs[0].id;
+                closeTab(defId); 
+            }
+            createTab('', { incognito: true, _force: true });
+        }
+    });
 
     function renderTabElement(tab) {
         const el = document.createElement('div');
@@ -386,26 +409,83 @@
             dom.btnForward.disabled = !tab.canGoForward;
             updateSecurityIcon(tab.url);
             dom.statusZoom.textContent = Math.round((state.zoomLevels[id] || 1) * 100) + '%';
+            
+            // Show/Hide Incognito Indicator
+            const incogInd = document.getElementById('incognito-indicator');
+            if (incogInd) incogInd.style.display = tab.incognito ? '' : 'none';
         }
         if (state.frozenTabs.has(id)) { state.frozenTabs.delete(id); updateFrostBadge(); }
+        saveSessionState();
     }
 
     function closeTab(id) {
+        // Prevent double close
+        const el = document.getElementById('tab-el-' + id);
+        if (el && el.classList.contains('closing')) return;
+
         const idx = state.tabs.findIndex(t => t.id === id);
         if (idx < 0) return;
         const tab = state.tabs[idx];
+
+        // 1. Immediately switch to neighbor if active
+        if (state.activeTabId === id) {
+            // Prefer right neighbor, then left
+            // But visually we want to slide to the left neighbor usually
+            // If we are closing the last tab, go to previous
+            let nextId = null;
+            if (idx < state.tabs.length - 1) nextId = state.tabs[idx + 1].id;
+            else if (idx > 0) nextId = state.tabs[idx - 1].id;
+            
+            if (nextId) switchTab(nextId);
+            else if (state.tabs.length === 1) {
+                // Last tab being closed - create new one first
+                createTab('', { _force: true });
+            }
+        }
+
+        // 2. Animate closing
+        if (el) {
+            el.classList.add('closing');
+            setTimeout(() => {
+                finishCloseTab(id);
+            }, 200);
+        } else {
+            finishCloseTab(id);
+        }
+    }
+
+    function finishCloseTab(id) {
+        const idx = state.tabs.findIndex(t => t.id === id);
+        if (idx < 0) return;
+        
+        const tab = state.tabs[idx];
+        const wasIncognito = tab.incognito;
+        
         state.closedTabs.push({ ...tab, closedAt: Date.now() });
         if (state.closedTabs.length > 20) state.closedTabs.shift();
+        
         state.tabs.splice(idx, 1);
         document.getElementById('tab-el-' + id)?.remove();
         document.getElementById('wv-' + id)?.remove();
         clearTimeout(state.frostTimers[id]);
         state.frozenTabs.delete(id);
-        state.activeTabId = null;
-
-        if (state.tabs.length === 0) createTab('', { _force: true });
-        else if (state.activeTabId === null || state.activeTabId === id) switchTab(state.tabs[Math.min(idx, state.tabs.length - 1)].id);
+        
+        // If closed tab was active, switch to another
+        if (state.activeTabId === id) {
+            state.activeTabId = null;
+            if (state.tabs.length === 0) {
+                // If last tab was incognito, create normal tab (exit incognito mode behavior)
+                // If last tab was normal, create normal tab (keep normal mode)
+                createTab('', { _force: true });
+            } else {
+                // Try to switch to right neighbor, else left
+                const nextTab = state.tabs[idx] || state.tabs[idx - 1];
+                if (nextTab) switchTab(nextTab.id);
+            }
+        }
+        
         updateTabCounter();
+        saveSessionState();
     }
 
     function restoreClosedTab() {
@@ -415,7 +495,11 @@
     function duplicateTab(id) { const t = state.tabs.find(x => x.id === id); if (t) createTab(t.url); }
     function pinTab(id) {
         const t = state.tabs.find(x => x.id === id);
-        if (t) { t.pinned = !t.pinned; document.getElementById('tab-el-' + id)?.classList.toggle('pinned', t.pinned); }
+        if (t) { 
+            t.pinned = !t.pinned; 
+            document.getElementById('tab-el-' + id)?.classList.toggle('pinned', t.pinned); 
+            saveSessionState();
+        }
     }
     function toggleMute(id) {
         const t = state.tabs.find(x => x.id === id);
@@ -484,22 +568,24 @@
             updateNav();
             if (!t?.incognito && !e.url.includes('newtab.html') && !e.url.includes('incognito.html'))
                 window.mauzer.history.add({ url: e.url, title: t?.title, favicon: t?.favicon });
+            saveSessionState();
         });
 
         wv.addEventListener('did-navigate-in-page', (e) => {
             const t = state.tabs.find(x => x.id === id);
             if (t) { t.url = e.url; updateNav(); }
             if (state.activeTabId === id) dom.urlInput.value = e.url;
+            saveSessionState();
         });
 
         wv.addEventListener('page-title-updated', (e) => {
             const t = state.tabs.find(x => x.id === id);
-            if (t) { t.title = e.title; const el = document.getElementById('tab-title-' + id); if (el) el.textContent = e.title; }
+            if (t) { t.title = e.title; const el = document.getElementById('tab-title-' + id); if (el) el.textContent = e.title; saveSessionState(); }
         });
 
         wv.addEventListener('page-favicon-updated', (e) => {
             const t = state.tabs.find(x => x.id === id);
-            if (t && e.favicons?.length) { t.favicon = e.favicons[0]; const el = document.getElementById('tab-fav-' + id); if (el) { el.src = e.favicons[0]; el.style.display = ''; } }
+            if (t && e.favicons?.length) { t.favicon = e.favicons[0]; const el = document.getElementById('tab-fav-' + id); if (el) { el.src = e.favicons[0]; el.style.display = ''; saveSessionState(); } }
         });
 
         wv.addEventListener('did-fail-load', (e) => {
@@ -1101,13 +1187,33 @@
     // ============================================================
     // PULSE
     // ============================================================
+    const pulseToggle = document.getElementById('pulse-toggle-input');
+    
+    // Init Pulse state
+    window.mauzer.pulse.getState().then(enabled => {
+        if(pulseToggle) pulseToggle.checked = enabled;
+    });
+
+    if(pulseToggle) {
+        pulseToggle.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            await window.mauzer.pulse.toggle(enabled);
+            const status = state.settings.language === 'en' ? (enabled ? 'Enabled' : 'Disabled') : (enabled ? 'Включена' : 'Выключена');
+            // toast(`Pulse: ${status}`);
+        });
+    }
+
     async function updatePulse() {
         const s = await window.mauzer.pulse.getStats();
-        $('#pulse-ads').textContent = s.adsBlocked;
-        $('#pulse-trackers').textContent = s.trackersBlocked;
-        $('#pulse-data').textContent = formatBytes(s.dataSavedKB * 1024);
-        $('#pulse-time').textContent = formatTime(Date.now() - s.sessionStart);
-        $('#pulse-frost-count').textContent = state.frozenTabs.size;
+        const adsEl = document.getElementById('pulse-ads');
+        const trackEl = document.getElementById('pulse-trackers');
+        const dataEl = document.getElementById('pulse-data');
+        const timeEl = document.getElementById('pulse-time');
+        
+        if(adsEl) adsEl.textContent = s.adsBlocked;
+        if(trackEl) trackEl.textContent = s.trackersBlocked;
+        if(dataEl) dataEl.textContent = formatBytes(s.dataSavedKB * 1024);
+        if(timeEl) timeEl.textContent = formatTime(Math.max(0, Date.now() - (s.sessionStart || Date.now())));
     }
 
     // ============================================================
@@ -1305,16 +1411,109 @@
         dom.tabStrip.addEventListener('wheel', (e) => { e.preventDefault(); dom.tabStrip.scrollLeft += e.deltaY; }, { passive: false });
 
         dom.urlInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { navigate(dom.urlInput.value); dom.urlAutocomplete.style.display = 'none'; }
-            if (e.key === 'Escape') { dom.urlInput.blur(); dom.urlAutocomplete.style.display = 'none'; }
+            const items = dom.urlSuggestions.querySelectorAll('.suggestion-item');
+            if (e.key === 'ArrowDown') {
+                if (dom.urlSuggestions.style.display !== 'none') {
+                    e.preventDefault();
+                    _suggestIndex = Math.min(_suggestIndex + 1, items.length - 1);
+                    updateSuggestSelection(items);
+                }
+            } else if (e.key === 'ArrowUp') {
+                if (dom.urlSuggestions.style.display !== 'none') {
+                    e.preventDefault();
+                    _suggestIndex = Math.max(_suggestIndex - 1, -1);
+                    updateSuggestSelection(items);
+                }
+            } else if (e.key === 'Enter') {
+                if (_suggestIndex >= 0 && items[_suggestIndex]) {
+                    e.preventDefault();
+                    navigate(items[_suggestIndex].dataset.val);
+                    hideUrlSuggestions();
+                } else {
+                    navigate(dom.urlInput.value);
+                    hideUrlSuggestions();
+                }
+            } else if (e.key === 'Escape') {
+                dom.urlInput.blur();
+                hideUrlSuggestions();
+            }
         });
+        
+        let _suggestTimer;
+        let _suggestIndex = -1;
+
         dom.urlInput.addEventListener('input', () => {
             dom.urlClear.style.display = dom.urlInput.value ? 'flex' : 'none';
-            showAutocomplete(dom.urlInput.value);
+            const val = dom.urlInput.value.trim();
+            clearTimeout(_suggestTimer);
+            if (!val) {
+                hideUrlSuggestions();
+                return;
+            }
+            _suggestTimer = setTimeout(async () => {
+                if (window.mauzer && window.mauzer.search) {
+                    try {
+                        const results = await window.mauzer.search.suggest(val);
+                        renderUrlSuggestions(results);
+                    } catch (e) {
+                        hideUrlSuggestions();
+                    }
+                }
+            }, 150);
         });
-        dom.urlInput.addEventListener('focus', () => dom.urlInput.select());
-        dom.urlInput.addEventListener('blur', () => setTimeout(() => { dom.urlAutocomplete.style.display = 'none'; }, 200));
-        dom.urlClear.addEventListener('click', () => { dom.urlInput.value = ''; dom.urlInput.focus(); });
+
+        dom.urlInput.addEventListener('focus', () => {
+            dom.urlInput.select();
+            if (dom.urlInput.value.trim()) dom.urlInput.dispatchEvent(new Event('input'));
+        });
+        
+        dom.urlInput.addEventListener('blur', (e) => {
+            // Delay hide to allow click
+            setTimeout(() => hideUrlSuggestions(), 200);
+        });
+
+        function updateSuggestSelection(items) {
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === _suggestIndex);
+                if (i === _suggestIndex) {
+                    // Optional: update input value but keep original query somewhere?
+                    // For now just highlight
+                }
+            });
+        }
+
+        function renderUrlSuggestions(list) {
+            if (!list || !list.length) {
+                hideUrlSuggestions();
+                return;
+            }
+            dom.urlSuggestions.innerHTML = list.map(text => `
+                <li class="suggestion-item" data-val="${text.replace(/"/g, '&quot;')}">
+                    <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-right:10px;opacity:0.6">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span>${text}</span>
+                </li>
+            `).join('');
+            dom.urlSuggestions.style.display = 'block';
+            _suggestIndex = -1;
+        }
+
+        function hideUrlSuggestions() {
+            dom.urlSuggestions.style.display = 'none';
+            _suggestIndex = -1;
+        }
+
+        dom.urlSuggestions.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item');
+            if (item) {
+                navigate(item.dataset.val);
+                hideUrlSuggestions();
+            }
+        });
+
+        dom.urlClear.addEventListener('click', () => { dom.urlInput.value = ''; dom.urlInput.focus(); hideUrlSuggestions(); });
 
         dom.urlCopy.addEventListener('click', () => { navigator.clipboard.writeText(dom.urlInput.value || ''); toast('URL скопирован'); });
         dom.urlQr.addEventListener('click', showQrCode);
@@ -1558,6 +1757,57 @@
     setInterval(() => { if (performance.memory) dom.statusRam.textContent = 'RAM: ' + formatBytes(performance.memory.usedJSHeapSize); }, 5000);
 
     // ============================================================
+    // ============================================================
+    // SESSION RESTORE
+    // ============================================================
+    let _saveSessionTimer = null;
+    function saveSessionState() {
+        if (state.isIncognitoWindow) return;
+        
+        clearTimeout(_saveSessionTimer);
+        _saveSessionTimer = setTimeout(() => {
+            const tabsToSave = state.tabs.map(t => ({
+                url: t.url,
+                title: t.title,
+                pinned: t.pinned,
+                favicon: t.favicon,
+                active: t.id === state.activeTabId
+            }));
+            window.mauzer.sessions.saveCurrent(tabsToSave);
+        }, 1000);
+    }
+
+    async function restoreSessionState() {
+        if (state.isIncognitoWindow) return false;
+        
+        try {
+            const sessionTabs = await window.mauzer.sessions.loadCurrent();
+            if (!sessionTabs || !Array.isArray(sessionTabs) || sessionTabs.length === 0) return false;
+            
+            const shouldRestore = state.settings.restoreSession;
+            
+            let restoredCount = 0;
+            for (const t of sessionTabs) {
+                if (shouldRestore || t.pinned) {
+                    createTab(t.url, { title: t.title, pinned: t.pinned, allowDuplicateHome: true });
+                    restoredCount++;
+                }
+            }
+            
+            if (restoredCount > 0) {
+                const activeTab = sessionTabs.find(t => t.active);
+                // We could try to switch to the active tab here if needed
+                // But for now, just returning true is enough
+            }
+            
+            return restoredCount > 0;
+        } catch (e) {
+            console.error('Session restore failed:', e);
+            return false;
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     async function init() {
@@ -1566,7 +1816,14 @@
             state.settings.searchEngine = 'google';
             await window.mauzer.settings.save(state.settings);
         }
-        try { _preloadPath = await window.mauzer.app.getPreloadPath(); } catch (e) { }
+        try { 
+            _preloadPath = await window.mauzer.app.getPreloadPath(); 
+        } catch (e) { 
+            console.error('Failed to get preload path:', e);
+            const current = window.location.pathname.replace(/\\/g, '/');
+            const root = current.substring(0, current.lastIndexOf('/src/'));
+            if (root) _preloadPath = root + '/preload.js';
+        }
         try {
             const info = await window.mauzer.app.getInfo();
             if (dom.statusVersion) {
@@ -1582,7 +1839,13 @@
         }
         bindEvents();
         await initIntro();
-        createTab();
+        
+        // Restore session or create new tab
+        const restored = await restoreSessionState();
+        if (!restored) {
+            createTab();
+        }
+        
         updateWebviewSize();
         setInterval(updatePulse, 10000);
     }

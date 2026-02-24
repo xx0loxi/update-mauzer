@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('mauzer', {
         get: () => ipcRenderer.invoke('sessions:get'),
         save: (name, tabs) => ipcRenderer.invoke('sessions:save', name, tabs),
         delete: (id) => ipcRenderer.invoke('sessions:delete', id),
+        saveCurrent: (tabs) => ipcRenderer.invoke('sessions:saveCurrent', tabs),
+        loadCurrent: () => ipcRenderer.invoke('sessions:loadCurrent'),
     },
 
     // --- Quick Links ---
@@ -119,6 +121,8 @@ contextBridge.exposeInMainWorld('mauzer', {
     pulse: {
         getStats: () => ipcRenderer.invoke('pulse:getStats'),
         resetStats: () => ipcRenderer.invoke('pulse:resetStats'),
+        toggle: (enabled) => ipcRenderer.invoke('pulse:toggle', enabled),
+        getState: () => ipcRenderer.invoke('pulse:get-state'),
         onUpdate: (cb) => ipcRenderer.on('pulse-stats-update', (_, d) => cb(d)),
     },
 
@@ -126,6 +130,11 @@ contextBridge.exposeInMainWorld('mauzer', {
     config: {
         load: () => ipcRenderer.invoke('config:load'),
         save: (data) => ipcRenderer.invoke('config:save', data),
+    },
+
+    // --- Search ---
+    search: {
+        suggest: (query) => ipcRenderer.invoke('search:suggest', query),
     },
 
     // --- Actions ---

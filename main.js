@@ -2,7 +2,7 @@
 // MAUZER BROWSER — Main Process (v2.0 — 103 Features)
 // ============================================================
 
-const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -33,12 +33,20 @@ try {
 } catch (e) { }
 
 // --- Fingerprint Evasion ---
-const CHROME_VERSION = '133.0.0.0';
+const CHROME_VERSION = '124.0.6367.207';
 const SPOOFED_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
 
 // Strip Electron/Mauzer from the default user agent at the app level
 // This is critical for Google login — Google checks the UA and blocks Electron apps
 app.userAgentFallback = SPOOFED_UA;
+
+// --- CRITICAL: Disable Automation Control ---
+// This flag is the #1 reason Google blocks Electron logins.
+// It tells websites that the browser is being controlled by automation (like Selenium).
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+// Other helpful flags for stealth
+app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors,WebAuthentication');
+app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 // --- Globals ---
 let mainWindow = null;
@@ -516,10 +524,13 @@ function trackUsage(url, seconds) {
 // AD & TRACKER BLOCKER
 // ============================================================
 const BLOCKED_DOMAINS = [
+  // Google
   'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
   'google-analytics.com', 'googletagmanager.com', 'googletagservices.com',
-  'pagead2.googlesyndication.com', 'adservice.google.com',
-  'connect.facebook.net', 'pixel.facebook.com', 'an.facebook.com',
+  'pagead2.googlesyndication.com', 'adservice.google.com', 'ads.google.com',
+  // Facebook
+  'connect.facebook.net', 'pixel.facebook.com', 'an.facebook.com', 'analytics.facebook.com',
+  // Ad Networks
   'adnxs.com', 'adsrvr.org', 'adform.net', 'adcolony.com',
   'amazon-adsystem.com', 'media.net', 'outbrain.com', 'taboola.com',
   'criteo.com', 'criteo.net', 'rubiconproject.com', 'pubmatic.com',
@@ -529,19 +540,27 @@ const BLOCKED_DOMAINS = [
   'exelator.com', 'demdex.net', 'krxd.net', 'liadm.com', 'tapad.com',
   'moatads.com', 'doubleverify.com', 'adsafeprotected.com',
   'serving-sys.com', 'sizmek.com', 'flashtalking.com',
-  'an.yandex.ru', 'yandexadexchange.net', 'mc.yandex.ru',
-  'ad.mail.ru', 'target.my.com', 'top-fwz1.mail.ru',
-  // Yandex browser/pack distribution (hijacks downloads)
-  'browser.yandex.ru', 'dl.browser.yandex.ru', 'downloader.yandex.ru',
-  'distribution.yandex.ru', 'soft.yandex.ru', 'clck.yandex.ru',
-  'yandex.ru/soft', 'redirect.appmetrica.yandex.com',
-  'appmetrica.yandex.com', 'yandexmetrica.com',
-  'amplitude.com', 'hotjar.com', 'fullstory.com', 'mouseflow.com',
-  'luckyorange.com', 'clarity.ms', 'crazyegg.com',
   'popads.net', 'popcash.net', 'propellerads.com',
   'revcontent.com', 'mgid.com', 'addthis.com', 'sharethis.com',
   'ads.yahoo.com', 'advertising.com', 'ad.doubleclick.net',
-  'newrelic.com', 'nr-data.net'
+  'adtech.de', 'adtech.com', 'adtechus.com',
+  'teads.tv', 'zedo.com', 'gumgum.com', 'sovrn.com',
+  // RU/CIS Ad Networks
+  'an.yandex.ru', 'yandexadexchange.net', 'mc.yandex.ru', 'bs.yandex.ru',
+  'ad.mail.ru', 'target.my.com', 'top-fwz1.mail.ru', 'counter.yadro.ru',
+  'tns-counter.ru', 'rambler.ru', 'begun.ru', 'sape.ru',
+  // Yandex Distribution / Hijackers
+  'browser.yandex.ru', 'dl.browser.yandex.ru', 'downloader.yandex.ru',
+  'distribution.yandex.ru', 'soft.yandex.ru', 'clck.yandex.ru',
+  'yandex.ru/soft', 'redirect.appmetrica.yandex.com',
+  // Analytics / Tracking
+  'appmetrica.yandex.com', 'yandexmetrica.com',
+  'amplitude.com', 'hotjar.com', 'fullstory.com', 'mouseflow.com',
+  'luckyorange.com', 'clarity.ms', 'crazyegg.com', 'mixpanel.com',
+  'segment.io', 'segment.com', 'heapanalytics.com', 'inspectlet.com',
+  'newrelic.com', 'nr-data.net', 'sentry.io', 'bugsnag.com',
+  // Social Widgets (often trackers)
+  'platform.twitter.com', 'platform.linkedin.com', 'widgets.pinterest.com'
 ];
 
 const TRACKER_DOMAINS = [
@@ -549,10 +568,12 @@ const TRACKER_DOMAINS = [
   'pixel.facebook.com', 'mc.yandex.ru', 'quantserve.com',
   'scorecardresearch.com', 'bluekai.com', 'demdex.net', 'krxd.net',
   'hotjar.com', 'fullstory.com', 'clarity.ms', 'amplitude.com',
-  'mouseflow.com', 'crazyegg.com'
+  'mouseflow.com', 'crazyegg.com', 'mixpanel.com', 'segment.io',
+  'yandexmetrica.com', 'counter.yadro.ru'
 ];
 
 function isBlockedDomain(hostname) {
+  // Check exact match or subdomain
   return BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
 }
 
@@ -560,8 +581,10 @@ function isTrackerDomain(hostname) {
   return TRACKER_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
 }
 
+let pulseEnabled = true;
+
 function setupAdBlocker() {
-  // Block known Yandex pack loader file patterns
+  // Block specific URL patterns regardless of domain
   const BLOCKED_URL_PATTERNS = [
     /yandex.*pack.*loader/i,
     /yandex.*browser.*setup/i,
@@ -569,9 +592,21 @@ function setupAdBlocker() {
     /yandex_pack/i,
     /\/soft\/download/i,
     /browser\.yandex.*\.exe/i,
+    /google_ads/i,
+    /doubleclick/i,
+    /ad_status/i,
+    /ads\?/i,
+    /pagead/i,
+    /\/ads\.js/i,
+    /\/ad\.js/i
   ];
 
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    if (!pulseEnabled) {
+      callback({});
+      return;
+    }
+
     try {
       const url = new URL(details.url);
       // Block by domain
@@ -605,10 +640,10 @@ function setupAdBlocker() {
 function getAntiDetectScript() {
   return `
     try {
-      // Anti-detect: hide Electron/webdriver traces so Google allows login
+      // 1. Hide WebDriver
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-      // Fake chrome object to look like a real Chrome browser
+      
+      // 2. Mock Chrome Object (More detailed)
       if (!window.chrome) window.chrome = {};
       if (!window.chrome.runtime) {
         window.chrome.runtime = {
@@ -622,12 +657,25 @@ function getAntiDetectScript() {
         };
       }
       if (!window.chrome.app) {
-        window.chrome.app = { isInstalled: false, InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }, RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' } };
+        window.chrome.app = { 
+          isInstalled: false, 
+          InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }, 
+          RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' } 
+        };
       }
+      // Add more fake chrome props
       if (!window.chrome.csi) window.chrome.csi = function() { return {}; };
       if (!window.chrome.loadTimes) window.chrome.loadTimes = function() { return {}; };
 
-      // Override userAgentData to match real Chrome ${CHROME_VERSION}
+      // 3. Mock Permissions (Notification check often reveals Electron)
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters) => (
+        parameters.name === 'notifications' ?
+          Promise.resolve({ state: Notification.permission }) :
+          originalQuery(parameters)
+      );
+
+      // 4. Override User Agent Data (Client Hints)
       if (navigator.userAgentData) {
         Object.defineProperty(navigator, 'userAgentData', {
           get: () => ({
@@ -651,7 +699,7 @@ function getAntiDetectScript() {
                 mobile: false,
                 model: '',
                 platform: 'Windows',
-                platformVersion: '15.0.0',
+                platformVersion: '10.0.0',
                 uaFullVersion: '${CHROME_VERSION}'
               });
             }
@@ -659,13 +707,13 @@ function getAntiDetectScript() {
         });
       }
 
-      // Remove Electron-specific globals
+      // 5. Hide Electron Globals
       delete window.process;
       delete window.require;
       delete window.__electron_preload;
       delete window.Buffer;
-
-      // Patch navigator.plugins to look like Chrome
+      
+      // 6. Mock Plugins
       Object.defineProperty(navigator, 'plugins', {
         get: () => {
           const plugins = [
@@ -679,9 +727,10 @@ function getAntiDetectScript() {
           return plugins;
         }
       });
-
-      // Patch navigator.languages
+      
+      // 7. Mock Languages
       Object.defineProperty(navigator, 'languages', { get: () => ['ru-RU', 'ru', 'en-US', 'en'] });
+      
     } catch(e) {}
   `;
 }
@@ -716,13 +765,19 @@ function openGoogleLoginPopup(url, webviewContents) {
       sandbox: true,
       // Use the same session so cookies are shared with webviews
       partition: undefined,
+      // CRITICAL: Use dedicated preload script for early evasion
+      preload: path.join(__dirname, 'src', 'login_preload.js')
     },
     icon: path.join(__dirname, 'icon_black.png'),
   });
 
   loginWin.setMenuBarVisibility(false);
   loginWin.webContents.setUserAgent(SPOOFED_UA);
-  loginWin.loadURL(url);
+
+  // --- CRITICAL: Spoof Headers for Login Window ---
+  // Since it uses default session, the global onBeforeSendHeaders should apply,
+  // BUT we must ensure the User-Agent is set correctly on load.
+  loginWin.loadURL(url, { userAgent: SPOOFED_UA });
 
   // When Google login finishes, it will redirect to the original service
   // Detect when we leave accounts.google.com = login complete
@@ -730,8 +785,8 @@ function openGoogleLoginPopup(url, webviewContents) {
     try {
       const u = new URL(navUrl);
       // If navigated away from Google login pages, login is complete
-      if (u.hostname !== 'accounts.google.com' && u.hostname !== 'accounts.youtube.com' &&
-        u.hostname !== 'myaccount.google.com' && !u.hostname.endsWith('.google.com')) {
+      // We only keep the popup open for accounts.google.com (auth flow)
+      if (u.hostname !== 'accounts.google.com' && u.hostname !== 'accounts.youtube.com') {
         // Login complete — redirect webview to final URL and close popup
         if (webviewContents && !webviewContents.isDestroyed()) {
           webviewContents.loadURL(navUrl);
@@ -746,8 +801,7 @@ function openGoogleLoginPopup(url, webviewContents) {
     try {
       const u = new URL(navUrl);
       // If we're back on a non-Google page, login is done
-      if (!u.hostname.endsWith('google.com') && !u.hostname.endsWith('youtube.com') &&
-        !u.hostname.endsWith('googleapis.com') && !u.hostname.endsWith('gstatic.com')) {
+      if (u.hostname !== 'accounts.google.com' && u.hostname !== 'accounts.youtube.com') {
         if (webviewContents && !webviewContents.isDestroyed()) {
           webviewContents.loadURL(navUrl);
         }
@@ -896,10 +950,10 @@ function setupAntiFingerprint() {
     delete headers['X-Electron'];
     // Set Chrome-like headers
     headers['User-Agent'] = SPOOFED_UA;
-    headers['sec-ch-ua'] = `"Chromium";v="133", "Google Chrome";v="133", "Not_A Brand";v="24"`;
+    headers['sec-ch-ua'] = `"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"`;
     headers['sec-ch-ua-mobile'] = '?0';
     headers['sec-ch-ua-platform'] = '"Windows"';
-    headers['sec-ch-ua-full-version-list'] = `"Chromium";v="${CHROME_VERSION}", "Google Chrome";v="${CHROME_VERSION}", "Not_A Brand";v="24.0.0.0"`;
+    headers['sec-ch-ua-full-version-list'] = `"Chromium";v="${CHROME_VERSION}", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="${CHROME_VERSION}"`;
     if (settings.doNotTrack) headers['DNT'] = '1';
     callback({ requestHeaders: headers });
   });
@@ -1225,11 +1279,32 @@ ipcMain.handle('history:get', (_, query) => query ? searchHistory(query) : getHi
 ipcMain.handle('history:add', (_, entry) => { addHistoryEntry(entry); return true; });
 ipcMain.handle('history:clear', () => { clearHistory(); return true; });
 ipcMain.handle('history:remove', (_, id) => { removeHistoryEntry(id); return true; });
-ipcMain.handle('history:search', (_, query) => searchHistory(query));
-
-// --- Downloads ---
+ipcMain.handle('history:search', (_, query) => searchHistory(query));// --- Downloads ---
 ipcMain.handle('downloads:get', () => getDownloads());
 ipcMain.handle('downloads:clear', () => { clearDownloads(); return true; });
+
+// --- Pulse ---
+ipcMain.handle('pulse:toggle', (_, enabled) => {
+  pulseEnabled = !!enabled;
+  return pulseEnabled;
+});
+ipcMain.handle('pulse:get-state', () => pulseEnabled);
+
+// --- Search ---
+ipcMain.handle('search:suggest', async (_, query) => {
+  if (!query) return [];
+  try {
+    const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json[1] || [];
+  } catch (e) {
+    console.error('Search suggest error:', e);
+    return [];
+  }
+});
+
+// --- Downloads Actions ---
 ipcMain.handle('downloads:open', (_, filepath) => { shell.openPath(filepath); });
 ipcMain.handle('downloads:showInFolder', (_, filepath) => { shell.showItemInFolder(filepath); });
 ipcMain.handle('downloads:openFolder', () => { shell.openPath(app.getPath('downloads')); });
@@ -1243,6 +1318,17 @@ ipcMain.handle('bookmarks:remove', (_, id) => removeBookmark(id));
 ipcMain.handle('sessions:get', () => getSessions());
 ipcMain.handle('sessions:save', (_, name, tabs) => saveSession(name, tabs));
 ipcMain.handle('sessions:delete', (_, id) => deleteSession(id));
+
+function saveCurrentSession(tabs) {
+  writeJSON('current-session.json', tabs);
+}
+
+function loadCurrentSession() {
+  return readJSON('current-session.json', []);
+}
+
+ipcMain.handle('sessions:saveCurrent', (_, tabs) => { saveCurrentSession(tabs); return true; });
+ipcMain.handle('sessions:loadCurrent', () => loadCurrentSession());
 
 // --- Quick Links ---
 ipcMain.handle('quicklinks:get', () => getQuickLinks());
