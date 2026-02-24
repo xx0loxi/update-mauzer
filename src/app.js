@@ -94,8 +94,6 @@
         document.getElementById('btn-new-tab')?.setAttribute('title', t('newTab') + ' (Ctrl+T)');
         document.getElementById('btn-fs-toggle')?.setAttribute('title', t('toggleMenu'));
         document.getElementById('tab-counter')?.setAttribute('title', t('tabCount'));
-        const introVer = document.getElementById('intro-version');
-        if (introVer && _introVersion) introVer.textContent = `v${_introVersion}`;
     }
 
     const dom = {
@@ -1121,13 +1119,14 @@
         const theme = s.theme || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
 
-        // Update theme on already-open internal pages (newtab, settings)
+        // Update theme on already-open internal pages (newtab, settings, etc.)
         state.tabs.forEach(tab => {
             const wv = document.getElementById('wv-' + tab.id);
             if (wv) {
                 try {
                     const url = wv.getURL ? wv.getURL() : (wv.src || '');
-                    if (url.includes('newtab.html') || url.includes('settings.html')) {
+                    // Apply to all local file:// pages (newtab, settings, incognito, import, etc.)
+                    if (url.startsWith('file://') || url.startsWith('mauzer://')) {
                         wv.executeJavaScript(`
                             document.documentElement.setAttribute('data-theme', '${theme}');
                         `).catch(() => { });
@@ -1164,13 +1163,19 @@
     window.mauzer.settings.onChanged((newSettings) => {
         state.settings = newSettings;
         applySettings();
-        // Subtle hint instead of toast (settings page already shows its own)
         const hint = document.createElement('div');
         hint.textContent = 'Настройки Применены';
+        const isLight = (state.settings.theme || '').toLowerCase() === 'light';
         Object.assign(hint.style, {
             position: 'fixed', top: '96px', right: '16px',
-            color: 'rgba(255,255,255,0.3)', fontSize: '12px',
-            fontWeight: '400', letterSpacing: '0.3px',
+            padding: '6px 10px',
+            borderRadius: '10px',
+            background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(18,18,18,0.85)',
+            border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.08)',
+            color: isLight ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.6)',
+            fontSize: '12px',
+            fontWeight: '500',
+            letterSpacing: '0.2px',
             pointerEvents: 'none', zIndex: '9000',
             animation: 'toast-in 0.3s ease-out, toast-out 0.3s ease 1.5s forwards'
         });
@@ -1267,13 +1272,18 @@
     function showIntro(version) {
         if (state.introShown) return;
         _introVersion = version || '';
-        const verEl = document.getElementById('intro-version');
-        if (verEl) verEl.textContent = _introVersion ? `v${_introVersion}` : '';
         if (dom.introSkip) dom.introSkip.textContent = t('skip');
+        const introUrl = new URL('../MAUZER PREVIEW.mp4', window.location.href).href;
+        if (dom.introVideo) {
+            dom.introVideo.src = introUrl;
+            dom.introVideo.currentTime = 0;
+            dom.introVideo.onended = hideIntro;
+            dom.introVideo.play().catch(() => { });
+        }
         dom.introOverlay?.classList.add('show');
         dom.introSkip?.classList.add('show');
         if (_introTimer) clearTimeout(_introTimer);
-        _introTimer = setTimeout(() => hideIntro(), 2600);
+        _introTimer = setTimeout(() => hideIntro(), 15000);
         dom.introSkip?.addEventListener('click', hideIntro, { once: true });
     }
 

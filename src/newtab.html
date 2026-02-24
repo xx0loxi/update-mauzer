@@ -144,27 +144,12 @@
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask-composite: exclude;
             padding: 2px;
-            animation: neon-flash 2.4s ease-in-out infinite;
+            animation: neon-sweep 2.8s linear infinite;
         }
 
-        @keyframes neon-flash {
-            0% {
-                background-position: -100% 0;
-                opacity: 0.2;
-            }
-
-            15% {
-                opacity: 1;
-            }
-
-            85% {
-                opacity: 1;
-            }
-
-            100% {
-                background-position: 200% 0;
-                opacity: 0.2;
-            }
+        @keyframes neon-sweep {
+            0% { background-position: -100% 0; opacity: 0.4; }
+            100% { background-position: 200% 0; opacity: 0.4; }
         }
 
         .search-bar::placeholder {
@@ -195,7 +180,7 @@
             flex-direction: column;
             align-items: center;
             gap: 10px;
-            padding: 20px 12px;
+            padding: 24px 12px 20px;
             border-radius: 16px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.04);
@@ -213,21 +198,21 @@
 
         .quick-link-menu-btn {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 20px;
-            height: 20px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(0, 0, 0, 0.35);
-            color: rgba(255, 255, 255, 0.8);
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(12, 12, 12, 0.65);
+            color: rgba(255, 255, 255, 0.75);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 15px;
             line-height: 1;
             opacity: 0;
-            transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
             cursor: pointer;
         }
 
@@ -236,8 +221,9 @@
         }
 
         .quick-link-menu-btn:hover {
-            background: rgba(0, 0, 0, 0.55);
+            background: rgba(20, 20, 20, 0.85);
             border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
         }
 
         .quicklink-menu {
@@ -319,8 +305,8 @@
         /* === LIGHT THEME === */
         [data-theme="light"] body,
         [data-theme="light"] {
-            background: #e4e4e2;
-            color: rgba(0, 0, 0, 0.8);
+            background: #f5f5f3;
+            color: rgba(0, 0, 0, 0.86);
         }
 
         [data-theme="light"] .glow {
@@ -332,21 +318,21 @@
         }
 
         [data-theme="light"] .search-bar {
-            background: rgba(0, 0, 0, 0.04);
-            border-color: rgba(0, 0, 0, 0.08);
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.1);
             color: #222;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
         }
 
         [data-theme="light"] .search-bar:hover {
-            border-color: rgba(0, 0, 0, 0.15);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border-color: rgba(0, 0, 0, 0.16);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
         }
 
         [data-theme="light"] .search-bar:focus {
-            background: rgba(0, 0, 0, 0.02);
+            background: #ffffff;
             border-color: rgba(0, 0, 0, 0.2);
-            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 36px rgba(0, 0, 0, 0.12);
         }
 
         [data-theme="light"] .search-bar::placeholder {
@@ -358,25 +344,25 @@
         }
 
         [data-theme="light"] .quick-link {
-            background: rgba(0, 0, 0, 0.03);
-            border-color: rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.08);
         }
 
         [data-theme="light"] .quick-link:hover {
-            background: rgba(0, 0, 0, 0.06);
-            border-color: rgba(0, 0, 0, 0.1);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.12);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
         }
 
         [data-theme="light"] .quick-link-icon {
-            background: rgba(0, 0, 0, 0.05);
+            background: rgba(0, 0, 0, 0.04);
         }
 
         [data-theme="light"] .quick-link-title {
             color: rgba(0, 0, 0, 0.55);
         }
         [data-theme="light"] .quick-link-menu-btn {
-            background: rgba(0, 0, 0, 0.05);
+            background: rgba(255, 255, 255, 0.9);
             border-color: rgba(0, 0, 0, 0.12);
             color: rgba(0, 0, 0, 0.7);
         }

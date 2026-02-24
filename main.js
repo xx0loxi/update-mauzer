@@ -878,15 +878,15 @@ function setupAntiFingerprint() {
         }
       }
 
-      // Native dark mode signal - User wants websites to always be dark
-      nativeTheme.themeSource = 'dark';
+      // Native dark mode signal
+  nativeTheme.themeSource = settings.theme || 'dark';
 
-      // Smooth scroll injection
-      if (settings.smoothScroll) {
-        wc.insertCSS(`html { scroll-behavior: smooth !important; }`).catch(() => { });
-      }
-    });
-  });
+  // Smooth scroll injection
+  if (settings.smoothScroll) {
+    wc.insertCSS(`html { scroll-behavior: smooth !important; }`).catch(() => { });
+  }
+});
+});
 
   // Headers: clean up Electron-specific headers but keep real Chrome headers
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
@@ -1189,9 +1189,26 @@ ipcMain.handle('window:newIncognito', () => {
 });
 
 // --- Settings ---
+async function applyThemeToWeb(settings) {
+  nativeTheme.themeSource = settings.theme || 'dark';
+
+  const ses = session.defaultSession;
+  try {
+    if (settings.theme === 'dark') {
+      await ses.cookies.set({ url: 'https://www.youtube.com', name: 'PREF', value: 'f6=400', domain: '.youtube.com', path: '/' });
+      await ses.cookies.set({ url: 'https://www.google.com', name: 'PREF', value: 'f6=400', domain: '.google.com', path: '/' });
+    } else {
+      // Remove dark mode cookies for light theme
+      await ses.cookies.remove('https://www.youtube.com', 'PREF');
+      await ses.cookies.remove('https://www.google.com', 'PREF');
+    }
+  } catch (e) { }
+}
+
 ipcMain.handle('settings:load', () => loadSettings());
 ipcMain.handle('settings:save', (_, data) => {
   saveSettings(data);
+  applyThemeToWeb(data);
   // Notify ALL windows that settings changed so they can reload
   windows.forEach(w => {
     if (w && !w.isDestroyed()) {
@@ -1556,13 +1573,8 @@ app.name = 'Mauzer';
 app.setAppUserModelId('com.mauzer.browser');
 
 app.whenReady().then(async () => {
-  // Set native theme to dark
-  nativeTheme.themeSource = 'dark';
-
-  // Set YouTube dark mode cookie
-  const ses = session.defaultSession;
-  await ses.cookies.set({ url: 'https://www.youtube.com', name: 'PREF', value: 'f6=400', domain: '.youtube.com', path: '/' });
-  await ses.cookies.set({ url: 'https://www.google.com', name: 'PREF', value: 'f6=400', domain: '.google.com', path: '/' });
+  // Apply theme settings
+  await applyThemeToWeb(loadSettings());
 
   createWindow();
   setupAutoUpdate();

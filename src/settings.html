@@ -25,8 +25,8 @@
 
         [data-theme="light"],
         [data-theme="light"] body {
-            background: #e4e4e2;
-            color: rgba(0, 0, 0, 0.8);
+            background: #f5f5f3;
+            color: rgba(0, 0, 0, 0.86);
         }
 
         [data-theme="light"] .section-title {
@@ -42,8 +42,13 @@
             color: rgba(0, 0, 0, 0.4);
         }
 
+        [data-theme="light"] .setting-row {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
         [data-theme="light"] .setting-row:hover {
-            background: rgba(0, 0, 0, 0.03);
+            background: #fafafa;
+            border-color: rgba(0, 0, 0, 0.1);
         }
 
         [data-theme="light"] select {
@@ -58,7 +63,12 @@
         }
 
         [data-theme="light"] .toggle {
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        [data-theme="light"] .toggle.active {
+            background: #2f2f2f;
+            border-color: #2f2f2f;
         }
 
         [data-theme="light"] .color-dot.active {
@@ -67,12 +77,23 @@
         }
 
         [data-theme="light"] .btn-danger {
-            background: rgba(248, 113, 113, 0.08);
+            background: rgba(248, 113, 113, 0.12);
+            border-color: rgba(248, 113, 113, 0.25);
+        }
+        [data-theme="light"] .btn-secondary {
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.1);
+            color: rgba(0, 0, 0, 0.7);
+        }
+        [data-theme="light"] .btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.04);
         }
 
         [data-theme="light"] .toast {
-            background: #333;
-            color: #fff;
+            background: #ffffff;
+            color: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
 
         .settings-page {
@@ -111,6 +132,10 @@
             margin-bottom: 12px;
             padding-bottom: 8px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        [data-theme="light"] .section-title {
+            color: rgba(0, 0, 0, 0.45);
+            border-bottom-color: rgba(0, 0, 0, 0.08);
         }
 
         .setting-row {
@@ -153,6 +178,7 @@
             cursor: pointer;
             transition: background 0.2s;
             flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .toggle.active {
@@ -263,6 +289,10 @@
             border-radius: 12px;
             text-align: center;
         }
+        [data-theme="light"] .about-section {
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.08);
+        }
 
         .about-section img {
             width: 48px;
@@ -280,17 +310,21 @@
             font-size: 11px;
             color: rgba(255, 255, 255, 0.3);
         }
+        [data-theme="light"] .about-meta {
+            color: rgba(0, 0, 0, 0.4);
+        }
 
         .toast {
             position: fixed;
             top: 20px;
             right: 24px;
-            padding: 0;
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.35);
-            font-size: 13px;
-            font-weight: 400;
+            padding: 6px 10px;
+            border-radius: 10px;
+            background: rgba(18, 18, 18, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 500;
             letter-spacing: 0.2px;
             animation: fadeInHint 0.3s ease-out, fadeOutHint 0.4s ease 1.5s forwards;
             z-index: 100;
