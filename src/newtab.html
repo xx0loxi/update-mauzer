@@ -190,6 +190,7 @@
         }
 
         .quick-link {
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -208,6 +209,73 @@
             border-color: rgba(255, 255, 255, 0.1);
             transform: translateY(-4px);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        }
+
+        .quick-link-menu-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.35);
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .quick-link:hover .quick-link-menu-btn {
+            opacity: 1;
+        }
+
+        .quick-link-menu-btn:hover {
+            background: rgba(0, 0, 0, 0.55);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .quicklink-menu {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 140px;
+            padding: 6px;
+            background: rgba(18, 18, 18, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 30;
+        }
+
+        .quicklink-menu.show {
+            display: flex;
+        }
+
+        .quicklink-menu-item {
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .quicklink-menu-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
         }
 
         .quick-link-icon {
@@ -306,6 +374,22 @@
 
         [data-theme="light"] .quick-link-title {
             color: rgba(0, 0, 0, 0.55);
+        }
+        [data-theme="light"] .quick-link-menu-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.12);
+            color: rgba(0, 0, 0, 0.7);
+        }
+        [data-theme="light"] .quicklink-menu {
+            background: rgba(245, 245, 245, 0.98);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+        [data-theme="light"] .quicklink-menu-item {
+            color: rgba(0, 0, 0, 0.8);
+        }
+        [data-theme="light"] .quicklink-menu-item:hover {
+            background: rgba(0, 0, 0, 0.08);
+            color: rgba(0, 0, 0, 0.9);
         }
         [data-theme="light"] .quick-link-add {
             border-color: rgba(0, 0, 0, 0.15);
@@ -464,6 +548,9 @@
         </div>
 
         <div class="quick-links" id="quick-links"></div>
+        <div class="quicklink-menu" id="quicklink-menu">
+            <button type="button" class="quicklink-menu-item" id="quicklink-delete">Удалить</button>
+        </div>
     </div>
 
     <div class="modal" id="add-modal">
@@ -492,6 +579,9 @@
         ];
 
         let quickLinks = [];
+        let quicklinkMenuIndex = -1;
+        const quicklinkMenu = document.getElementById('quicklink-menu');
+        const quicklinkDelete = document.getElementById('quicklink-delete');
         const addModal = document.getElementById('add-modal');
         const addUrlInput = document.getElementById('add-url');
         const addTitleInput = document.getElementById('add-title');
@@ -523,6 +613,8 @@
                 const a = document.createElement('a');
                 a.className = 'quick-link';
                 a.href = link.url;
+                a.setAttribute('draggable', 'true');
+                a.dataset.index = String(index);
                 const hostname = new URL(link.url).hostname;
                 a.innerHTML = `
           <div class="quick-link-icon">
@@ -530,25 +622,32 @@
               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
           </div>
           <span class="quick-link-title">${link.title}</span>
+          <button class="quick-link-menu-btn" type="button">⋯</button>
         `;
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
                     window.location.href = link.url;
                 });
-                a.addEventListener('contextmenu', async (e) => {
-                    e.preventDefault();
-                    quickLinks = quickLinks.filter((_, i) => i !== index);
-                    if (window.mauzer?.quicklinks?.save) {
-                        await window.mauzer.quicklinks.save(quickLinks);
-                    }
-                    renderLinks(quickLinks);
-                });
+                a.addEventListener('contextmenu', (e) => e.preventDefault());
+                const menuBtn = a.querySelector('.quick-link-menu-btn');
+                if (menuBtn) {
+                    menuBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showQuicklinkMenu(index, menuBtn);
+                    });
+                }
+                a.addEventListener('dragstart', (e) => onDragStart(e, index));
+                a.addEventListener('dragover', (e) => onDragOver(e, index));
+                a.addEventListener('drop', (e) => onDrop(e, index));
+                a.addEventListener('dragend', () => clearDragState());
                 container.appendChild(a);
             });
 
             const add = document.createElement('button');
             add.type = 'button';
             add.className = 'quick-link quick-link-add';
+            add.setAttribute('draggable', 'false');
             add.innerHTML = `
           <div class="quick-link-icon">+</div>
           <span class="quick-link-title">Добавить</span>
@@ -577,6 +676,61 @@
         }
 
         loadLinks();
+
+        function showQuicklinkMenu(index, anchorEl) {
+            quicklinkMenuIndex = index;
+            const rect = anchorEl.getBoundingClientRect();
+            quicklinkMenu.style.left = Math.max(12, rect.right - 140) + 'px';
+            quicklinkMenu.style.top = rect.bottom + 6 + 'px';
+            quicklinkMenu.classList.add('show');
+        }
+
+        function hideQuicklinkMenu() {
+            quicklinkMenuIndex = -1;
+            quicklinkMenu.classList.remove('show');
+        }
+
+        quicklinkDelete.addEventListener('click', async () => {
+            if (quicklinkMenuIndex < 0) return;
+            quickLinks = quickLinks.filter((_, i) => i !== quicklinkMenuIndex);
+            if (window.mauzer?.quicklinks?.save) {
+                await window.mauzer.quicklinks.save(quickLinks);
+            }
+            renderLinks(quickLinks);
+            hideQuicklinkMenu();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!quicklinkMenu.contains(e.target)) hideQuicklinkMenu();
+        });
+
+        let dragIndex = -1;
+        function onDragStart(e, index) {
+            dragIndex = index;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(index));
+        }
+        function onDragOver(e, index) {
+            if (index === dragIndex) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+        async function onDrop(e, index) {
+            e.preventDefault();
+            if (dragIndex < 0 || dragIndex === index) return;
+            const next = quickLinks.slice();
+            const [moved] = next.splice(dragIndex, 1);
+            next.splice(index, 0, moved);
+            quickLinks = next;
+            if (window.mauzer?.quicklinks?.save) {
+                await window.mauzer.quicklinks.save(quickLinks);
+            }
+            renderLinks(quickLinks);
+            clearDragState();
+        }
+        function clearDragState() {
+            dragIndex = -1;
+        }
 
         function openAddModal() {
             addUrlInput.value = '';

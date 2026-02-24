@@ -93,12 +93,12 @@ function compareVersions(a, b) {
   return 0;
 }
 
-function fetchGithubReleases() {
+function fetchGithubReleases(useAuth = true) {
   return new Promise((resolve, reject) => {
     const meta = readJSON('update_meta.json', {});
     const etag = meta.etag || '';
     const lastModified = meta.lastModified || '';
-    const token = process.env.GITHUB_TOKEN || '';
+    const token = useAuth ? (process.env.GITHUB_TOKEN || '') : '';
     const req = https.request({
       hostname: 'api.github.com',
       path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
@@ -122,6 +122,11 @@ function fetchGithubReleases() {
         try {
           json = JSON.parse(data || '[]');
         } catch (e) { }
+
+        if (res.statusCode === 401 && useAuth && token) {
+          fetchGithubReleases(false).then(resolve).catch(reject);
+          return;
+        }
 
         if (res.statusCode >= 400) {
           console.log('[UPDATE] GitHub API Error:', res.statusCode, json);
@@ -211,6 +216,7 @@ const DEFAULT_SETTINGS = {
   frostEnabled: true,
   frostTimeout: 30000,
   alwaysOnTop: false,
+  lastIntroVersion: '',
 };
 
 function loadSettings() {

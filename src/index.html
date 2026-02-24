@@ -13,8 +13,14 @@
 
 <body>
 
-    <div id="intro-overlay" class="intro-overlay" style="display:none"></div>
-    <button id="intro-skip" style="display:none"></button>
+    <div id="intro-overlay" class="intro-overlay">
+        <div class="intro-content">
+            <img src="../MAUZER LOGO/7.png" class="intro-logo" alt="Mauzer">
+            <div class="intro-title">Mauzer</div>
+            <div id="intro-version" class="intro-version"></div>
+        </div>
+    </div>
+    <button id="intro-skip" class="intro-skip"></button>
 
     <!-- ============ TOAST CONTAINER ============ -->
     <div id="toast-container" class="toast-container"></div>
@@ -316,7 +322,10 @@
 
         <!-- === STATUS BAR === -->
         <div id="status-bar" class="status-bar">
-            <span id="status-text" class="status-text"></span>
+            <div class="status-left">
+                <span id="status-version" class="status-version"></span>
+                <span id="status-text" class="status-text"></span>
+            </div>
             <div class="status-right">
                 <span id="status-ram" class="status-badge" title="Использование RAM">RAM: --</span>
                 <span id="status-zoom" class="status-badge" title="Масштаб">100%</span>

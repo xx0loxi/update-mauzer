@@ -94,6 +94,8 @@
         document.getElementById('btn-new-tab')?.setAttribute('title', t('newTab') + ' (Ctrl+T)');
         document.getElementById('btn-fs-toggle')?.setAttribute('title', t('toggleMenu'));
         document.getElementById('tab-counter')?.setAttribute('title', t('tabCount'));
+        const introVer = document.getElementById('intro-version');
+        if (introVer && _introVersion) introVer.textContent = `v${_introVersion}`;
     }
 
     const dom = {
@@ -140,6 +142,7 @@
         sidebar: $('#sidebar'),
         sidebarPanel: $('#sidebar-panel'),
         webviewContainer: $('#webview-container'),
+        statusVersion: $('#status-version'),
         statusText: $('#status-text'),
         statusRam: $('#status-ram'),
         statusZoom: $('#status-zoom'),
@@ -224,6 +227,9 @@
 
     let _updateBannerAction = null;
     let _updateBannerMinimized = false;
+    let _manualUpdateAvailable = false;
+    let _introTimer = null;
+    let _introVersion = '';
     function updateLabels() {
         const lang = state.settings.language || 'ru';
         if (lang === 'en') {
@@ -282,6 +288,7 @@
         dom.updateMini?.classList.remove('show');
         _updateBannerAction = null;
         _updateBannerMinimized = false;
+        _manualUpdateAvailable = false;
     }
 
     // ============================================================
@@ -1229,16 +1236,45 @@
     // INTRO
     // ============================================================
     async function initIntro() {
-        // No intro video — skip immediately
-        hideIntro();
+        let version = '';
+        try {
+            const info = await window.mauzer.app.getInfo();
+            version = info?.version || '';
+        } catch (e) { }
+        const lastIntroVersion = state.settings.lastIntroVersion || '';
+        if (!version || version === lastIntroVersion) {
+            hideIntro();
+            return;
+        }
+        showIntro(version);
     }
 
     function hideIntro() {
         if (state.introShown) return;
         state.introShown = true;
-        dom.introOverlay.style.transition = 'opacity 0.5s';
-        dom.introOverlay.style.opacity = '0';
-        setTimeout(() => { dom.introOverlay.style.display = 'none'; }, 500);
+        if (_introTimer) {
+            clearTimeout(_introTimer);
+            _introTimer = null;
+        }
+        dom.introOverlay?.classList.remove('show');
+        dom.introSkip?.classList.remove('show');
+        if (_introVersion && state.settings.lastIntroVersion !== _introVersion) {
+            state.settings.lastIntroVersion = _introVersion;
+            window.mauzer.settings.save(state.settings);
+        }
+    }
+
+    function showIntro(version) {
+        if (state.introShown) return;
+        _introVersion = version || '';
+        const verEl = document.getElementById('intro-version');
+        if (verEl) verEl.textContent = _introVersion ? `v${_introVersion}` : '';
+        if (dom.introSkip) dom.introSkip.textContent = t('skip');
+        dom.introOverlay?.classList.add('show');
+        dom.introSkip?.classList.add('show');
+        if (_introTimer) clearTimeout(_introTimer);
+        _introTimer = setTimeout(() => hideIntro(), 2600);
+        dom.introSkip?.addEventListener('click', hideIntro, { once: true });
     }
 
     // ============================================================
@@ -1408,6 +1444,7 @@
                     const version = d.info?.version || '';
                     const manualUrl = d.info?.manualUrl || '';
                     const isManual = !!manualUrl;
+                    _manualUpdateAvailable = isManual;
                     showUpdateBanner({
                         title: labels.available,
                         subtitle: version ? labels.version(version) : '',
@@ -1431,6 +1468,7 @@
                         }
                     });
                 } else if (d.status === 'downloading') {
+                    _manualUpdateAvailable = false;
                     const pct = Math.max(0, Math.min(100, Math.round(d.percent || 0)));
                     if (_updatePct < 0 || pct === 100 || pct - _updatePct >= 5) {
                         _updatePct = pct;
@@ -1443,6 +1481,7 @@
                     }
                 } else if (d.status === 'downloaded') {
                     _updatePct = -1;
+                    _manualUpdateAvailable = false;
                     const version = d.info?.version || '';
                     showUpdateBanner({
                         title: labels.ready,
@@ -1453,9 +1492,11 @@
                     });
                 } else if (d.status === 'not-available') {
                     _updatePct = -1;
+                    if (_manualUpdateAvailable) return;
                     hideUpdateBanner();
                 } else if (d.status === 'error') {
                     _updatePct = -1;
+                    if (_manualUpdateAvailable) return;
                     hideUpdateBanner();
                     const msg = (d.message || '').toLowerCase();
                     if (msg.includes('unpublish') || msg.includes('not found') || msg.includes('publish')) return;
@@ -1516,6 +1557,12 @@
             await window.mauzer.settings.save(state.settings);
         }
         try { _preloadPath = await window.mauzer.app.getPreloadPath(); } catch (e) { }
+        try {
+            const info = await window.mauzer.app.getInfo();
+            if (dom.statusVersion) {
+                dom.statusVersion.textContent = info?.version ? `v${info.version}` : '';
+            }
+        } catch (e) { }
         applySettings();
         if (window.ResizeObserver) {
             _webviewResizeObserver = new ResizeObserver(() => {
