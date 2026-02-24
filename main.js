@@ -146,7 +146,7 @@ function fetchGithubReleases() {
 }
 
 let lastFallbackCheck = 0;
-const fallbackMinIntervalMs = 30 * 1000;
+const fallbackMinIntervalMs = 5 * 60 * 1000;
 async function checkGithubFallback(currentVersion) {
   const now = Date.now();
   if (now - lastFallbackCheck < fallbackMinIntervalMs) return;
@@ -1498,7 +1498,7 @@ function setupAutoUpdate() {
   autoUpdater.allowPrerelease = true;
   let checking = false;
   let lastCheck = 0;
-  const minIntervalMs = 30 * 1000;
+  const minIntervalMs = 5 * 60 * 1000;
   const runCheck = () => {
     const now = Date.now();
     if (checking) return;
