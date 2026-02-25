@@ -547,10 +547,176 @@ const TRACKER_DOMAINS = [
   'yandexmetrica.com', 'counter.yadro.ru'
 ];
 
-function isBlockedDomain(hostname) {
-  // Check exact match or subdomain
-  return BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+// ============================================================
+// PULSE ADBLOCK ENGINE (V3)
+// ============================================================
+
+class PulseEngine {
+  constructor() {
+    this.domainFilters = new Set(); // Для точных совпадений и ||domain^
+    this.wildcardRegexes = [];      // Для сложных правил с *
+    this.whitelistFilters = new Set(); // Для исключений @@||domain^
+    this.whitelistRegexes = [];        // Для исключений @@...*
+    this.cosmeticSelectors = new Set(); // Для скрытия пустых блоков
+    this.listsLoaded = false;
+  }
+
+  async init() {
+    const lists = [
+      'https://easylist.to/easylist/easylist.txt',
+      'https://easylist.to/easylist/easyprivacy.txt',
+      'https://easylist.to/easylist/fanboy-social.txt',
+      'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt',
+      'https://raw.githubusercontent.com/NoCoin/linter/master/NoCoin.txt'
+    ];
+
+    console.log('[Pulse] Загрузка баз блокировки...');
+    for (const url of lists) {
+      try {
+        const text = await this.fetchList(url);
+        this.parseList(text);
+      } catch (e) {
+        console.error(`[Pulse] Ошибка загрузки ${url}:`, e.message);
+      }
+    }
+    
+    // Компилируем CSS-правила в одну строку
+    const selectors = Array.from(this.cosmeticSelectors).join(', ');
+    if (selectors.length > 0) {
+      this.globalCss = `${selectors} { display: none !important; }`;
+    } else {
+      this.globalCss = '';
+    }
+    
+    this.listsLoaded = true;
+    console.log(`[Pulse] Базы загружены: ${this.domainFilters.size} доменов, ${this.wildcardRegexes.length} масок, Исключений: ${this.whitelistFilters.size}, CSS-правил: ${this.cosmeticSelectors.size}.`);
+  }
+
+  fetchList(url) {
+    return new Promise((resolve, reject) => {
+      https.get(url, (res) => {
+        // Handle redirects if needed, but these URLs usually don't redirect
+        if (res.statusCode !== 200 && res.statusCode !== 301 && res.statusCode !== 302) {
+          reject(new Error(`Status ${res.statusCode}`));
+          return;
+        }
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    });
+  }
+
+  parseList(text) {
+    const lines = text.split('\n');
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('!') || line.startsWith('[')) continue;
+
+      // Cosmetic rules (##)
+      if (line.includes('##')) {
+        const parts = line.split('##');
+        // Обрабатываем только глобальные правила (без домена слева)
+        if (parts[0] === '') { 
+          // Отбрасываем слишком сложные селекторы (с псевдоклассами uBlock/Adblock)
+          const selector = parts[1];
+          if (!selector.includes(':has(') && !selector.includes(':-abp-') && !selector.includes(':upward')) {
+            this.cosmeticSelectors.add(selector);
+          }
+        }
+        continue;
+      }
+
+      // Очищаем правило от опций (все что после $)
+      const ruleBody = line.split('$')[0];
+      if (!ruleBody) continue;
+
+      // Exception rules @@ (Whitelist)
+      if (line.startsWith('@@')) {
+        const pureWhitelist = ruleBody.substring(2); // убираем @@
+        if (pureWhitelist.startsWith('||') && pureWhitelist.endsWith('^') && !pureWhitelist.includes('*') && !pureWhitelist.includes('/')) {
+          this.whitelistFilters.add(pureWhitelist.slice(2, -1));
+        } else {
+          let regexStr = pureWhitelist
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/\\\*/g, '.*')
+            .replace(/^\\\|\\\|/, '^https?://([^/]+\\.)?')
+            .replace(/\\^/g, '([/?#]|$)');
+          try {
+            if (this.whitelistRegexes.length < 2000) {
+              this.whitelistRegexes.push(new RegExp(regexStr, 'i'));
+            }
+          } catch (e) { }
+        }
+        continue;
+      }
+
+      // Domain anchor ||domain.com^
+      if (ruleBody.startsWith('||') && ruleBody.endsWith('^') && !ruleBody.includes('*') && !ruleBody.includes('/')) {
+        const domain = ruleBody.slice(2, -1);
+        this.domainFilters.add(domain);
+        continue;
+      }
+
+      // Wildcard * or complex rules ||domain.com/path*
+      if (ruleBody.includes('*') || ruleBody.startsWith('||') || ruleBody.startsWith('/')) {
+        let regexStr = ruleBody
+          .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Экранируем спецсимволы regex
+          .replace(/\\\*/g, '.*')               // Возвращаем * как .*
+          .replace(/^\\\|\\\|/, '^https?://([^/]+\\.)?') // || означает начало домена
+          .replace(/\\^/g, '([/?#]|$)');        // ^ означает разделитель
+        
+        try {
+          if (this.wildcardRegexes.length < 8000) { // Лимит для производительности
+            this.wildcardRegexes.push(new RegExp(regexStr, 'i'));
+          }
+        } catch (e) { }
+        continue;
+      }
+    }
+  }
+
+  shouldBlock(urlObj, fullUrl) {
+    if (!this.listsLoaded) return false;
+
+    const hostname = urlObj.hostname;
+    const parts = hostname.split('.');
+    
+    // --- 1. ПРОВЕРКА ИСКЛЮЧЕНИЙ (WHITELIST) ---
+    for (let i = 0; i < parts.length - 1; i++) {
+      const domainToTest = parts.slice(i).join('.');
+      if (this.whitelistFilters.has(domainToTest)) {
+        return false; // Разрешено
+      }
+    }
+    for (let i = 0; i < this.whitelistRegexes.length; i++) {
+      if (this.whitelistRegexes[i].test(fullUrl)) {
+        return false; // Разрешено
+      }
+    }
+
+    // --- 2. ПРОВЕРКА БЛОКИРОВОК (BLACKLIST) ---
+    // Быстрый поиск по HashSet (домены)
+    for (let i = 0; i < parts.length - 1; i++) {
+      const domainToTest = parts.slice(i).join('.');
+      if (this.domainFilters.has(domainToTest)) {
+        return true; // Блокировать
+      }
+    }
+
+    // Поиск по маскам (*)
+    for (let i = 0; i < this.wildcardRegexes.length; i++) {
+      if (this.wildcardRegexes[i].test(fullUrl)) {
+        return true; // Блокировать
+      }
+    }
+
+    return false;
+  }
 }
+
+const pulseEngine = new PulseEngine();
+pulseEngine.init();
 
 function isTrackerDomain(hostname) {
   return TRACKER_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
@@ -559,24 +725,6 @@ function isTrackerDomain(hostname) {
 let pulseEnabled = true;
 
 function setupAdBlocker() {
-  // Block specific URL patterns regardless of domain
-  // Relaxed patterns to avoid breaking site functionality (false positives)
-  const BLOCKED_URL_PATTERNS = [
-    /yandex.*pack.*loader/i,
-    /yandex.*browser.*setup/i,
-    /YandexPackSetup/i,
-    /yandex_pack/i,
-    /\/soft\/download/i,
-    /browser\.yandex.*\.exe/i,
-    /google_ads/i,
-    /doubleclick/i,
-    // /ad_status/i, // Too aggressive
-    // /ads\?/i,     // Too aggressive (matches uploads?name=ads)
-    // /pagead/i,    // Too aggressive (matches pageadmin)
-    // /\/ads\.js/i, // Too aggressive
-    // /\/ad\.js/i   // Too aggressive
-  ];
-
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
     if (!pulseEnabled) {
       callback({});
@@ -585,26 +733,28 @@ function setupAdBlocker() {
 
     try {
       const url = new URL(details.url);
-      // Block by domain
-      if (isBlockedDomain(url.hostname)) {
+      
+      // Игнорируем внутренние протоколы
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        callback({});
+        return;
+      }
+
+      const fullUrl = details.url;
+
+      if (pulseEngine.shouldBlock(url, fullUrl)) {
         pulseStats.adsBlocked++;
         pulseStats.dataSavedKB += 15;
         if (isTrackerDomain(url.hostname)) pulseStats.trackersBlocked++;
+        
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pulse-stats-update', { ...pulseStats });
         }
         callback({ cancel: true });
         return;
       }
-      // Block by URL pattern (Yandex pack loaders, etc.)
-      const fullUrl = details.url;
-      if (BLOCKED_URL_PATTERNS.some(p => p.test(fullUrl))) {
-        pulseStats.adsBlocked++;
-        console.log('[AdBlock] Blocked Yandex pack loader:', fullUrl);
-        callback({ cancel: true });
-        return;
-      }
     } catch (e) { }
+    
     pulseStats.requestsTotal++;
     callback({});
   });
@@ -900,7 +1050,8 @@ function setupAntiFingerprint() {
 
         // Generic Cosmetic Ad Blocking (Global)
         if (pulseEnabled && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
-          wc.insertCSS(`
+          // Инжектим базовые правила + загруженные из баз (EasyList)
+          const baseCss = `
             /* Common Ad Containers */
             .adsbygoogle, .google-auto-placed,
             div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
@@ -916,7 +1067,16 @@ function setupAntiFingerprint() {
             #ad_banner, .b-banner,
             /* Social Widgets (often distracting) */
             .share-buttons, .social-share
-          `).catch(() => { });
+            { display: none !important; }
+          `;
+          
+          let finalCss = baseCss;
+          if (pulseEngine.globalCss) {
+            // Чтобы не крашнуть Electron слишком большим CSS, можно ограничить или вставить как есть
+            finalCss += '\\n' + pulseEngine.globalCss;
+          }
+          
+          wc.insertCSS(finalCss).catch(() => { });
         }
       }
 
