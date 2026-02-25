@@ -324,9 +324,10 @@
              else wv.setAttribute('partition', 'incognito-' + id);
         }
         wv.setAttribute('allowpopups', '');
+        wv.setAttribute('plugins', '');
         // Security & Compatibility: Enable sandbox and disable node integration for guest pages
         // This fixes YouTube/Google interface issues by making the environment look like a standard browser
-        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no');
+        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no, plugins=yes');
         // Add preload for local file:// URLs so they get window.mauzer API
         const targetUrl = url || (isIncog ? incognitoUrl() : newtabUrl());
         if (targetUrl.startsWith('file://') && _preloadPath) {
@@ -936,6 +937,7 @@
 
     let _outsideClickHandler = null;
     let _blurHandler = null;
+    let _menuOpen = false;
     let _contextMenuAnchor = null;
     let _webviewResizeObserver = null;
     let _updatePct = -1;
@@ -1028,9 +1030,13 @@
         _contextMenuAnchor = anchor || { type: 'point', x, y };
         positionContextMenu(x, y, _contextMenuAnchor);
         dom.contextMenu.style.visibility = '';
+        dom.contextMenu.classList.add('show');
+        _menuOpen = true;
         // Close on outside click (mousedown + click)
         setTimeout(() => {
             _outsideClickHandler = (e) => {
+                // Ignore clicks on the menu button itself so toggle works (close via handler below)
+                if (dom.btnMenu && dom.btnMenu.contains(e.target)) return;
                 if (!dom.contextMenu.contains(e.target)) {
                     hideContextMenu();
                 }
@@ -1045,6 +1051,8 @@
 
     function hideContextMenu() {
         dom.contextMenu.style.display = 'none';
+        dom.contextMenu.classList.remove('show');
+        _menuOpen = false;
         _contextMenuAnchor = null;
         if (_outsideClickHandler) {
             document.removeEventListener('mousedown', _outsideClickHandler, true);
@@ -1139,6 +1147,11 @@
                     ${isActive ? `<div class="dl-item-progress"><div class="dl-item-progress-fill" style="width:${dl.totalBytes > 0 ? Math.round(dl.receivedBytes / dl.totalBytes * 100) : 0}%"></div></div>` : ''}
                 </div>
             `;
+            el.addEventListener('dblclick', () => {
+                if (!isActive && dl.path) {
+                    window.mauzer.downloads.open(dl.path);
+                }
+            });
             list.appendChild(el);
         });
     }
@@ -1228,21 +1241,29 @@
             const enabled = e.target.checked;
             await window.mauzer.pulse.toggle(enabled);
             const status = state.settings.language === 'en' ? (enabled ? 'Enabled' : 'Disabled') : (enabled ? 'Включена' : 'Выключена');
-            // toast(`Pulse: ${status}`);
+            toast(`Pulse: ${status}`);
+            // Reload active tab to apply/remove cosmetic rules immediately
+            const wv = document.getElementById('wv-' + state.activeTabId);
+            if (wv) wv.reload();
         });
     }
 
-    async function updatePulse() {
-        const s = await window.mauzer.pulse.getStats();
+    function renderPulseStats(s) {
         const adsEl = document.getElementById('pulse-ads');
         const trackEl = document.getElementById('pulse-trackers');
         const dataEl = document.getElementById('pulse-data');
         const timeEl = document.getElementById('pulse-time');
         
-        if(adsEl) adsEl.textContent = s.adsBlocked;
-        if(trackEl) trackEl.textContent = s.trackersBlocked;
-        if(dataEl) dataEl.textContent = formatBytes(s.dataSavedKB * 1024);
+        if (!s) return;
+        if(adsEl) adsEl.textContent = s.adsBlocked ?? 0;
+        if(trackEl) trackEl.textContent = s.trackersBlocked ?? 0;
+        if(dataEl) dataEl.textContent = formatBytes((s.dataSavedKB || 0) * 1024);
         if(timeEl) timeEl.textContent = formatTime(Math.max(0, Date.now() - (s.sessionStart || Date.now())));
+    }
+
+    async function updatePulse() {
+        const s = await window.mauzer.pulse.getStats();
+        renderPulseStats(s);
     }
 
     // ============================================================
@@ -1250,33 +1271,60 @@
     // ============================================================
     function applySettings() {
         const s = state.settings;
-        // Theme
         const theme = s.theme || 'dark';
+        const accent = s.accentColor || '#808080';
+        const toRgba = (hex, alpha = 1) => {
+            const h = hex.replace('#', '');
+            const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        const accentGlow = toRgba(accent, theme === 'light' ? 0.18 : 0.24);
+        const accentHover = toRgba(accent, theme === 'light' ? 0.12 : 0.18);
+        // Apply to shell
         document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+        document.documentElement.style.setProperty('--accent', accent);
+        document.documentElement.style.setProperty('--accent-glow', accentGlow);
+        document.documentElement.style.setProperty('--accent-hover', accentHover);
+        document.documentElement.style.setProperty('--border-accent', accent);
+        // Inline dynamic style to override static theme vars
+        let dyn = document.getElementById('dynamic-theme-vars');
+        if (!dyn) {
+            dyn = document.createElement('style');
+            dyn.id = 'dynamic-theme-vars';
+            document.head.appendChild(dyn);
+        }
+        dyn.textContent = `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`;
 
-        // Update theme on already-open internal pages (newtab, settings, etc.)
+        // Update theme on ALL open webviews (internal + external) in real time
         state.tabs.forEach(tab => {
             const wv = document.getElementById('wv-' + tab.id);
-            if (wv) {
-                try {
-                    const url = wv.getURL ? wv.getURL() : (wv.src || '');
-                    // Apply to all local file:// pages (newtab, settings, incognito, import, etc.)
-                    if (url.startsWith('file://') || url.startsWith('mauzer://')) {
-                        wv.executeJavaScript(`
+            if (!wv) return;
+            try {
+                const url = wv.getURL();
+                wv.executeJavaScript(`
+                    try {
+                        document.documentElement.style.colorScheme = '${theme === 'light' ? 'light' : 'dark'}';
+                        document.documentElement.style.setProperty('--accent', '${accent}');
+                        document.documentElement.style.setProperty('--accent-glow', '${accentGlow}');
+                        document.documentElement.style.setProperty('--accent-hover', '${accentHover}');
+                        document.documentElement.style.setProperty('--border-accent', '${accent}');
+                        if (location.protocol === 'file:' || location.protocol === 'mauzer:') {
                             document.documentElement.setAttribute('data-theme', '${theme}');
-                        `).catch(() => { });
-                    }
-                } catch (e) { }
-            }
+                        }
+                    } catch (e) {}
+                `).catch(() => {});
+                if (url.startsWith('file://') || url.startsWith('mauzer://')) {
+                    wv.insertCSS(`:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`).catch(() => {});
+                } else {
+                    wv.insertCSS(`:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; }`).catch(() => {});
+                }
+            } catch (e) { }
         });
 
-        // Accent color
-        document.documentElement.style.setProperty('--accent', s.accentColor || '#808080');
-        // Language
-        if (s.language) document.documentElement.lang = s.language;
-        // Bookmarks bar
-        dom.bookmarksBar.style.display = s.showBookmarksBar ? '' : 'none';
-        // Density
         if (s.density === 'compact') {
             document.documentElement.style.setProperty('--titlebar-h', '34px');
             document.documentElement.style.setProperty('--navbar-h', '38px');
@@ -1613,8 +1661,7 @@
         // MENU BUTTON → Dropdown menu (NOT command palette)
         dom.btnMenu.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Toggle: if menu is showing, close it
-            if (dom.contextMenu.style.display !== 'none') {
+            if (_menuOpen) {
                 hideContextMenu();
             } else {
                 showDropdownMenu();
@@ -1679,6 +1726,8 @@
             dom.shell.classList.toggle('fullscreen', fs);
             if (!fs) dom.shell.classList.remove('fs-hidden'); // reset on exit fullscreen
         });
+        // Live Pulse updates from main
+        window.mauzer.pulse.onUpdate((data) => renderPulseStats(data));
 
         // Fullscreen menu toggle button
         const fsToggle = document.getElementById('btn-fs-toggle');

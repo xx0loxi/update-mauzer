@@ -506,12 +506,30 @@ const BLOCKED_DOMAINS = [
   'connect.facebook.net', 'pixel.facebook.com', 'an.facebook.com', 'analytics.facebook.com',
   // Ad Networks
   'adnxs.com', 'adsrvr.org', 'adform.net', 'adcolony.com',
-  'amazon-adsystem.com', 'media.net', 'outbrain.com', 'taboola.com',
+  'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'aan.amazon.com', 'media.net', 'outbrain.com', 'taboola.com',
   'criteo.com', 'criteo.net', 'rubiconproject.com', 'pubmatic.com',
-  'openx.net', 'casalemedia.com', 'indexww.com', 'bidswitch.net',
-  'smartadserver.com', 'yieldmo.com', 'sharethrough.com', 'triplelift.com',
+  'openx.net', 'casalemedia.com', 'indexww.com', 'indexexchange.com', 'cdn.indexexchange.com', 'hilb.casalemedia.com', 'bidswitch.net',
+  'smartadserver.com', 'yieldmo.com', 'sharethrough.com', 'triplelift.com', 'tlx.3lift.com',
   'quantserve.com', 'scorecardresearch.com', 'bluekai.com',
   'exelator.com', 'demdex.net', 'krxd.net', 'liadm.com', 'tapad.com',
+  'adservr.org', 'smartyads.com', 'ad.gt', 'contextweb.com', 'eb2.3lift.com', 'flx.3lift.com',
+  'apex.go.sonobi.com', 'c.gumgum.com', 'a.teads.tv', 'cdn.teads.tv', 'cdn.kargo.com', 'sync.kargo.com',
+  // Fingerprinting / behavioral / identity
+  'fingerprintjs.com', 'fpjs.io', 'api.fpjs.io',
+  'siftscience.com', 'cdn.siftscience.com', 'permutive.com', 'cdn.permutive.com',
+  'onetag-sys.com', 'pipipo.com', 'id5-sync.com', 'crwdcntrl.net',
+  'mathtag.com', 'sync.mathtag.com', 'pixel.mathtag.com', 'thetradedesk.com',
+  // LiveRamp
+  'rlcdn.com', 'idsync.rlcdn.com', 'api.rlcdn.com',
+  // Mobile attribution
+  'appsflyer.com', 'app.appsflyer.com', 'adjust.com', 'app.adjust.com', 'branch.io', 'api2.branch.io', 'bnc.lt',
+  'kochava.com', 'control.kochava.com', 'singular.net',
+  'applovin.com', 'd.applovin.com', 'rt.applovin.com', 'ms.applovin.com',
+  'api.vungle.com', 'vungle.com', 'liftoff.io',
+  'auction.unityads.unity3d.com', 'webview.unityads.unity3d.com', 'config.unity3d.com', 'adserver.unityads.unity3d.com', 'unityads.unity3d.com',
+  'live.chartboost.com', 'init.supersonicads.com', 'api.fyber.com', 'inmobi.com', 'ironSource.mobi', 'is.com', 'outcome-ssp.supersonicads.com',
+  // Push / engagement
+  'wzrkt.com', 'clevertap-prod.com',
   'moatads.com', 'doubleverify.com', 'adsafeprotected.com',
   'serving-sys.com', 'sizmek.com', 'flashtalking.com',
   'popads.net', 'popcash.net', 'propellerads.com',
@@ -519,11 +537,50 @@ const BLOCKED_DOMAINS = [
   'ads.yahoo.com', 'advertising.com', 'ad.doubleclick.net',
   'adtech.de', 'adtech.com', 'adtechus.com',
   'teads.tv', 'zedo.com', 'gumgum.com', 'sovrn.com',
+  's.youtube.com', 'redirector.googlevideo.com', 'youtubei.googleapis.com',
+  'm.doubleclick.net', 'static.doubleclick.net', 'stats.g.doubleclick.net', 'cm.g.doubleclick.net', 'mediavisor.doubleclick.net', 'securepubads.g.doubleclick.net', 'pubads.g.doubleclick.net',
+  'pagead2.googleadservices.com', 'www.googleadservices.com', 'afs.googlesyndication.com', 'fundingchoicesmessages.google.com',
+  'pagead2.googlesyndication.com', 'adservice.google.com', 'tpc.googlesyndication.com', 'pagead2.googlevideo.com',
+  'bingads.microsoft.com', 'ads.microsoft.com',
+  // New domains from user list
+  'cdn.ravenjs.com', 'app.getsentry.com', 'api.rollbar.com', 'cdn.rollbar.com', 'rollbar.com', 'd2wy8f7a9ursnm.cloudfront.net',
+  'cdn.logrocket.io', 'cdn.lr-ingest.com', 'firebase-settings.crashlytics.com', 'trackjs.com', 'usage.trackjs.com', 'api.raygun.io', 'capture.trackjs.com',
+  's0.2mdn.net', 'ads.youtube.com', 'vid.springserve.com', 'sync.springserve.com', 'cdn.springserve.com',
+  'ce.lijit.com', 'siteimproveanalytics.com', 'us.edge.rms.media.net', 'unagi-na.amazon.com',
+  'mads.amazon.com', 'adtago.s3.amazonaws.com', 'advice-ads.s3.amazonaws.com', 'analyticsengine.s3.amazonaws.com',
+  'analytics.pinterest.com', 'ads.pinterest.com', 'redditmedia.com',
+  'app-measurement.com', 'ad.samsungadhub.com', 'nmetrics.samsung.com', 'samsung-com.112.2o7.net', 'smetrics.samsung.com', 'config.samsungads.com', 'analytics-api.samsunghealthcn.com',
+  'samsungads.com',
+  'adsapi.snapchat.com', 'bat.bing.com', 'c.bing.com',
+  'ad.turn.com', 'banners.adfox.ru',
+  'dev.visualwebsiteoptimizer.com', 'try.abtasty.com', 'cdn.abtest.ai', 'api.flagsmith.com', 'static.kameleoon.com', 'edge.api.flagsmith.com', 'cdn-eu.configcat.com',
+  'tags.tiqcdn.com', 'app.link', 'data.kameleoon.io', 'abtasty.com',
+  'analytics.google.com', 'tagmanager.google.com', 'informer.yandex.ru', 'mc.yandex.com',
+  'vc.hotjar.io', 'cs.luckyorange.net', 'upload.luckyorange.net', 'cdn.mxpnl.com', 'chartbeat.com', 'stats.wp.com', 'pixel.wp.com',
+  'r.logrocket.io', 'cdn.raygun.io', 'api.honeybadger.io', 'raygun.io',
+  'coin-hive.com', 'coinhive.com', 'cryptoloot.org', 'hashing.win', 'cpu.js.org', 'fastpool.xyz', 'minemytraffic.com', 'afminer.com', 'coin-have.com', 'cnhv.co',
+  'fresnel.vimeocdn.com', 'f.vimeocdn.com', 'api.bcovlive.io', 'prd.jwpltx.com', 'cdn.jwplayer.com', 'static.addtoany.com',
+  'platform.instagram.com', 'badges.instagram.com', 'st-widget.s3.amazonaws.com', 'plus.google.com', 'analytics.pointdrive.linkedin.com',
+  'pangleglobal.com', 'insightexpressai.com', 'click.googleanalytics.com', 'analytics.adobe.io',
+  'pippio.com', 'prod.uidapi.com',
+  'bdapi-ads.realmemobile.com', 'bdapi-in-ads.realmemobile.com',
+  'ads.roku.com',
+  'gemini.yahoo.com', 'adtech.yahooinc.com',
+  'ironSource.mobi', 'ironsource.mobi',
+  'd.adroll.com', 's.adroll.com', 'adroll.com',
+  'anrdoezrs.net', 'dpbolvw.net', 'tkqlhce.com',
+  'px.srvcs.tumblr.com', 'ads.vk.com',
+  'skimresources.com', 'r.skimresources.com',
+  'ad.admitad.com', 'gdeslon.ru',
+  'sibautomation.com', 'getdrip.com',
+  'clientservices.googleapis.com', 'firebaselogging.googleapis.com',
+  
   // RU/CIS Ad Networks
   'an.yandex.ru', 'yandexadexchange.net', 'mc.yandex.ru', 'bs.yandex.ru',
   'ad.mail.ru', 'target.my.com', 'top-fwz1.mail.ru', 'counter.yadro.ru',
   'tns-counter.ru', 'rambler.ru', 'begun.ru', 'sape.ru',
   'rs.mail.ru', 'relap.io', 'videonow.ru', 'marketgid.com',
+  'metrika.yandex.ru', 'adfox.yandex.ru', 'adfstat.yandex.ru', 'appmetrica.yandex.ru', 'extmaps-api.yandex.net', 'offerwall.yandex.net',
   // Yandex Distribution / Hijackers
   'browser.yandex.ru', 'dl.browser.yandex.ru', 'downloader.yandex.ru',
   'distribution.yandex.ru', 'soft.yandex.ru', 'clck.yandex.ru',
@@ -533,9 +590,94 @@ const BLOCKED_DOMAINS = [
   'amplitude.com', 'hotjar.com', 'fullstory.com', 'mouseflow.com',
   'luckyorange.com', 'clarity.ms', 'crazyegg.com', 'mixpanel.com',
   'segment.io', 'segment.com', 'heapanalytics.com', 'inspectlet.com',
-  'newrelic.com', 'nr-data.net', 'sentry.io', 'bugsnag.com',
+  'newrelic.com', 'nr-data.net', 'sentry.io', 'browser.sentry-cdn.com', 'bugsnag.com',
+  'track.hubspot.com', 'munchkin.marketo.net', 'trackcmp.net',
+  'track.mailerlite.com', 'click.mailerlite.com', 'assets.mailerlite.com',
+  'track.customer.io', 'mailchimp.com',
+  'app.convertkit.com', 'open.convertkit.com',
+  'email.mailgun.net', 'pi.pardot.com', 'mandrillapp.com', 'getresponse.com', 'pixel.aweber.com', 'sendgrid.net',
+  'freshmarketer.com', 'static.chartbeat.com',
+  'pendo.io', 'cdn.pendo.io', 'app.pendo.io',
+  'matomo.cloud', 'piwik.pro',
   // Social Widgets (often trackers)
-  'platform.twitter.com', 'platform.linkedin.com', 'widgets.pinterest.com'
+  'platform.twitter.com', 'platform.linkedin.com', 'widgets.pinterest.com',
+  'syndication.twitter.com', 'static.ads-twitter.com', 't.co',
+  'staticxx.facebook.com',
+  // Apple ads/analytics
+  'iadsdk.apple.com', 'metrics.icloud.com', 'api-adservices.apple.com',
+  'books-analytics-events.apple.com', 'weather-analytics-events.apple.com', 'notes-analytics-events.apple.com',
+  'metrics.mzstatic.com', 'xp.apple.com',
+  // Realme/Oppo
+  'iot-eu-logser.realme.com', 'iot-logser.realme.com', 'bdapi-ads.realme.com', 'bdapi-in-ads.realme.com',
+  'adsfs.oppomobile.com', 'adx.ads.oppomobile.com', 'ck.ads.oppomobile.com', 'data.ads.oppomobile.com',
+  // OnePlus/Huawei/Xiaomi
+  'open.oneplus.net',
+  'metrics.data.hicloud.com', 'metrics2.data.hicloud.com', 'grs.hicloud.com', 'logservice.hicloud.com', 'logservice1.hicloud.com', 'logbak.hicloud.com', 'ads.huawei.com',
+  'api.ad.xiaomi.com', 'data.mistat.xiaomi.com', 'data.mistat.india.xiaomi.com', 'data.mistat.rus.xiaomi.com',
+  'sdkconfig.ad.xiaomi.com', 'sdkconfig.ad.intl.xiaomi.com', 'tracking.rus.miui.com', 'tracking.miui.com',
+  // LG / Samsung ads ecosystems
+  'us.info.lgsmartad.com', 'us.lbs.lgappstv.com', 'ad.lgappstv.com', 'info.lgsmartad.com', 'ngfts.lge.com', 'yumenetworks.com', 'smartclip.net', 'smartclip.com',
+  // Microsoft telemetry
+  'settings-win.data.microsoft.com', 'vortex.data.microsoft.com', 'vortex-win.data.microsoft.com', 'watson.telemetry.microsoft.com', 'telemetry.microsoft.com',
+  // Amazon FireTV metrics/ads
+  'device-metrics-us.amazon.com', 'device-metrics-us-2.amazon.com', 'mads-eu.amazon.com',
+  // Meta / Instagram / Snapchat
+  'graph.facebook.com', 'tr.facebook.com',
+  'graph.instagram.com', 'i.instagram.com',
+  'sc-static.net', 'tr.snapchat.com', 'ads.snapchat.com', 'sc-analytics.appspot.com',
+  // Chat widgets
+  'widget.intercom.io', 'js.driftt.com',
+  // LinkedIn / X / Reddit
+  'ads.linkedin.com', 'analytics.poindrive.linkedin.com', 'snap.licdn.com', 'px.ads.linkedin.com',
+  'static-ads-twitter.com', 'ads-api.twitter.com', 'analytics.twitter.com', 'ads.x.com',
+  'events.reddit.com', 'events.redditmedia.com', 'd.reddit.com',
+  // TikTok / Pinterest / Quora
+  'ads-api.tiktok.com', 'analytics.tiktok.com', 'ads-sg.tiktok.com', 'analytics-sg.tiktok.com',
+  'business-api.tiktok.com', 'ads.tiktok.com', 'log.byteoversea.com', 'mon.byteoversea.com',
+  'ct.pinterest.com', 'log.pinterest.com', 'trk.pinterest.com',
+  'pixel.quora.com',
+  // Affiliate / performance networks
+  'arndoezrs.net', 'dpbolvw.net', 'lkqlhce.com',
+  'shareasale.com', 'shareasale-analytics.com',
+  'click.linksynergy.com', 'ad.linksynergy.com', 'track.linksynergy.com',
+  'impact.com', 'd.impactradius-event.com', 'api.impact.com',
+  'awin1.com', 'zenaps.com',
+  'partnerstack.com', 'api.partnerstack.com',
+  'refersion.com', 'api.refersion.com',
+  's.skimresources.com', 't.skimresources.com', 'go.skimresources.com', 'redirector.skimresources.com',
+  'redirect.viglink.com', 'cdn.viglink.com', 'api.viglink.com',
+  // A/B testing platforms
+  'cdn.optimizely.com', 'logx.optimizely.com', 'api.optimizely.com',
+  'cdn.dynamicyield.com',
+  'stream.launchdarkly.com', 'events.launchdarkly.com', 'mobile.launchdarkly.com', 'app.launchdarkly.com',
+  'streaming.split.io', 'sdk.split.io', 'cdn.split.io', 'events.split.io',
+  'cdn-pci.optimizely.com',
+  'kameleoon.eu', 'vwo.com', 'statsigapi.net', 'cdn.configcat.com', 'featuregates.org',
+  // Video ads / VAST / players
+  'imasdk.googleapis.com', 'dai.google.com',
+  'g.jwpsrv.com', 'ssl.p.jwpcdn.com',
+  'mssl.fwmrm.net',
+  'cd.connatix.com', 'capi.connatix.com', 'vid.connatix.com',
+  'metrics.brightcove.com',
+  's.innovid.com',
+  'tremorhub.com', 'ads.tremorhub.com',
+  // Monitoring / logging
+  'js.honeybadger.io',
+  'cdn.rollbar.com', 'api.rollbar.com', 'rollbar.com',
+  'app.getsentry.com', 'cdn.ravenjs.com', 'd2wy8f7a9ursnm.cloudfront.net',
+  'cdn.lr-ingest.com', 'firebase-settings.crashlytics.com', 'cdn.logrocket.io',
+  'trackjs.com', 'usage.trackjs.com', 'capture.trackjs.com', 'api.raygun.io',
+  // Consent / CMPs
+  'cdn.cookielaw.org', 'geolocation.onetrust.com', 'consent.cookiebot.com', 'consentcdn.cookiebot.com', 'cookiebot.com',
+  'consent.trustarc.com', 'sdk.privacy-center.org', 'cdn.privacy-mgmt.com', 'app.usercentrics.eu',
+  'wrapper-api.sp-prod.net', 'cookies-data.onetrust.io', 'cdn.onetrust.com', 'optanon.blob.core.windows.net',
+  'api.privacy-center.org', 'aggregator.service.usercentrics.eu', 'api.usercentrics.eu', 'consent-pref.trustarc.com',
+  'privacymanager.io', 'c.betrad.com', 'didomi.io',
+  // Crypto miners / malvertising / malware
+  'coinimp.com', 'www.coinimp.com', 'webminepool.com', 'minero.cc', 'mineral1.io', 'jsecoin.com', 'crypto-loot.org', 'monerominer.rocks',
+  'propellerclick.com', 'onclickads.net', 'popmyads.com', 'clickadu.com', 'trafficjunky.net', 'exoclick.com', 'juicyads.com',
+  '2giga.link', 'greatis.com', 'statdynamic.com',
+  'popads.net', 'popcash.net', 'propellerads.com'
 ];
 
 const TRACKER_DOMAINS = [
@@ -544,179 +686,128 @@ const TRACKER_DOMAINS = [
   'scorecardresearch.com', 'bluekai.com', 'demdex.net', 'krxd.net',
   'hotjar.com', 'fullstory.com', 'clarity.ms', 'amplitude.com',
   'mouseflow.com', 'crazyegg.com', 'mixpanel.com', 'segment.io',
-  'yandexmetrica.com', 'counter.yadro.ru'
+  'yandexmetrica.com', 'counter.yadro.ru',
+  'adnxs.com', 'adsrvr.org', 'adform.net', 'adcolony.com', 'media.net', 'outbrain.com', 'taboola.com',
+  'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'aan.amazon.com',
+  'criteo.com', 'criteo.net', 'rubiconproject.com', 'pubmatic.com',
+  'openx.net', 'casalemedia.com', 'indexww.com', 'indexexchange.com', 'cdn.indexexchange.com', 'hilb.casalemedia.com', 'bidswitch.net',
+  'smartadserver.com', 'yieldmo.com', 'sharethrough.com', 'triplelift.com', 'tlx.3lift.com',
+  'quantserve.com', 'scorecardresearch.com',
+  'exelator.com', 'demdex.net', 'krxd.net', 'liadm.com', 'tapad.com',
+  'adservr.org', 'smartyads.com', 'ad.gt', 'contextweb.com', 'eb2.3lift.com', 'flx.3lift.com',
+  'apex.go.sonobi.com', 'c.gumgum.com', 'a.teads.tv', 'cdn.teads.tv', 'cdn.kargo.com', 'sync.kargo.com',
+  // Fingerprinting / behavioral / identity
+  'fingerprintjs.com', 'fpjs.io', 'api.fpjs.io',
+  'siftscience.com', 'cdn.siftscience.com', 'permutive.com', 'cdn.permutive.com',
+  'onetag-sys.com', 'pipipo.com', 'id5-sync.com', 'crwdcntrl.net',
+  'mathtag.com', 'sync.mathtag.com', 'pixel.mathtag.com', 'thetradedesk.com',
+  // LiveRamp
+  'rlcdn.com', 'idsync.rlcdn.com', 'api.rlcdn.com',
+  // Mobile attribution
+  'appsflyer.com', 'app.appsflyer.com', 'adjust.com', 'app.adjust.com', 'branch.io', 'api2.branch.io', 'bnc.lt',
+  'kochava.com', 'control.kochava.com', 'singular.net',
+  'applovin.com', 'd.applovin.com', 'rt.applovin.com', 'ms.applovin.com',
+  'api.vungle.com', 'vungle.com', 'liftoff.io',
+  'auction.unityads.unity3d.com', 'webview.unityads.unity3d.com', 'config.unity3d.com', 'adserver.unityads.unity3d.com', 'unityads.unity3d.com',
+  'live.chartboost.com', 'init.supersonicads.com', 'api.fyber.com', 'inmobi.com', 'ironSource.mobi', 'is.com', 'outcome-ssp.supersonicads.com',
+  // Push / engagement
+  'wzrkt.com', 'clevertap-prod.com',
+  // Apple ads/analytics
+  'iadsdk.apple.com', 'metrics.icloud.com', 'api-adservices.apple.com',
+  'books-analytics-events.apple.com', 'weather-analytics-events.apple.com', 'notes-analytics-events.apple.com',
+  'metrics.mzstatic.com', 'xp.apple.com',
+  // Realme/Oppo
+  'iot-eu-logser.realme.com', 'iot-logser.realme.com', 'bdapi-ads.realme.com', 'bdapi-in-ads.realme.com',
+  'adsfs.oppomobile.com', 'adx.ads.oppomobile.com', 'ck.ads.oppomobile.com', 'data.ads.oppomobile.com',
+  // OnePlus/Huawei/Xiaomi
+  'open.oneplus.net',
+  'metrics.data.hicloud.com', 'metrics2.data.hicloud.com', 'grs.hicloud.com', 'logservice.hicloud.com', 'logservice1.hicloud.com', 'logbak.hicloud.com', 'ads.huawei.com',
+  'api.ad.xiaomi.com', 'data.mistat.xiaomi.com', 'data.mistat.india.xiaomi.com', 'data.mistat.rus.xiaomi.com',
+  'sdkconfig.ad.xiaomi.com', 'sdkconfig.ad.intl.xiaomi.com', 'tracking.rus.miui.com', 'tracking.miui.com',
+  // LG / Samsung ads ecosystems
+  'us.info.lgsmartad.com', 'us.lbs.lgappstv.com', 'ad.lgappstv.com', 'info.lgsmartad.com', 'ngfts.lge.com', 'yumenetworks.com', 'smartclip.net', 'smartclip.com',
+  // Microsoft telemetry
+  'settings-win.data.microsoft.com', 'vortex.data.microsoft.com', 'vortex-win.data.microsoft.com', 'watson.telemetry.microsoft.com', 'telemetry.microsoft.com',
+  // Amazon FireTV metrics/ads
+  'device-metrics-us.amazon.com', 'device-metrics-us-2.amazon.com', 'mads-eu.amazon.com',
+  // Meta / Instagram / Snapchat
+  'graph.facebook.com', 'tr.facebook.com',
+  'graph.instagram.com', 'i.instagram.com',
+  'sc-static.net', 'tr.snapchat.com', 'ads.snapchat.com', 'sc-analytics.appspot.com',
+  // LinkedIn / X / Reddit
+  'ads.linkedin.com', 'analytics.poindrive.linkedin.com', 'snap.licdn.com', 'px.ads.linkedin.com',
+  'static-ads-twitter.com', 'ads-api.twitter.com', 'analytics.twitter.com', 'ads.x.com',
+  'events.reddit.com', 'events.redditmedia.com', 'd.reddit.com',
+  // TikTok / Pinterest / Quora
+  'ads-api.tiktok.com', 'analytics.tiktok.com', 'ads-sg.tiktok.com', 'analytics-sg.tiktok.com',
+  'business-api.tiktok.com', 'ads.tiktok.com', 'log.byteoversea.com', 'mon.byteoversea.com',
+  'ct.pinterest.com', 'log.pinterest.com', 'trk.pinterest.com',
+  'pixel.quora.com',
+  // AdRoll / NextRoll
+  'adroll.com', 's.adroll.com', 'd.adroll.com',
+  // Email / marketing trackers
+  'track.mailerlite.com', 'click.mailerlite.com', 'assets.mailerlite.com',
+  'track.customer.io', 'mailchimp.com',
+  'app.convertkit.com', 'open.convertkit.com',
+  'email.mailgun.net', 'pi.pardot.com', 'mandrillapp.com', 'getresponse.com', 'pixel.aweber.com', 'sendgrid.net',
+  'freshmarketer.com', 'static.chartbeat.com',
+  'pendo.io', 'cdn.pendo.io', 'app.pendo.io',
+  'matomo.cloud', 'piwik.pro',
+  // Analytics extras
+  'analytics.google.com', 'tagmanager.google.com', 'informer.yandex.ru', 'mc.yandex.com',
+  // Social static/CDN
+  'syndication.twitter.com', 'static.ads-twitter.com', 't.co',
+  'staticxx.facebook.com',
+  // Email / marketing trackers
+  'track.hubspot.com', 'munchkin.marketo.net', 'trackcmp.net', 'list-manage.com',
+  // Affiliate / performance networks
+  'arndoezrs.net', 'dpbolvw.net', 'lkqlhce.com',
+  'shareasale.com', 'shareasale-analytics.com',
+  'click.linksynergy.com', 'ad.linksynergy.com', 'track.linksynergy.com',
+  'impact.com', 'd.impactradius-event.com', 'api.impact.com',
+  'awin1.com', 'zenaps.com',
+  'partnerstack.com', 'api.partnerstack.com',
+  'refersion.com', 'api.refersion.com',
+  's.skimresources.com', 't.skimresources.com', 'go.skimresources.com', 'redirector.skimresources.com',
+  'redirect.viglink.com', 'cdn.viglink.com', 'api.viglink.com',
+  // A/B testing platforms
+  'cdn.optimizely.com', 'logx.optimizely.com', 'api.optimizely.com',
+  'cdn.dynamicyield.com',
+  'stream.launchdarkly.com', 'events.launchdarkly.com', 'mobile.launchdarkly.com', 'app.launchdarkly.com',
+  'streaming.split.io', 'sdk.split.io', 'cdn.split.io', 'events.split.io',
+  'cdn-pci.optimizely.com',
+  'kameleoon.eu', 'vwo.com', 'statsigapi.net', 'cdn.configcat.com', 'featuregates.org',
+  // Video ads / VAST / players
+  'imasdk.googleapis.com', 'dai.google.com',
+  'g.jwpsrv.com', 'ssl.p.jwpcdn.com',
+  'mssl.fwmrm.net',
+  'cd.connatix.com', 'capi.connatix.com', 'vid.connatix.com',
+  'metrics.brightcove.com',
+  's.innovid.com',
+  'tremorhub.com', 'ads.tremorhub.com',
+  // Monitoring / logging
+  'js.honeybadger.io',
+  'cdn.rollbar.com', 'api.rollbar.com', 'rollbar.com',
+  'app.getsentry.com', 'cdn.ravenjs.com', 'd2wy8f7a9ursnm.cloudfront.net',
+  'cdn.lr-ingest.com', 'firebase-settings.crashlytics.com', 'cdn.logrocket.io',
+  'trackjs.com', 'usage.trackjs.com', 'capture.trackjs.com', 'api.raygun.io',
+  // Consent / CMPs
+  'cdn.cookielaw.org', 'geolocation.onetrust.com', 'consent.cookiebot.com', 'consentcdn.cookiebot.com', 'cookiebot.com',
+  'consent.trustarc.com', 'sdk.privacy-center.org', 'cdn.privacy-mgmt.com', 'app.usercentrics.eu',
+  'wrapper-api.sp-prod.net', 'cookies-data.onetrust.io', 'cdn.onetrust.com', 'optanon.blob.core.windows.net',
+  'api.privacy-center.org', 'aggregator.service.usercentrics.eu', 'api.usercentrics.eu', 'consent-pref.trustarc.com',
+  'privacymanager.io', 'c.betrad.com', 'didomi.io',
+  // Crypto miners / malvertising / malware
+  'coinimp.com', 'www.coinimp.com', 'webminepool.com', 'minero.cc', 'mineral1.io', 'jsecoin.com', 'crypto-loot.org', 'monerominer.rocks',
+  'propellerclick.com', 'onclickads.net', 'popmyads.com', 'clickadu.com', 'trafficjunky.net', 'exoclick.com', 'juicyads.com',
+  '2giga.link', 'greatis.com', 'statdynamic.com',
+  'popads.net', 'popcash.net', 'propellerads.com'
 ];
 
-// ============================================================
-// PULSE ADBLOCK ENGINE (V3)
-// ============================================================
-
-class PulseEngine {
-  constructor() {
-    this.domainFilters = new Set(); // Для точных совпадений и ||domain^
-    this.wildcardRegexes = [];      // Для сложных правил с *
-    this.whitelistFilters = new Set(); // Для исключений @@||domain^
-    this.whitelistRegexes = [];        // Для исключений @@...*
-    this.cosmeticSelectors = new Set(); // Для скрытия пустых блоков
-    this.listsLoaded = false;
-  }
-
-  async init() {
-    const lists = [
-      'https://easylist.to/easylist/easylist.txt',
-      'https://easylist.to/easylist/easyprivacy.txt',
-      'https://easylist.to/easylist/fanboy-social.txt',
-      'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/filters.txt',
-      'https://raw.githubusercontent.com/NoCoin/linter/master/NoCoin.txt'
-    ];
-
-    console.log('[Pulse] Загрузка баз блокировки...');
-    for (const url of lists) {
-      try {
-        const text = await this.fetchList(url);
-        this.parseList(text);
-      } catch (e) {
-        console.error(`[Pulse] Ошибка загрузки ${url}:`, e.message);
-      }
-    }
-    
-    // Компилируем CSS-правила в одну строку
-    const selectors = Array.from(this.cosmeticSelectors).join(', ');
-    if (selectors.length > 0) {
-      this.globalCss = `${selectors} { display: none !important; }`;
-    } else {
-      this.globalCss = '';
-    }
-    
-    this.listsLoaded = true;
-    console.log(`[Pulse] Базы загружены: ${this.domainFilters.size} доменов, ${this.wildcardRegexes.length} масок, Исключений: ${this.whitelistFilters.size}, CSS-правил: ${this.cosmeticSelectors.size}.`);
-  }
-
-  fetchList(url) {
-    return new Promise((resolve, reject) => {
-      https.get(url, (res) => {
-        // Handle redirects if needed, but these URLs usually don't redirect
-        if (res.statusCode !== 200 && res.statusCode !== 301 && res.statusCode !== 302) {
-          reject(new Error(`Status ${res.statusCode}`));
-          return;
-        }
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(data));
-      }).on('error', reject);
-    });
-  }
-
-  parseList(text) {
-    const lines = text.split('\n');
-    for (let line of lines) {
-      line = line.trim();
-      if (!line || line.startsWith('!') || line.startsWith('[')) continue;
-
-      // Cosmetic rules (##)
-      if (line.includes('##')) {
-        const parts = line.split('##');
-        // Обрабатываем только глобальные правила (без домена слева)
-        if (parts[0] === '') { 
-          // Отбрасываем слишком сложные селекторы (с псевдоклассами uBlock/Adblock)
-          const selector = parts[1];
-          if (!selector.includes(':has(') && !selector.includes(':-abp-') && !selector.includes(':upward')) {
-            this.cosmeticSelectors.add(selector);
-          }
-        }
-        continue;
-      }
-
-      // Очищаем правило от опций (все что после $)
-      const ruleBody = line.split('$')[0];
-      if (!ruleBody) continue;
-
-      // Exception rules @@ (Whitelist)
-      if (line.startsWith('@@')) {
-        const pureWhitelist = ruleBody.substring(2); // убираем @@
-        if (pureWhitelist.startsWith('||') && pureWhitelist.endsWith('^') && !pureWhitelist.includes('*') && !pureWhitelist.includes('/')) {
-          this.whitelistFilters.add(pureWhitelist.slice(2, -1));
-        } else {
-          let regexStr = pureWhitelist
-            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-            .replace(/\\\*/g, '.*')
-            .replace(/^\\\|\\\|/, '^https?://([^/]+\\.)?')
-            .replace(/\\^/g, '([/?#]|$)');
-          try {
-            if (this.whitelistRegexes.length < 2000) {
-              this.whitelistRegexes.push(new RegExp(regexStr, 'i'));
-            }
-          } catch (e) { }
-        }
-        continue;
-      }
-
-      // Domain anchor ||domain.com^
-      if (ruleBody.startsWith('||') && ruleBody.endsWith('^') && !ruleBody.includes('*') && !ruleBody.includes('/')) {
-        const domain = ruleBody.slice(2, -1);
-        this.domainFilters.add(domain);
-        continue;
-      }
-
-      // Wildcard * or complex rules ||domain.com/path*
-      if (ruleBody.includes('*') || ruleBody.startsWith('||') || ruleBody.startsWith('/')) {
-        let regexStr = ruleBody
-          .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Экранируем спецсимволы regex
-          .replace(/\\\*/g, '.*')               // Возвращаем * как .*
-          .replace(/^\\\|\\\|/, '^https?://([^/]+\\.)?') // || означает начало домена
-          .replace(/\\^/g, '([/?#]|$)');        // ^ означает разделитель
-        
-        try {
-          if (this.wildcardRegexes.length < 8000) { // Лимит для производительности
-            this.wildcardRegexes.push(new RegExp(regexStr, 'i'));
-          }
-        } catch (e) { }
-        continue;
-      }
-    }
-  }
-
-  shouldBlock(urlObj, fullUrl) {
-    if (!this.listsLoaded) return false;
-
-    const hostname = urlObj.hostname;
-    const parts = hostname.split('.');
-    
-    // --- 1. ПРОВЕРКА ИСКЛЮЧЕНИЙ (WHITELIST) ---
-    for (let i = 0; i < parts.length - 1; i++) {
-      const domainToTest = parts.slice(i).join('.');
-      if (this.whitelistFilters.has(domainToTest)) {
-        return false; // Разрешено
-      }
-    }
-    for (let i = 0; i < this.whitelistRegexes.length; i++) {
-      if (this.whitelistRegexes[i].test(fullUrl)) {
-        return false; // Разрешено
-      }
-    }
-
-    // --- 2. ПРОВЕРКА БЛОКИРОВОК (BLACKLIST) ---
-    // Быстрый поиск по HashSet (домены)
-    for (let i = 0; i < parts.length - 1; i++) {
-      const domainToTest = parts.slice(i).join('.');
-      if (this.domainFilters.has(domainToTest)) {
-        return true; // Блокировать
-      }
-    }
-
-    // Поиск по маскам (*)
-    for (let i = 0; i < this.wildcardRegexes.length; i++) {
-      if (this.wildcardRegexes[i].test(fullUrl)) {
-        return true; // Блокировать
-      }
-    }
-
-    return false;
-  }
+function isBlockedDomain(hostname) {
+  // Check exact match or subdomain
+  return BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
 }
-
-const pulseEngine = new PulseEngine();
-pulseEngine.init();
 
 function isTrackerDomain(hostname) {
   return TRACKER_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
@@ -725,36 +816,93 @@ function isTrackerDomain(hostname) {
 let pulseEnabled = true;
 
 function setupAdBlocker() {
+  // Helper: detect third-party to reduce breakage (compares target host to referrer host)
+  const isThirdPartyRequest = (details) => {
+    try {
+      if (!details.referrer) return true;
+      const reqHost = new URL(details.url).hostname;
+      const refHost = new URL(details.referrer).hostname;
+      return !(reqHost === refHost || reqHost.endsWith('.' + refHost) || refHost.endsWith('.' + reqHost));
+    } catch (e) {
+      return true; // default to third-party if parsing fails
+    }
+  };
+
+  // Block specific URL patterns regardless of domain
+  // Relaxed patterns to avoid breaking site functionality (false positives)
+  const BLOCKED_URL_PATTERNS = [
+    /yandex.*pack.*loader/i,
+    /yandex.*browser.*setup/i,
+    /YandexPackSetup/i,
+    /yandex_pack/i,
+    /\/soft\/download/i,
+    /browser\.yandex.*\.exe/i,
+    /google_ads/i,
+    /doubleclick/i,
+    // /ad_status/i, // Too aggressive
+    // /ads\?/i,     // Too aggressive (matches uploads?name=ads)
+    // /pagead/i,    // Too aggressive (matches pageadmin)
+    // /\/ads\.js/i, // Too aggressive
+    // /\/ad\.js/i   // Too aggressive
+  ];
+
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
-    if (!pulseEnabled) {
+    if (!pulseEnabled) { callback({}); return; }
+
+    // JSON-Surgeon: intercept YouTube player JSON and strip ad fields
+    if (details.resourceType === 'xhr' && details.url.includes('youtube.com') && /\/player/.test(details.url)) {
+      const filter = session.defaultSession.webRequest.filterResponseData(details.id);
+      let data = [];
+      filter.on('data', (chunk) => { data.push(chunk); });
+      filter.on('end', () => {
+        const raw = Buffer.concat(data).toString();
+        try {
+          const json = JSON.parse(raw);
+          delete json.adPlacements;
+          delete json.adBreaks;
+          delete json.playerAds;
+          delete json.adSlots;
+          const modified = Buffer.from(JSON.stringify(json));
+          filter.write(modified);
+        } catch (e) {
+          filter.write(Buffer.concat(data));
+        }
+        filter.end();
+      });
       callback({});
+      return;
+    }
+
+    // Stealth Network: fake 200 OK for /log_event requests
+    if (/\/log_event/.test(details.url)) {
+      callback({ redirectURL: 'data:,' });
       return;
     }
 
     try {
       const url = new URL(details.url);
-      
-      // Игнорируем внутренние протоколы
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-        callback({});
-        return;
-      }
+      const thirdParty = isThirdPartyRequest(details);
 
-      const fullUrl = details.url;
-
-      if (pulseEngine.shouldBlock(url, fullUrl)) {
+      // Block by domain (prefer third-party to avoid trimming first-party assets)
+      if (thirdParty && isBlockedDomain(url.hostname)) {
         pulseStats.adsBlocked++;
         pulseStats.dataSavedKB += 15;
         if (isTrackerDomain(url.hostname)) pulseStats.trackersBlocked++;
-        
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('pulse-stats-update', { ...pulseStats });
         }
         callback({ cancel: true });
         return;
       }
+      // Block by URL pattern (Yandex pack loaders, etc.)
+      const fullUrl = details.url;
+      if (BLOCKED_URL_PATTERNS.some(p => p.test(fullUrl))) {
+        pulseStats.adsBlocked++;
+        console.log('[AdBlock] Blocked Yandex pack loader:', fullUrl);
+        callback({ cancel: true });
+        return;
+      }
     } catch (e) { }
-    
     pulseStats.requestsTotal++;
     callback({});
   });
@@ -1004,54 +1152,90 @@ function setupAntiFingerprint() {
     // YouTube Ad Blocker — Pulse Engine v2 (CSS Only for stability)
         if (url.includes('youtube.com') && pulseEnabled) {
           // Relaxed CSS: avoid hiding generic containers that might contain content
-          wc.insertCSS(`
-            /* 1. Video Ads (Pre-roll, Mid-roll) */
+// CleanView: expanded CSS selectors for ad placeholders
+    wc.insertCSS(`
+      /* Common Ad Containers */
+      .adsbygoogle, .google-auto-placed,
+      div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
+      iframe[id^="google_ads_frame"],
+      .ad-banner, .ad-box, .ad-container, .ad-slot,
+      .banner-ad, .sidebar-ad, .text-ad, .sponsored-link,
+      [class*="yandex_ad"], [id*="yandex_ad"],
+      .ya-share2, .ya-context-panel, div[class*="ya-site-form"],
+      #ad_banner, .b-banner,
+      .share-buttons, .social-share,
+      /* YouTube specific */
+      .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
+      .ytp-ad-text-overlay, .ytp-ad-overlay-container,
             .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
-            .ytp-ad-text-overlay, .ytp-ad-overlay-container, 
+            .ytp-ad-text-overlay, .ytp-ad-overlay-container,
             .ytp-ad-player-overlay-flyout-cta, .ytp-ad-button-icon,
             .ytp-ad-preview-container, .ytp-ad-skip-button-slot,
-            /* 2. Banner Ads (Home, Search, Sidebar) */
-            #masthead-ad, ytd-ad-slot-renderer, ytd-rich-item-renderer:has(> .ytd-ad-slot-renderer),
-            ytd-display-ad-renderer, ytd-statement-banner-renderer,
+            #masthead-ad, ytd-ad-slot-renderer, ytd-display-ad-renderer,
             ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer,
-            ytd-promoted-sparkles-web-renderer, ytd-promoted-sparkles-text-search-renderer,
-            /* 3. Shorts/Feed Ads */
-            ytd-reel-video-renderer:has(.ytd-ad-slot-renderer),
-            /* 4. Companion Ads */
-            #player-ads, #offer-module, .ytd-mealbar-promo-renderer,
-            /* 5. Merch Shelf (optional, often annoying) */
-            ytd-merch-shelf-renderer
+            ytd-promoted-sparkles-web-renderer, ytd-merch-shelf-renderer,
+            .ad-showing, .ytp-ad-overlay-close-button
             { display: none !important; }
-          `).catch(() => { });
+          `).catch(() => {});
 
-          // Auto-skip logic (minimal & safe)
+          // Player Guard & Ghost: script injection to skip ads and fake ad script loads
           wc.executeJavaScript(`
-             (function() {
-               if(window.__mauzerAdSkip) return;
-               window.__mauzerAdSkip = true;
-               
-               setInterval(() => {
-                 const video = document.querySelector('video');
-                 const ad = document.querySelector('.ad-showing');
-                 if (video && ad) {
-                   video.muted = true; // Mute ad
-                   if(isFinite(video.duration)) video.currentTime = video.duration; // Skip to end
-                   // Click skip button if present
-                   const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-                   if(skipBtn) skipBtn.click();
-                 }
-                 // Close overlay ads
-                 const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
-                 if(closeBtn) closeBtn.click();
-               }, 500);
+            // Player Guard: observe ad containers and skip
+            (function() {
+              const skipAd = () => {
+                const video = document.querySelector('video');
+                const ad = document.querySelector('.ad-showing');
+                if (video && ad) {
+                  video.muted = true;
+                  if (isFinite(video.duration)) video.currentTime = video.duration;
+                  const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                  if (skipBtn) skipBtn.click();
+                }
+                const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
+                if (closeBtn) closeBtn.click();
+              };
+              setInterval(skipAd, 500);
+              const observer = new MutationObserver(() => skipAd());
+              observer.observe(document.body, { childList: true, subtree: true });
+            })();
+            // Ghost: override fetch and XHR for ad script URLs
+            (function() {
+              const fakeResponse = (url) => new Response('', { status: 200, headers: { 'Content-Type': 'application/javascript' } });
+              const originalFetch = window.fetch;
+              window.fetch = function(resource, init) {
+                const url = typeof resource === 'string' ? resource : resource.url;
+                if (/ads|adservice|doubleclick/.test(url)) {
+                  return Promise.resolve(fakeResponse(url));
+                }
+                return originalFetch.apply(this, arguments);
+              };
+              const OriginalXHR = window.XMLHttpRequest;
+              function MockXHR() {
+                const xhr = new OriginalXHR();
+                const open = xhr.open;
+                xhr.open = function(method, url) { this._url = url; open.apply(this, arguments); };
+                const send = xhr.send;
+                xhr.send = function(body) {
+                  if (/ads|adservice|doubleclick/.test(this._url)) {
+                    this.readyState = 4;
+                    this.status = 200;
+                    this.responseText = '';
+                    this.onload && this.onload();
+                  } else {
+                    send.apply(this, arguments);
+                  }
+                };
+                return xhr;
+              }
+              window.XMLHttpRequest = MockXHR;
+            })();
              })();
           `).catch(() => {});
         }
 
         // Generic Cosmetic Ad Blocking (Global)
         if (pulseEnabled && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
-          // Инжектим базовые правила + загруженные из баз (EasyList)
-          const baseCss = `
+          wc.insertCSS(`
             /* Common Ad Containers */
             .adsbygoogle, .google-auto-placed,
             div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
@@ -1067,16 +1251,7 @@ function setupAntiFingerprint() {
             #ad_banner, .b-banner,
             /* Social Widgets (often distracting) */
             .share-buttons, .social-share
-            { display: none !important; }
-          `;
-          
-          let finalCss = baseCss;
-          if (pulseEngine.globalCss) {
-            // Чтобы не крашнуть Electron слишком большим CSS, можно ограничить или вставить как есть
-            finalCss += '\\n' + pulseEngine.globalCss;
-          }
-          
-          wc.insertCSS(finalCss).catch(() => { });
+          `).catch(() => { });
         }
       }
 
@@ -1126,6 +1301,17 @@ function setupAntiFingerprint() {
 // ============================================================
 function setupDownloads() {
   session.defaultSession.on('will-download', (event, item, webContents) => {
+    // Open PDFs inline instead of forcing download
+    const mime = item.getMimeType();
+    if (mime && mime.toLowerCase() === 'application/pdf') {
+      const pdfUrl = item.getURL();
+      event.preventDefault();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('open-url-in-new-tab', pdfUrl);
+      }
+      return;
+    }
+
     const fileName = item.getFilename();
     const totalBytes = item.getTotalBytes();
     const downloadPath = path.join(app.getPath('downloads'), fileName);
@@ -1191,6 +1377,7 @@ function createWindow(isIncognito = false) {
       nodeIntegrationInSubFrames: false,
       sandbox: true, // Enabled for better security and site compatibility (YouTube/Google)
       webSecurity: true,
+      plugins: true, // Needed for built-in PDF viewer inside webviews
     },
     show: false,
     icon: path.join(__dirname, 'icon_black.png'),
@@ -1469,7 +1656,16 @@ ipcMain.handle('search:suggest', async (_, query) => {
 });
 
 // --- Downloads Actions ---
-ipcMain.handle('downloads:open', (_, filepath) => { shell.openPath(filepath); });
+ipcMain.handle('downloads:open', async (_, filepath) => {
+  if (!filepath) return false;
+  try {
+    await shell.openPath(filepath);
+    return true;
+  } catch (e) {
+    console.error('Failed to open download', e);
+    return false;
+  }
+});
 ipcMain.handle('downloads:showInFolder', (_, filepath) => { shell.showItemInFolder(filepath); });
 ipcMain.handle('downloads:openFolder', () => { shell.openPath(app.getPath('downloads')); });
 
