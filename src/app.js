@@ -1862,13 +1862,19 @@
         
         clearTimeout(_saveSessionTimer);
         _saveSessionTimer = setTimeout(() => {
-            const tabsToSave = state.tabs.map(t => ({
-                url: t.url,
-                title: t.title,
-                pinned: t.pinned,
-                favicon: t.favicon,
-                active: t.id === state.activeTabId
-            }));
+            const tabsToSave = state.tabs
+                // Skip default blank/newtab/incognito pages unless pinned
+                .filter(t => {
+                    const isBlank = !t.url || t.url === '' || t.url.includes('newtab.html') || t.url.includes('incognito.html') || t.url.startsWith('mauzer://newtab');
+                    return !(isBlank && !t.pinned);
+                })
+                .map(t => ({
+                    url: t.url,
+                    title: t.title,
+                    pinned: t.pinned,
+                    favicon: t.favicon,
+                    active: t.id === state.activeTabId
+                }));
             window.mauzer.sessions.saveCurrent(tabsToSave);
         }, 1000);
     }
@@ -1885,8 +1891,18 @@
             let restoredCount = 0;
             for (const t of sessionTabs) {
                 if (shouldRestore || t.pinned) {
-                    createTab(t.url, { title: t.title, pinned: t.pinned, allowDuplicateHome: true });
+                    const newId = createTab(t.url, { title: t.title, pinned: t.pinned, allowDuplicateHome: true });
                     restoredCount++;
+                    if (newId && t.url && t.url.includes('youtube.com/watch')) {
+                        const wv = document.getElementById('wv-' + newId);
+                        if (wv) {
+                            const pauseVideo = () => {
+                                wv.executeJavaScript(`(() => { const v = document.querySelector('video'); if (v) v.pause(); })();`).catch(() => {});
+                            };
+                            wv.addEventListener('dom-ready', pauseVideo, { once: true });
+                            wv.addEventListener('did-finish-load', pauseVideo, { once: true });
+                        }
+                    }
                 }
             }
             

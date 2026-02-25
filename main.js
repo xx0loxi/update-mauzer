@@ -851,7 +851,12 @@ function setupAdBlocker() {
 
     // JSON-Surgeon: intercept YouTube player JSON and strip ad fields
     if (details.resourceType === 'xhr' && details.url.includes('youtube.com') && /\/player/.test(details.url)) {
-      const filter = session.defaultSession.webRequest.filterResponseData(details.id);
+      const filterResponseData = session.defaultSession.webRequest.filterResponseData;
+      if (typeof filterResponseData !== 'function') {
+        callback({});
+        return;
+      }
+      const filter = filterResponseData(details.id);
       let data = [];
       filter.on('data', (chunk) => { data.push(chunk); });
       filter.on('end', () => {
