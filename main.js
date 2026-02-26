@@ -67,6 +67,80 @@ let pulseStats = {
   sessionStart: Date.now()
 };
 
+// --- Filter sources (large, external) ---
+const FILTER_SOURCES = [
+  // 1) Base
+  'https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/BaseFilter/sections/adservers.txt',
+  'https://raw.githubusercontent.com/easylist/easylist/master/easylist/easylist_general_block.txt',
+  // 2) RU
+  'https://raw.githubusercontent.com/easylist/ruadlist/master/ruadlist/ruadlist_general.txt',
+  // 3) Privacy
+  'https://raw.githubusercontent.com/easylist/easylist/master/easyprivacy/easyprivacy_trackers.txt',
+  'https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/SpywareFilter/sections/tracking_servers.txt',
+  // 4) Anti-malware / mining
+  'https://raw.githubusercontent.com/hoshsadiq/adblock-nocoin-list/master/nocoin.txt',
+  'https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt'
+];
+
+// Whitelist (trusted domains skip blocking). Extendable via future settings/file.
+const WHITELIST = new Set();
+
+let dynamicBlockedDomains = new Set();
+
+function parseHostsList(raw) {
+  const set = new Set();
+  if (!raw) return set;
+  raw.split(/\r?\n/).forEach(line => {
+    const l = line.trim();
+    if (!l || l.startsWith('!') || l.startsWith('#')) return;
+    // uBlock/ABP style: ||domain^ or plain domain
+    const cleaned = l
+      .replace(/^\|\|/, '')
+      .replace(/^@@.*/, '')
+      .replace(/\^.*$/, '')
+      .replace(/^\d+\.\d+\.\d+\.\d+$/, '') // skip IPs
+      .trim();
+    if (!cleaned) return;
+    // Strip path fragments
+    const domain = cleaned.split(/[\/:]/)[0];
+    if (domain && /[a-zA-Z0-9.-]/.test(domain) && domain.includes('.')) {
+      set.add(domain.toLowerCase());
+    }
+  });
+  return set;
+}
+
+function fetchFilters() {
+  return Promise.allSettled(FILTER_SOURCES.map(url => new Promise(resolve => {
+    let buf = '';
+    https.get(url, res => {
+      res.setEncoding('utf8');
+      res.on('data', chunk => { buf += chunk; });
+      res.on('end', () => resolve({ ok: true, data: buf }));
+    }).on('error', () => resolve({ ok: false }));
+  }))).then(results => {
+    const merged = new Set();
+    results.forEach(r => {
+      if (r.status === 'fulfilled' && r.value?.ok && r.value.data) {
+        const set = parseHostsList(r.value.data);
+        set.forEach(d => merged.add(d));
+      }
+    });
+    dynamicBlockedDomains = merged;
+    console.log('[Pulse] Filters loaded, unique domains:', merged.size);
+  }).catch(() => { dynamicBlockedDomains = new Set(); });
+}
+
+// Kick off initial filter fetch at startup
+fetchFilters();
+
+// Periodic refresh / cache cleanup (every 6 hours)
+const FILTER_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
+setInterval(() => {
+  dynamicBlockedDomains = new Set();
+  fetchFilters();
+}, FILTER_REFRESH_INTERVAL_MS);
+
 // --- Data Storage ---
 const DATA_DIR = () => path.join(app.getPath('userData'), 'mauzer-data');
 
@@ -805,7 +879,23 @@ const TRACKER_DOMAINS = [
 ];
 
 function isBlockedDomain(hostname) {
-  // Check exact match or subdomain
+  // Global flag: if Puls is disabled, never block
+  if (!pulseEnabled) return false;
+
+  // 1) Whitelist fast-path
+  if (WHITELIST.has(hostname)) return false;
+
+  // 2) Dynamic filters
+  if (dynamicBlockedDomains && dynamicBlockedDomains.size) {
+    if (dynamicBlockedDomains.has(hostname)) return true;
+    const parts = hostname.split('.');
+    for (let i = 1; i < parts.length - 1; i++) {
+      const sub = parts.slice(i).join('.');
+      if (dynamicBlockedDomains.has(sub)) return true;
+    }
+  }
+
+  // 3) Static blocklist
   return BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
 }
 
@@ -814,6 +904,8 @@ function isTrackerDomain(hostname) {
 }
 
 let pulseEnabled = true;
+// Allow disabling YouTube in-video ad blocking (user requested)
+const disableYouTubeAdblock = true;
 
 function setupAdBlocker() {
   // Helper: detect third-party to reduce breakage (compares target host to referrer host)
@@ -849,8 +941,8 @@ function setupAdBlocker() {
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
     if (!pulseEnabled) { callback({}); return; }
 
-    // JSON-Surgeon: intercept YouTube player JSON and strip ad fields
-    if (details.resourceType === 'xhr' && details.url.includes('youtube.com') && /\/player/.test(details.url)) {
+    // JSON-Surgeon for YouTube player: disabled per user request (allow in-video ads)
+    if (!disableYouTubeAdblock && details.resourceType === 'xhr' && details.url.includes('youtube.com') && /\/player/.test(details.url)) {
       const filterResponseData = session.defaultSession.webRequest.filterResponseData;
       if (typeof filterResponseData !== 'function') {
         callback({});
@@ -1155,7 +1247,7 @@ function setupAntiFingerprint() {
         }
 
     // YouTube Ad Blocker — Pulse Engine v2 (CSS Only for stability)
-        if (url.includes('youtube.com') && pulseEnabled) {
+        if (url.includes('youtube.com') && pulseEnabled && !settings.disableYouTubeAdblock) {
           // Relaxed CSS: avoid hiding generic containers that might contain content
 // CleanView: expanded CSS selectors for ad placeholders
     wc.insertCSS(`
@@ -1187,11 +1279,18 @@ function setupAntiFingerprint() {
           wc.executeJavaScript(`
             // Player Guard: observe ad containers and skip
             (function() {
+              // Store references for cleanup
+              window.__pulsCleanup = window.__pulsCleanup || {};
+              window.__pulsCleanup.skipInterval = null;
+              window.__pulsCleanup.observer = null;
+              window.__pulsCleanup.styleTag = null;
+
               const skipAd = () => {
                 const video = document.querySelector('video');
                 const ad = document.querySelector('.ad-showing');
                 if (video && ad) {
                   video.muted = true;
+                  video.playbackRate = 4.0;
                   if (isFinite(video.duration)) video.currentTime = video.duration;
                   const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
                   if (skipBtn) skipBtn.click();
@@ -1199,36 +1298,51 @@ function setupAntiFingerprint() {
                 const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
                 if (closeBtn) closeBtn.click();
               };
-              setInterval(skipAd, 500);
-              const observer = new MutationObserver(() => skipAd());
-              observer.observe(document.body, { childList: true, subtree: true });
+              window.__pulsCleanup.skipInterval = setInterval(skipAd, 100);
+              window.__pulsCleanup.observer = new MutationObserver(() => skipAd());
+              window.__pulsCleanup.observer.observe(document.body, { childList: true, subtree: true });
+
+              // Listen for Puls disable message
+              window.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'puls-disable') {
+                  if (window.__pulsCleanup.observer) {
+                    window.__pulsCleanup.observer.disconnect();
+                    window.__pulsCleanup.observer = null;
+                  }
+                  if (window.__pulsCleanup.skipInterval) {
+                    clearInterval(window.__pulsCleanup.skipInterval);
+                    window.__pulsCleanup.skipInterval = null;
+                  }
+                  if (window.__pulsCleanup.styleTag) {
+                    window.__pulsCleanup.styleTag.remove();
+                    window.__pulsCleanup.styleTag = null;
+                  }
+                }
+              });
             })();
             // Ghost: override fetch and XHR for ad script URLs
             (function() {
               const fakeResponse = (url) => new Response('', { status: 200, headers: { 'Content-Type': 'application/javascript' } });
-              const originalFetch = window.fetch;
-              window.fetch = function(resource, init) {
-                const url = typeof resource === 'string' ? resource : resource.url;
-                if (/ads|adservice|doubleclick/.test(url)) {
-                  return Promise.resolve(fakeResponse(url));
-                }
-                return originalFetch.apply(this, arguments);
+              const adPatterns = [/doubleclick\.net/, /pagead\//, /adservice\.google/];
+              const origFetch = window.fetch;
+              window.fetch = (...args) => {
+                try {
+                  const url = args[0]?.toString?.() || '';
+                  if (adPatterns.some(p => p.test(url))) return Promise.resolve(fakeResponse(url));
+                } catch (e) {}
+                return origFetch.apply(window, args);
               };
-              const OriginalXHR = window.XMLHttpRequest;
-              function MockXHR() {
-                const xhr = new OriginalXHR();
-                const open = xhr.open;
-                xhr.open = function(method, url) { this._url = url; open.apply(this, arguments); };
-                const send = xhr.send;
-                xhr.send = function(body) {
-                  if (/ads|adservice|doubleclick/.test(this._url)) {
-                    this.readyState = 4;
-                    this.status = 200;
-                    this.responseText = '';
-                    this.onload && this.onload();
-                  } else {
-                    send.apply(this, arguments);
+              const origOpen = XMLHttpRequest.prototype.open;
+              XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+                try {
+                  const urlStr = url?.toString?.() || '';
+                  if (adPatterns.some(p => p.test(urlStr))) {
+                    this.send = () => { this.dispatchEvent(new Event('load')); };
+                    return;
                   }
+                } catch (e) {}
+                return origOpen.call(this, method, url, ...rest);
+              };
                 };
                 return xhr;
               }
@@ -1645,6 +1759,56 @@ ipcMain.handle('pulse:toggle', (_, enabled) => {
   return pulseEnabled;
 });
 ipcMain.handle('pulse:get-state', () => pulseEnabled);
+
+// Per-site whitelist for Puls
+const PULS_WHITELIST_KEY = 'puls-whitelist-domains';
+ipcMain.handle('pulse:get-whitelist', async () => {
+  try {
+    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
+    if (fs.existsSync(dataPath)) {
+      const content = fs.readFileSync(dataPath, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (e) {}
+  return [];
+});
+ipcMain.handle('pulse:add-whitelist', async (_, domain) => {
+  try {
+    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
+    let whitelist = [];
+    if (fs.existsSync(dataPath)) {
+      whitelist = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    }
+    if (!whitelist.includes(domain)) {
+      whitelist.push(domain);
+      fs.writeFileSync(dataPath, JSON.stringify(whitelist));
+    }
+    return whitelist;
+  } catch (e) {}
+  return [];
+});
+ipcMain.handle('pulse:remove-whitelist', async (_, domain) => {
+  try {
+    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
+    let whitelist = [];
+    if (fs.existsSync(dataPath)) {
+      whitelist = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    }
+    whitelist = whitelist.filter(d => d !== domain);
+    fs.writeFileSync(dataPath, JSON.stringify(whitelist));
+    return whitelist;
+  } catch (e) {}
+  return [];
+});
+ipcMain.handle('pulse:clear-whitelist', async () => {
+  try {
+    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
+    if (fs.existsSync(dataPath)) {
+      fs.unlinkSync(dataPath);
+    }
+  } catch (e) {}
+  return [];
+});
 
 // --- Search ---
 ipcMain.handle('search:suggest', async (_, query) => {
