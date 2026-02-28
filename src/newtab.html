@@ -136,14 +136,14 @@
             top: 16px;
             left: 24px;
             display: flex;
-            align-items: center;
-            gap: 12px;
+            flex-direction: column;
+            gap: 10px;
             padding: 12px 14px;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 14px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-            cursor: default;
+            cursor: pointer;
             transform: translateY(0);
             transition: all 0.2s ease;
         }
@@ -154,14 +154,88 @@
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
         }
 
+        .weather-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+        }
+
         .weather-icon {
             width: 38px;
             height: 38px;
             object-fit: contain;
             filter: brightness(1.05) drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+            flex-shrink: 0;
         }
 
         .weather-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+
+        .weather-temp {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .weather-loc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .weather-forecast {
+            display: none;
+            width: 100%;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            gap: 8px;
+        }
+
+        .forecast-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .forecast-day {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .forecast-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .forecast-icon {
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            filter: brightness(1.05);
+        }
+
+        .forecast-temp {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .weather-widget.expanded {
+            gap: 8px;
+            width: 260px;
+        }
+
+        .weather-widget.expanded .weather-forecast {
             display: flex;
             flex-direction: column;
         }
@@ -194,6 +268,15 @@
             color: rgba(0, 0, 0, 0.5);
         }
         [data-theme="light"] .weather-temp {
+            color: rgba(0, 0, 0, 0.85);
+        }
+        [data-theme="light"] .forecast-item {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        [data-theme="light"] .forecast-day {
+            color: rgba(0, 0, 0, 0.6);
+        }
+        [data-theme="light"] .forecast-temp {
             color: rgba(0, 0, 0, 0.85);
         }
 
@@ -257,16 +340,17 @@
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
-            transform: translateY(8px);
-            transition: opacity 160ms ease, transform 180ms ease, visibility 0s linear 180ms;
+            transform: translateY(10px) scale(0.98);
+            transition: opacity 240ms var(--ease), transform 260ms var(--ease), visibility 0s linear 260ms;
+            will-change: opacity, transform;
         }
 
         .suggestions.show {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
-            transform: translateY(0);
-            transition: opacity 160ms ease, transform 180ms ease, visibility 0s;
+            transform: translateY(0) scale(1);
+            transition: opacity 240ms var(--ease), transform 260ms var(--ease), visibility 0s;
         }
 
         .suggestion-item {
@@ -748,11 +832,14 @@
 
     <!-- Weather Widget -->
     <div id="weather-widget" class="weather-widget">
-        <img id="weather-icon" class="weather-icon" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fbbf24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='5'/><path d='M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'/></svg>" alt="">
-        <div class="weather-info">
-            <span id="weather-temp" class="weather-temp">--°</span>
-            <span id="weather-loc" class="weather-loc">Поиск...</span>
+        <div class="weather-main">
+            <img id="weather-icon" class="weather-icon" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fbbf24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='5'/><path d='M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42'/></svg>" alt="">
+            <div class="weather-info">
+                <span id="weather-temp" class="weather-temp">--°</span>
+                <span id="weather-loc" class="weather-loc">Поиск...</span>
+            </div>
         </div>
+        <div class="weather-forecast" id="weather-forecast"></div>
     </div>
 
     <div class="container">
@@ -1151,10 +1238,26 @@
             searchWrap.classList.remove('neon-flash');
         }
 
-        // Apply theme from URL param
+        // Apply theme (URL param has priority, otherwise take current settings and react to changes)
         const params = new URLSearchParams(window.location.search);
-        if (params.get('theme') === 'light') {
-            document.documentElement.setAttribute('data-theme', 'light');
+        const themeFromParam = params.get('theme');
+
+        function applyTheme(theme) {
+            const t = (theme || 'dark').toLowerCase();
+            document.documentElement.setAttribute('data-theme', t);
+            document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+        }
+
+        if (themeFromParam) {
+            applyTheme(themeFromParam);
+        } else if (window.mauzer?.settings?.load) {
+            window.mauzer.settings.load().then(s => applyTheme(s?.theme || 'dark')).catch(() => {});
+        }
+
+        if (window.mauzer?.settings?.onChanged) {
+            window.mauzer.settings.onChanged((s) => {
+                applyTheme(s?.theme || 'dark');
+            });
         }
 
         // === WEATHER LOGIC ===
@@ -1163,6 +1266,13 @@
             const iconEl = document.getElementById('weather-icon');
             const tempEl = document.getElementById('weather-temp');
             const locEl = document.getElementById('weather-loc');
+            const forecastEl = document.getElementById('weather-forecast');
+            let expanded = false;
+
+            widget.addEventListener('click', () => {
+                expanded = !expanded;
+                widget.classList.toggle('expanded', expanded);
+            });
 
             try {
                 // 1. Try ip-api.com (more reliable free tier, no HTTPS block usually)
@@ -1188,7 +1298,7 @@
                 }
 
                 // 2. Get weather from Open-Meteo
-                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
                 if (!weatherRes.ok) throw new Error('Weather failed');
                 const weather = await weatherRes.json();
                 
@@ -1214,11 +1324,56 @@
                     'fog': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M5 16h14"/><path d="M5 20h14"/><path d="M5 8h14"/></svg>'
                 };
 
-                // Update UI
+                // Update UI current
                 iconEl.src = icons[icon] || icons['sun'];
                 tempEl.textContent = `${temp > 0 ? '+' : ''}${temp}°`;
                 locEl.textContent = city;
                 // widget.style.display = 'flex'; // Always visible now
+
+                // Build forecast for next 2 days (tomorrow and day after)
+                if (weather?.daily?.time && Array.isArray(weather.daily.time)) {
+                    forecastEl.innerHTML = '';
+                    const times = weather.daily.time;
+                    const maxTemps = weather.daily.temperature_2m_max || [];
+                    const minTemps = weather.daily.temperature_2m_min || [];
+                    const codes = weather.daily.weathercode || [];
+
+                    const todayIdx = times.findIndex(t => t === weather.current_weather.time?.split('T')[0]);
+                    const items = [];
+                    const labels = ['Завтра', 'Послезавтра', 'Через 3 дня'];
+                    // offsets 1,2,3
+                    [1, 2, 3].forEach((offset, idx) => {
+                        const i = todayIdx >= 0 ? todayIdx + offset : offset; // fallback
+                        if (times[i]) {
+                            const dayLabel = labels[idx] || `+${offset} д.`;
+                            const max = Math.round(maxTemps[i] ?? maxTemps[0] ?? temp);
+                            const min = Math.round(minTemps[i] ?? minTemps[0] ?? temp);
+                            const codeDay = codes[i] ?? code;
+                            const iconKey = codeDay > 0 && codeDay <= 3 ? 'cloud-sun'
+                                : (codeDay >= 45 && codeDay <= 48 ? 'fog'
+                                : (codeDay >= 51 && codeDay <= 67 ? 'rain'
+                                : (codeDay >= 71 && codeDay <= 86 ? 'snow'
+                                : (codeDay >= 95 ? 'thunder' : 'sun'))));
+                            const rawIcon = icons[iconKey] || icons.sun;
+                            const safeIcon = rawIcon.replace(/"/g, '&quot;');
+                            items.push({
+                                day: dayLabel,
+                                icon: safeIcon,
+                                temp: `${max > 0 ? '+' : ''}${max}° / ${min > 0 ? '+' : ''}${min}°`
+                            });
+                        }
+                    });
+
+                    forecastEl.innerHTML = items.map(item => `
+                        <div class="forecast-item">
+                            <span class="forecast-day">${item.day}</span>
+                            <div class="forecast-meta">
+                                <img class="forecast-icon" src="${item.icon}" alt="" />
+                                <span class="forecast-temp">${item.temp}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
 
             } catch (e) {
                 console.error('Weather error:', e);
