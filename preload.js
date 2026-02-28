@@ -124,10 +124,6 @@ contextBridge.exposeInMainWorld('mauzer', {
         toggle: (enabled) => ipcRenderer.invoke('pulse:toggle', enabled),
         getState: () => ipcRenderer.invoke('pulse:get-state'),
         onUpdate: (cb) => ipcRenderer.on('pulse-stats-update', (_, d) => cb(d)),
-        getWhitelist: () => ipcRenderer.invoke('pulse:get-whitelist'),
-        addWhitelist: (domain) => ipcRenderer.invoke('pulse:add-whitelist', domain),
-        removeWhitelist: (domain) => ipcRenderer.invoke('pulse:remove-whitelist', domain),
-        clearWhitelist: () => ipcRenderer.invoke('pulse:clear-whitelist'),
     },
 
     // --- Config (legacy) ---

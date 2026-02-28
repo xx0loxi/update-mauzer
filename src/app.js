@@ -13,7 +13,6 @@
         sidebarOpen: false,
         sidebarPanel: 'bookmarks',
         settings: {},
-        currentTheme: null,
         zoomLevels: {},
         frostTimers: {},
         frozenTabs: new Set(),
@@ -297,13 +296,6 @@
     let _preloadPath = ''; // Cached preload path from main process
 
     function createTab(url = '', opts = {}) {
-        // Reuse existing Settings tab if requested
-        const settingsHref = settingsUrl();
-        if (url && url.includes('settings.html')) {
-            const existingSettings = state.tabs.find(tab => (tab.url || '').includes('settings.html'));
-            if (existingSettings) { switchTab(existingSettings.id); return existingSettings.id; }
-        }
-
         // Block creating duplicate MAUZER home tabs (unless forced)
         const isHomeTab = !url && !opts.incognito;
         const allowDuplicateHome = !!opts._force || !!opts.allowDuplicateHome;
@@ -1250,27 +1242,9 @@
             await window.mauzer.pulse.toggle(enabled);
             const status = state.settings.language === 'en' ? (enabled ? 'Enabled' : 'Disabled') : (enabled ? 'Включена' : 'Выключена');
             toast(`Pulse: ${status}`);
-
-            // If disabling, add current domain to whitelist
-            if (!enabled) {
-                const wv = document.getElementById('wv-' + state.activeTabId);
-                if (wv) {
-                    try {
-                        const url = wv.getURL();
-                        if (url && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
-                            const domain = new URL(url).hostname;
-                            await window.mauzer.pulse.addWhitelist(domain);
-                        }
-                    } catch (err) {}
-                }
-            }
-
-            // Force reload to apply/remove cosmetic rules immediately
+            // Reload active tab to apply/remove cosmetic rules immediately
             const wv = document.getElementById('wv-' + state.activeTabId);
-            if (wv) {
-                // location.reload() in webview context to clear injected scripts/styles
-                wv.executeJavaScript('location.reload()').catch(() => {});
-            }
+            if (wv) wv.reload();
         });
     }
 
@@ -1297,7 +1271,6 @@
     // ============================================================
     function applySettings() {
         const s = state.settings;
-        const prevTheme = state.currentTheme;
         const theme = s.theme || 'dark';
         const accent = s.accentColor || '#808080';
         const toRgba = (hex, alpha = 1) => {
@@ -1351,54 +1324,6 @@
                 }
             } catch (e) { }
         });
-
-        // If theme changed, force external pages (incl. YouTube/Google) to update instantly
-        if (prevTheme && prevTheme !== theme) {
-            state.tabs.forEach(tab => {
-                const wv = document.getElementById('wv-' + tab.id);
-                if (!wv) return;
-                try {
-                    const url = wv.getURL();
-                    if (url && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
-                        const isYouTube = url.includes('youtube.com');
-                        const isGoogle = url.includes('google.');
-                        const prefVal = theme === 'dark' ? 'f6=400' : '';
-
-                        // Update PREF cookies for Google/YouTube to sync dark mode server-side
-                        if (isYouTube || isGoogle) {
-                            const cookieScript = prefVal
-                                ? `document.cookie = "PREF=${prefVal};path=/;domain=.${isYouTube ? 'youtube.com' : 'google.com'}";`
-                                : `document.cookie = "PREF=; Max-Age=0; path=/; domain=.${isYouTube ? 'youtube.com' : 'google.com'}";`;
-                            wv.executeJavaScript(cookieScript).catch(() => {});
-                        }
-
-                        // Override prefers-color-scheme in-page to avoid waiting for reload where possible
-                        const prefersScript = `(() => {
-                            const t = '${theme}';
-                            const meta = document.querySelector('meta[name="color-scheme"]') || document.createElement('meta');
-                            meta.name = 'color-scheme';
-                            meta.content = t === 'light' ? 'light' : 'dark';
-                            if (!meta.parentNode) document.head.prepend(meta);
-                            const darkQuery = '(prefers-color-scheme: dark)';
-                            const origMatch = window.matchMedia;
-                            const fake = {
-                                matches: t === 'dark',
-                                media: darkQuery,
-                                onchange: null,
-                                addListener() {}, removeListener() {},
-                                addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false; }
-                            };
-                            window.matchMedia = (q) => q === darkQuery ? fake : origMatch.call(window, q);
-                        })();`;
-                        wv.executeJavaScript(prefersScript).catch(() => {});
-
-                        wv.reload();
-                    }
-                } catch (e) { }
-            });
-        }
-
-        state.currentTheme = theme;
 
         if (s.density === 'compact') {
             document.documentElement.style.setProperty('--titlebar-h', '34px');
