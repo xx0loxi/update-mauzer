@@ -930,12 +930,12 @@ function setupAdBlocker() {
     /\/soft\/download/i,
     /browser\.yandex.*\.exe/i,
     /google_ads/i,
-    /doubleclick/i,
-    // /ad_status/i, // Too aggressive
-    // /ads\?/i,     // Too aggressive (matches uploads?name=ads)
-    // /pagead/i,    // Too aggressive (matches pageadmin)
-    // /\/ads\.js/i, // Too aggressive
-    // /\/ad\.js/i   // Too aggressive
+    /doubleclick\.net/i,
+    /googleadservices\.com/i,
+    /googlesyndication\.com/i,
+    /videoplayback.*[?&](adformat|ptracking|ai)=/i,
+    /youtube\.com\/api\/stats\/ads/i,
+    /youtube\.com\/pagead/i,
   ];
 
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
@@ -1264,13 +1264,13 @@ function setupAntiFingerprint() {
       /* YouTube specific */
       .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
       .ytp-ad-text-overlay, .ytp-ad-overlay-container,
-            .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
-            .ytp-ad-text-overlay, .ytp-ad-overlay-container,
             .ytp-ad-player-overlay-flyout-cta, .ytp-ad-button-icon,
             .ytp-ad-preview-container, .ytp-ad-skip-button-slot,
             #masthead-ad, ytd-ad-slot-renderer, ytd-display-ad-renderer,
             ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer,
             ytd-promoted-sparkles-web-renderer, ytd-merch-shelf-renderer,
+            ytd-companion-slot-renderer, ytd-statement-banner-renderer,
+            .ytd-player-legacy-ad-renderer, #player-ads, .ad-div, #merchandise-promo,
             .ad-showing, .ytp-ad-overlay-close-button
             { display: none !important; }
           `).catch(() => {});
@@ -1299,7 +1299,18 @@ function setupAntiFingerprint() {
                 if (closeBtn) closeBtn.click();
               };
               window.__pulsCleanup.skipInterval = setInterval(skipAd, 100);
-              window.__pulsCleanup.observer = new MutationObserver(() => skipAd());
+
+              // DOM cleaner: remove ad slot elements and notify Pulse
+              const adSlotSelectors = ['ytd-ad-slot-renderer', 'ytd-companion-slot-renderer', '#masthead-ad', 'ytd-statement-banner-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-display-ad-renderer', '#player-ads'];
+              const removeAdSlots = () => {
+                adSlotSelectors.forEach(sel => {
+                  document.querySelectorAll(sel).forEach(el => {
+                    el.remove();
+                    try { window.mauzer?.pulse?.adBlocked(); } catch(e) {}
+                  });
+                });
+              };
+              window.__pulsCleanup.observer = new MutationObserver(() => { skipAd(); removeAdSlots(); });
               window.__pulsCleanup.observer.observe(document.body, { childList: true, subtree: true });
 
               // Listen for Puls disable message
@@ -1754,6 +1765,12 @@ ipcMain.handle('downloads:get', () => getDownloads());
 ipcMain.handle('downloads:clear', () => { clearDownloads(); return true; });
 
 // --- Pulse ---
+ipcMain.on('pulse:ad-blocked', () => {
+  pulseStats.adsBlocked++;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pulse-stats-update', { ...pulseStats });
+  }
+});
 ipcMain.handle('pulse:toggle', (_, enabled) => {
   pulseEnabled = !!enabled;
   return pulseEnabled;

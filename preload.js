@@ -128,6 +128,7 @@ contextBridge.exposeInMainWorld('mauzer', {
         addWhitelist: (domain) => ipcRenderer.invoke('pulse:add-whitelist', domain),
         removeWhitelist: (domain) => ipcRenderer.invoke('pulse:remove-whitelist', domain),
         clearWhitelist: () => ipcRenderer.invoke('pulse:clear-whitelist'),
+        adBlocked: () => ipcRenderer.send('pulse:ad-blocked'),
     },
 
     // --- Config (legacy) ---
