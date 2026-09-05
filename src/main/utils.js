@@ -30,20 +30,46 @@ function compareVersions(a, b) {
   return 0;
 }
 
+const cache = new Map();
+const writeTimeouts = new Map();
+
 function readJSON(file, fallback = []) {
+  if (cache.has(file)) return cache.get(file);
   try {
     const p = path.join(app.getPath('userData'), 'mauzer-data', file);
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (fs.existsSync(p)) {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      cache.set(file, data);
+      return data;
+    }
   } catch (e) { console.error(`Read ${file} error:`, e); }
-  return fallback;
+  
+  // Clone fallback so we don't accidentally mutate the default fallback argument
+  const initialData = Array.isArray(fallback) ? [...fallback] : (typeof fallback === 'object' && fallback !== null ? { ...fallback } : fallback);
+  cache.set(file, initialData);
+  return initialData;
 }
 
 function writeJSON(file, data) {
-  try {
-    const dir = path.join(app.getPath('userData'), 'mauzer-data');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, file), JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) { console.error(`Write ${file} error:`, e); }
+  cache.set(file, data);
+  
+  if (writeTimeouts.has(file)) {
+    clearTimeout(writeTimeouts.get(file));
+  }
+  
+  const timeoutId = setTimeout(() => {
+    writeTimeouts.delete(file);
+    try {
+      const dir = path.join(app.getPath('userData'), 'mauzer-data');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      // Use async write to avoid blocking the main thread
+      fs.writeFile(path.join(dir, file), JSON.stringify(data, null, 2), 'utf8', (err) => {
+        if (err) console.error(`Async write ${file} error:`, err);
+      });
+    } catch (e) { console.error(`Write setup ${file} error:`, e); }
+  }, 1000); // 1 second debounce
+  
+  writeTimeouts.set(file, timeoutId);
 }
 
 module.exports = {

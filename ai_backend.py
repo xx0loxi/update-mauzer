@@ -230,21 +230,21 @@ async def stt_handler(audio: UploadFile = File(...)):
         return {"text": ""}
 
 
+from fastapi import BackgroundTasks
+
 @app.get("/api/tts")
-async def tts_handler(text: str):
-    """Generate premium voice using OpenAI TTS (onyx = deep male bass)"""
+async def tts_handler(text: str, background_tasks: BackgroundTasks):
+    """Generate voice using Edge TTS (free, neural)"""
     try:
-        c = get_client()
-        response = c.audio.speech.create(
-            model="tts-1",
-            voice="onyx",
-            input=text
-        )
+        communicate = edge_tts.Communicate(text, TTS_VOICE)
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
         tmp_path = tmp.name
         tmp.close()
-        response.stream_to_file(tmp_path)
-        return FileResponse(tmp_path, media_type="audio/mpeg", background=None)
+        
+        await communicate.save(tmp_path)
+        
+        background_tasks.add_task(os.remove, tmp_path)
+        return FileResponse(tmp_path, media_type="audio/mpeg")
     except Exception as e:
         print(f"[TTS ERROR] {e}")
         return {"error": str(e)}

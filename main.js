@@ -5,11 +5,21 @@
 const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const https = require('https');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const { autoUpdater } = require('electron-updater');
 const { isGoogleLoginUrl, readJSON, writeJSON, normalizeVersion, compareVersions } = require('./src/main/utils');
 const importer = require('./src/main/importer');
+
+// --- Windows 7 Compatibility & Optimization ---
+const isWin7 = os.release().startsWith('6.1');
+if (isWin7) {
+  // Win 7 often lacks proper GPU drivers for modern Chromium, which leads to a blank white screen.
+  // Disabling hardware acceleration ensures stable rendering on older PCs.
+  app.disableHardwareAcceleration();
+  console.log('[Mauzer] Windows 7 detected. Hardware acceleration disabled for stability.');
+}
 
 function loadEnvFile(p) {
   try {
@@ -35,7 +45,7 @@ try {
 } catch (e) { }
 
 // --- Fingerprint Evasion ---
-const CHROME_VERSION = '124.0.0.0'; // Updated to match Electron 30
+const CHROME_VERSION = '108.0.0.0'; // Updated to match Electron 22 (Win 7 compatible)
 const SPOOFED_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36`;
 
 // Strip Electron/Mauzer from the default user agent at the app level
@@ -83,7 +93,16 @@ const FILTER_SOURCES = [
 ];
 
 // Whitelist (trusted domains skip blocking). Extendable via future settings/file.
-const WHITELIST = new Set();
+const WHITELIST = new Set([
+  'youtube.com',
+  'googlevideo.com',
+  'ytimg.com',
+  'ggpht.com',
+  'youtube-nocookie.com',
+  'twitch.tv',
+  'jtvnw.net',
+  'ttvnw.net'
+]);
 
 let dynamicBlockedDomains = new Set();
 
@@ -110,36 +129,25 @@ function parseHostsList(raw) {
   return set;
 }
 
-function fetchFilters() {
-  return Promise.allSettled(FILTER_SOURCES.map(url => new Promise(resolve => {
-    let buf = '';
-    https.get(url, res => {
-      res.setEncoding('utf8');
-      res.on('data', chunk => { buf += chunk; });
-      res.on('end', () => resolve({ ok: true, data: buf }));
-    }).on('error', () => resolve({ ok: false }));
-  }))).then(results => {
-    const merged = new Set();
-    results.forEach(r => {
-      if (r.status === 'fulfilled' && r.value?.ok && r.value.data) {
-        const set = parseHostsList(r.value.data);
-        set.forEach(d => merged.add(d));
-      }
-    });
-    dynamicBlockedDomains = merged;
-    console.log('[Pulse] Filters loaded, unique domains:', merged.size);
-  }).catch(() => { dynamicBlockedDomains = new Set(); });
+function loadLocalFilters() {
+  try {
+    const filtersPath = path.join(__dirname, 'src', 'main', 'adblock-filters.json');
+    if (fs.existsSync(filtersPath)) {
+      const data = JSON.parse(fs.readFileSync(filtersPath, 'utf8'));
+      dynamicBlockedDomains = new Set(data);
+      console.log('[Pulse] Pre-built filters loaded, unique domains:', dynamicBlockedDomains.size);
+    } else {
+      console.log('[Pulse] No pre-built filters found at', filtersPath);
+      dynamicBlockedDomains = new Set();
+    }
+  } catch (e) {
+    console.error('[Pulse] Failed to load local filters:', e);
+    dynamicBlockedDomains = new Set();
+  }
 }
 
-// Kick off initial filter fetch at startup
-fetchFilters();
-
-// Periodic refresh / cache cleanup (every 6 hours)
-const FILTER_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
-setInterval(() => {
-  dynamicBlockedDomains = new Set();
-  fetchFilters();
-}, FILTER_REFRESH_INTERVAL_MS);
+// Load filters at startup
+loadLocalFilters();
 
 // --- Data Storage ---
 const DATA_DIR = () => path.join(app.getPath('userData'), 'mauzer-data');
@@ -878,29 +886,37 @@ const TRACKER_DOMAINS = [
   'popads.net', 'popcash.net', 'propellerads.com'
 ];
 
+const BLOCKED_DOMAINS_SET = new Set(BLOCKED_DOMAINS);
+const TRACKER_DOMAINS_SET = new Set(TRACKER_DOMAINS);
+
+function checkDomainInSet(hostname, set) {
+  if (set.has(hostname)) return true;
+  const parts = hostname.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const sub = parts.slice(i).join('.');
+    if (set.has(sub)) return true;
+  }
+  return false;
+}
+
 function isBlockedDomain(hostname) {
   // Global flag: if Puls is disabled, never block
   if (!pulseEnabled) return false;
 
   // 1) Whitelist fast-path
-  if (WHITELIST.has(hostname)) return false;
+  if (checkDomainInSet(hostname, WHITELIST)) return false;
 
   // 2) Dynamic filters
-  if (dynamicBlockedDomains && dynamicBlockedDomains.size) {
-    if (dynamicBlockedDomains.has(hostname)) return true;
-    const parts = hostname.split('.');
-    for (let i = 1; i < parts.length - 1; i++) {
-      const sub = parts.slice(i).join('.');
-      if (dynamicBlockedDomains.has(sub)) return true;
-    }
+  if (dynamicBlockedDomains && dynamicBlockedDomains.size && checkDomainInSet(hostname, dynamicBlockedDomains)) {
+    return true;
   }
 
   // 3) Static blocklist
-  return BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+  return checkDomainInSet(hostname, BLOCKED_DOMAINS_SET);
 }
 
 function isTrackerDomain(hostname) {
-  return TRACKER_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+  return checkDomainInSet(hostname, TRACKER_DOMAINS_SET);
 }
 
 let pulseEnabled = true;

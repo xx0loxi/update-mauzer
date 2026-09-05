@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.1.13",
+    "version": "1.1.14",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
@@ -11,6 +11,9 @@
     "scripts": {
         "start": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron .\"",
         "dev": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron . --dev\"",
+        "update-filters": "node scripts/update-filters.js",
+        "prebuild": "npm run update-filters",
+        "test:ui": "node scripts/test-ui.js",
         "build": "electron-builder --win",
         "release": "electron-builder --win --publish always"
     },
@@ -32,7 +35,8 @@
                 {
                     "target": "nsis",
                     "arch": [
-                        "x64"
+                        "x64",
+                        "ia32"
                     ]
                 }
             ],
@@ -53,14 +57,14 @@
     "author": "mono yt developer",
     "license": "MIT",
     "devDependencies": {
-        "electron": "^30.5.1",
+        "electron": "22.3.27",
         "electron-builder": "^25.1.8"
     },
     "dependencies": {
-        "better-sqlite3": "^11.10.0",
+        "better-sqlite3": "^8.2.0",
         "electron-updater": "^6.8.3",
         "msedge-tts": "^2.0.4",
-        "sqlite3": "^5.1.7",
+        "sqlite3": "^5.1.4",
         "ws": "^8.19.0"
     }
 }
