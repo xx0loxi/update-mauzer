@@ -67,8 +67,8 @@
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
         [data-theme="light"] .toggle.active {
-            background: #2f2f2f;
-            border-color: #2f2f2f;
+            background: var(--accent, #2f2f2f);
+            border-color: var(--accent, #2f2f2f);
         }
 
         [data-theme="light"] .color-dot.active {
@@ -182,7 +182,8 @@
         }
 
         .toggle.active {
-            background: #808080;
+            background: var(--accent, #808080);
+            border-color: var(--accent, #808080);
         }
 
         .toggle::after {
@@ -653,6 +654,9 @@
 
         function applyToUI() {
             document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
+            if (settings.accentColor) {
+                document.documentElement.style.setProperty('--accent', settings.accentColor);
+            }
             // Selects
             document.querySelectorAll('select[data-key]').forEach(sel => {
                 sel.value = settings[sel.dataset.key] || sel.options[0].value;
@@ -675,6 +679,7 @@
                 dot.title = c.name;
                 dot.addEventListener('click', async () => {
                     settings.accentColor = c.val;
+                    document.documentElement.style.setProperty('--accent', c.val);
                     await window.mauzer.settings.save(settings);
                     cr.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
                     dot.classList.add('active');

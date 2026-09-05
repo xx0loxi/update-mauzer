@@ -611,7 +611,26 @@
             width: 36px;
             height: 36px;
             object-fit: contain;
-            border-radius: 4px;
+            border-radius: 6px;
+        }
+
+        .quick-link-icon svg {
+            width: 34px;
+            height: 34px;
+        }
+
+        .quick-link-letter {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            user-select: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         }
 
         .quick-link-title {
@@ -623,15 +642,38 @@
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 100%;
+            transition: color 0.15s;
         }
+        .quick-link:hover .quick-link-title {
+            color: var(--accent, #ffffff);
+        }
+        .quick-link:hover {
+            border-color: var(--accent, rgba(255, 255, 255, 0.2));
+            box-shadow: 0 4px 16px var(--accent-glow, rgba(0, 0, 0, 0.2));
+        }
+
         .quick-link-add {
             border-style: dashed;
             border-color: rgba(255, 255, 255, 0.2);
+        }
+        .quick-link-add:hover {
+            border-color: var(--accent, rgba(255, 255, 255, 0.4));
+            color: var(--accent, #ffffff);
         }
 
         .quick-link-add .quick-link-icon {
             font-size: 28px;
             color: rgba(255, 255, 255, 0.6);
+        }
+
+        .modal-btn:not(.ghost) {
+            background: var(--accent, #ffffff) !important;
+            border-color: var(--accent, #ffffff) !important;
+        }
+        .modal-input:focus,
+        .search-input:focus {
+            border-color: var(--accent, #ffffff) !important;
+            box-shadow: 0 0 0 3px var(--accent-glow, rgba(255, 255, 255, 0.15)) !important;
         }
 
         /* === LIGHT THEME === */
@@ -940,13 +982,19 @@
         let selectedIndex = -1;
         let debounceTimer;
 
-        // Auto-focus on load
-        window.addEventListener('load', () => {
+        // Auto-focus on load and load accent color
+        window.addEventListener('load', async () => {
             searchInput.focus();
-            if (!window.mauzer) {
-                console.error('Mauzer API missing in newtab');
-                // Optional: try to indicate error visually
-                // searchInput.style.borderColor = 'red';
+            if (window.mauzer?.settings?.load) {
+                try {
+                    const s = await window.mauzer.settings.load();
+                    if (s && s.accentColor) {
+                        document.documentElement.style.setProperty('--accent', s.accentColor);
+                        const hex = s.accentColor.replace('#', '');
+                        const bi = parseInt(hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex, 16);
+                        document.documentElement.style.setProperty('--accent-glow', `rgba(${(bi >> 16) & 255}, ${(bi >> 8) & 255}, ${bi & 255}, 0.25)`);
+                    }
+                } catch(e) {}
             }
         });
 
@@ -1085,6 +1133,39 @@
             });
         }
 
+        function getQuickLinkIcon(url, title) {
+            let hostname = '';
+            try { hostname = new URL(url).hostname.toLowerCase(); } catch(e) {}
+            
+            if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+                return `<svg viewBox="0 0 24 24" width="34" height="34"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#FFFFFF" d="m9.545 15.568 6.273-3.568-6.273-3.568z"/></svg>`;
+            }
+            if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {
+                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#10a37f"><path d="M22.28 9.87a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.96 4.19a5.98 5.98 0 0 0-3.93 4.14 6.05 6.05 0 0 0 .88 7.1 5.98 5.98 0 0 0 .51 4.92 6.05 6.05 0 0 0 6.52 2.9 6.03 6.03 0 0 0 10.29-2.13 5.98 5.98 0 0 0 3.93-4.14 6.05 6.05 0 0 0-.88-7.11zm-8.8 11.2a4.54 4.54 0 0 1-2.88-.72l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.75l2.03 1.17a.08.08 0 0 1 .04.06v5.38a4.56 4.56 0 0 1-4.5 4.38zm-8.62-4.1a4.5 4.5 0 0 1-.54-2.93l.14.08 4.79 2.76a.8.8 0 0 0 .79 0l5.85-3.37v2.35a.08.08 0 0 1-.03.07l-4.66 2.69a4.55 4.55 0 0 1-6.34-1.65zm-1.12-9.67A4.54 4.54 0 0 1 6.08 5.4l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.75L-1.2 14.5a.08.08 0 0 1-.04-.06V9.06a4.56 4.56 0 0 1 4.98-1.76zm13.12 3.8l-5.85 3.38-2.03-1.17a.08.08 0 0 1-.04-.07V7.07l5.85-3.37a.8.8 0 0 0 .4-.68V.67a4.55 4.55 0 0 1 1.67 8.45zm2.84 5.75l-4.78-2.76a.8.8 0 0 0-.79 0l-5.85 3.37v-2.35a.08.08 0 0 1 .03-.07l4.66-2.69a4.55 4.55 0 0 1 6.73 4.5zm-8.15-4.7l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
+            }
+            if (hostname.includes('github.com')) {
+                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="white"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
+            }
+            if (hostname.includes('telegram.org') || hostname.includes('t.me')) {
+                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#2AABEE"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.56 8.16l-1.97 9.28c-.15.65-.53.81-1.08.51l-3-2.21-1.45 1.39c-.16.16-.3.3-.61.3l.22-3.05 5.56-5.02c.24-.22-.05-.34-.38-.13l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.13-.95l11.58-4.46c.54-.19 1.01.13.83.92z"/></svg>`;
+            }
+            if (hostname.includes('vk.com')) {
+                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#0077FF"><path d="M12.78 17.5c-6.19 0-9.73-4.24-9.87-11.3h3.09c.1 5.18 2.38 7.37 4.2 7.82V6.2h2.91v4.46c1.78-.19 3.65-2.23 4.29-4.46h2.91c-.5 2.76-2.54 4.8-3.98 5.64 1.44.68 3.76 2.45 4.67 5.66h-3.21c-.72-2.23-2.5-3.96-4.88-4.2v4.2z"/></svg>`;
+            }
+            if (hostname.includes('google.')) {
+                return `<svg viewBox="0 0 24 24" width="30" height="30"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.27V6.58H1.25A11.97 11.97 0 0 0 0 12c0 1.92.45 3.74 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>`;
+            }
+
+            const letter = (title || hostname || '?').charAt(0).toUpperCase();
+            const bgColors = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#9333ea', '#0891b2', '#4f46e5'];
+            const colorIndex = Math.abs((hostname || title || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % bgColors.length;
+            const badgeColor = bgColors[colorIndex];
+
+            return `<img src="https://www.google.com/s2/favicons?domain=${hostname}&sz=128" alt=""
+                      onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+                    <div class="quick-link-letter" style="display:none; background:${badgeColor};">${letter}</div>`;
+        }
+
         function renderLinks(links) {
             const container = document.getElementById('quick-links');
             container.innerHTML = '';
@@ -1094,11 +1175,9 @@
                 a.href = link.url;
                 a.setAttribute('draggable', 'true');
                 a.dataset.index = String(index);
-                const hostname = new URL(link.url).hostname;
                 a.innerHTML = `
           <div class="quick-link-icon">
-            <img src="https://www.google.com/s2/favicons?domain=${hostname}&sz=128" alt=""
-              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22><circle cx=%2212%22 cy=%2212%22 r=%2210%22/></svg>'">
+            ${getQuickLinkIcon(link.url, link.title)}
           </div>
           <span class="quick-link-title">${link.title}</span>
           <button class="quick-link-menu-btn" type="button">⋯</button>

@@ -480,6 +480,8 @@
         document.getElementById('wv-' + id)?.remove();
         clearTimeout(state.frostTimers[id]);
         state.frozenTabs.delete(id);
+        delete state.loadTimers[id];
+        delete state.frostTimers[id];
         
         // If closed tab was active, switch to another
         if (state.activeTabId === id) {

@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.1.14",
+    "version": "1.1.15",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
@@ -11,6 +11,7 @@
     "scripts": {
         "start": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron .\"",
         "dev": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron . --dev\"",
+        "benchmark": "node benchmark.js",
         "update-filters": "node scripts/update-filters.js",
         "prebuild": "npm run update-filters",
         "test:ui": "node scripts/test-ui.js",

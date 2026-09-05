@@ -12,13 +12,29 @@ const { autoUpdater } = require('electron-updater');
 const { isGoogleLoginUrl, readJSON, writeJSON, normalizeVersion, compareVersions } = require('./src/main/utils');
 const importer = require('./src/main/importer');
 
-// --- Windows 7 Compatibility & Optimization ---
+// --- Windows 7 & Old PC Compatibility & Optimization ---
 const isWin7 = os.release().startsWith('6.1');
-if (isWin7) {
-  // Win 7 often lacks proper GPU drivers for modern Chromium, which leads to a blank white screen.
-  // Disabling hardware acceleration ensures stable rendering on older PCs.
-  app.disableHardwareAcceleration();
-  console.log('[Mauzer] Windows 7 detected. Hardware acceleration disabled for stability.');
+const isLowEnd = process.env.SIMULATE_LOW_END === '1' || os.totalmem() < 4.5 * 1024 * 1024 * 1024 || os.cpus().length <= 2; // < 4.5GB RAM or <= 2 cores
+
+// Global Heavy-Tab Optimizations (Applies to ALL PCs)
+// 1. Process sharing: Groups same sites into single processes
+app.commandLine.appendSwitch('enable-features', 'ProcessPerSite,IntensiveWakeUpThrottling');
+// 2. Disable strict site isolation (Massive RAM savings for heavy tabs)
+app.commandLine.appendSwitch('disable-site-isolation-trials');
+// 3. Limit renderer processes based on system power
+app.commandLine.appendSwitch('renderer-process-limit', isLowEnd ? '2' : '15');
+app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees');
+
+if (isWin7 || isLowEnd) {
+  // Old PCs often lack proper GPU drivers or RAM.
+  if (isWin7) {
+      app.disableHardwareAcceleration();
+      app.commandLine.appendSwitch('disable-gpu');
+      app.commandLine.appendSwitch('disable-gpu-compositing');
+  }
+  app.commandLine.appendSwitch('enable-low-end-device-mode');
+  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+  console.log('[Mauzer] Windows 7 or Low-End PC detected. Extra optimization limits applied.');
 }
 
 function loadEnvFile(p) {
@@ -99,9 +115,16 @@ const WHITELIST = new Set([
   'ytimg.com',
   'ggpht.com',
   'youtube-nocookie.com',
+  'google.com',
+  'google.ru',
+  'gstatic.com',
+  'googleapis.com',
+  'duckduckgo.com',
   'twitch.tv',
   'jtvnw.net',
-  'ttvnw.net'
+  'ttvnw.net',
+  'github.com',
+  'githubusercontent.com'
 ]);
 
 let dynamicBlockedDomains = new Set();
@@ -948,10 +971,7 @@ function setupAdBlocker() {
     /google_ads/i,
     /doubleclick\.net/i,
     /googleadservices\.com/i,
-    /googlesyndication\.com/i,
-    /videoplayback.*[?&](adformat|ptracking|ai)=/i,
-    /youtube\.com\/api\/stats\/ads/i,
-    /youtube\.com\/pagead/i,
+    /googlesyndication\.com/i
   ];
 
   session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
@@ -1293,41 +1313,51 @@ function setupAntiFingerprint() {
 
           // Player Guard & Ghost: script injection to skip ads and fake ad script loads
           wc.executeJavaScript(`
-            // Player Guard: observe ad containers and skip
-            (function() {
-              // Store references for cleanup
-              window.__pulsCleanup = window.__pulsCleanup || {};
-              window.__pulsCleanup.skipInterval = null;
-              window.__pulsCleanup.observer = null;
-              window.__pulsCleanup.styleTag = null;
-
-              const skipAd = () => {
-                const video = document.querySelector('video');
-                const ad = document.querySelector('.ad-showing');
-                if (video && ad) {
-                  video.muted = true;
-                  video.playbackRate = 4.0;
-                  if (isFinite(video.duration)) video.currentTime = video.duration;
-                  const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-                  if (skipBtn) skipBtn.click();
+              // Player Guard: observe ad containers and skip
+              (function() {
+                // Store references for cleanup
+                window.__pulsCleanup = window.__pulsCleanup || {};
+                
+                // Clear any existing interval/observer to prevent memory leaks on re-injection
+                if (window.__pulsCleanup.skipInterval) {
+                  clearInterval(window.__pulsCleanup.skipInterval);
+                  window.__pulsCleanup.skipInterval = null;
                 }
-                const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
-                if (closeBtn) closeBtn.click();
-              };
-              window.__pulsCleanup.skipInterval = setInterval(skipAd, 100);
+                if (window.__pulsCleanup.observer) {
+                  window.__pulsCleanup.observer.disconnect();
+                  window.__pulsCleanup.observer = null;
+                }
+                
+                window.__pulsCleanup.styleTag = null;
 
-              // DOM cleaner: remove ad slot elements and notify Pulse
-              const adSlotSelectors = ['ytd-ad-slot-renderer', 'ytd-companion-slot-renderer', '#masthead-ad', 'ytd-statement-banner-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-display-ad-renderer', '#player-ads'];
-              const removeAdSlots = () => {
-                adSlotSelectors.forEach(sel => {
-                  document.querySelectorAll(sel).forEach(el => {
-                    el.remove();
-                    try { window.mauzer?.pulse?.adBlocked(); } catch(e) {}
+                const skipAd = () => {
+                  const video = document.querySelector('video');
+                  const ad = document.querySelector('.ad-showing');
+                  if (video && ad) {
+                    video.muted = true;
+                    video.playbackRate = 4.0;
+                    if (isFinite(video.duration)) video.currentTime = video.duration;
+                    const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+                    if (skipBtn) skipBtn.click();
+                  }
+                  const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
+                  if (closeBtn) closeBtn.click();
+                };
+
+                // DOM cleaner: remove ad slot elements and notify Pulse
+                const adSlotSelectors = ['ytd-ad-slot-renderer', 'ytd-companion-slot-renderer', '#masthead-ad', 'ytd-statement-banner-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-display-ad-renderer', '#player-ads'];
+                const removeAdSlots = () => {
+                  adSlotSelectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(el => {
+                      el.remove();
+                      try { window.mauzer?.pulse?.adBlocked(); } catch(e) {}
+                    });
                   });
-                });
-              };
-              window.__pulsCleanup.observer = new MutationObserver(() => { skipAd(); removeAdSlots(); });
-              window.__pulsCleanup.observer.observe(document.body, { childList: true, subtree: true });
+                };
+                
+                // Only use MutationObserver, setInterval is redundant and causes CPU spikes
+                window.__pulsCleanup.observer = new MutationObserver(() => { skipAd(); removeAdSlots(); });
+                window.__pulsCleanup.observer.observe(document.body, { childList: true, subtree: true });
 
               // Listen for Puls disable message
               window.addEventListener('message', (e) => {
@@ -1623,25 +1653,66 @@ function setupWebViewPermissions() {
     return allowedChecks.includes(permission);
   });
 
-  mainWindow.webContents.on('did-attach-webview', (event, wc) => {
-    wc.setWindowOpenHandler(({ url }) => {
-      // Intercept Google login popups (e.g. "Sign in with Google" buttons)
-      // if (isGoogleLoginUrl(url)) {
-      //   handleGoogleLoginExternal(url, wc);
-      //   return { action: 'deny' };
-      // }
-      mainWindow.webContents.send('open-url-in-new-tab', url);
+  app.on('web-contents-created', (event, contents) => {
+    // Security: Secure webview attachments
+    contents.on('will-attach-webview', (wvEvent, webPreferences, params) => {
+      // Prevent untrusted webviews from gaining Node.js access
+      webPreferences.nodeIntegration = false;
+      webPreferences.nodeIntegrationInSubFrames = false;
+      webPreferences.contextIsolation = true;
+      webPreferences.enableRemoteModule = false;
+      webPreferences.sandbox = true;
+
+      // Only allow preload if it strictly points to local app directory
+      if (webPreferences.preload && !webPreferences.preload.startsWith(path.join(__dirname, 'preload.js')) && !webPreferences.preload.startsWith('file:///' + path.join(__dirname, 'preload.js').replace(/\\/g, '/'))) {
+        delete webPreferences.preload;
+        delete webPreferences.preloadURL;
+      }
+    });
+
+    // Security: Handle popups / window.open safely
+    contents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsed = new URL(url);
+        // Only allow safe web protocols
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mauzer:') {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('open-url-in-new-tab', url);
+          }
+        }
+      } catch (e) { }
       return { action: 'deny' };
     });
 
+    // Security: Prevent arbitrary navigation to local file:// or dangerous schemes from webviews
+    contents.on('will-navigate', (navEvent, navigationUrl) => {
+      try {
+        const parsed = new URL(navigationUrl);
+        if (parsed.protocol === 'file:') {
+          const appPathNorm = __dirname.replace(/\\/g, '/').toLowerCase();
+          const targetNorm = parsed.pathname.replace(/\\/g, '/').toLowerCase();
+          if (!targetNorm.includes(appPathNorm)) {
+            navEvent.preventDefault();
+            console.warn('[Security] Blocked unauthorized file navigation to:', navigationUrl);
+          }
+        } else if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'mauzer:' && parsed.protocol !== 'about:') {
+          navEvent.preventDefault();
+          console.warn('[Security] Blocked non-standard protocol navigation to:', navigationUrl);
+        }
+      } catch (e) {
+        navEvent.preventDefault();
+      }
+    });
+
     // Right-click context menu
-    wc.on('context-menu', (e, params) => {
+    contents.on('context-menu', (e, params) => {
+      if (contents.getType() !== 'webview') return;
       const menuItems = [];
 
       // Navigation
-      if (wc.canGoBack()) menuItems.push({ label: 'Назад', click: () => wc.goBack() });
-      if (wc.canGoForward()) menuItems.push({ label: 'Вперёд', click: () => wc.goForward() });
-      menuItems.push({ label: 'Перезагрузить', click: () => wc.reload() });
+      if (contents.canGoBack()) menuItems.push({ label: 'Назад', click: () => contents.goBack() });
+      if (contents.canGoForward()) menuItems.push({ label: 'Вперёд', click: () => contents.goForward() });
+      menuItems.push({ label: 'Перезагрузить', click: () => contents.reload() });
       menuItems.push({ type: 'separator' });
 
       // Text editing
@@ -1672,7 +1743,7 @@ function setupWebViewPermissions() {
       if (params.hasImageContents) {
         menuItems.push({
           label: 'Копировать изображение',
-          click: () => wc.copyImageAt(params.x, params.y)
+          click: () => contents.copyImageAt(params.x, params.y)
         });
         menuItems.push({
           label: 'Копировать адрес изображения',
@@ -1692,7 +1763,7 @@ function setupWebViewPermissions() {
         label: 'Просмотреть код',
         click: () => {
           // Open DevTools docked to the right side of the window
-          wc.openDevTools({ mode: 'right' });
+          contents.openDevTools({ mode: 'right' });
         }
       });
 
@@ -1945,16 +2016,25 @@ ipcMain.handle('config:load', () => loadSettings());
 ipcMain.handle('config:save', (_, data) => { saveSettings(data); return true; });
 
 // --- System ---
-ipcMain.handle('shell:openExternal', (_, url) => shell.openExternal(url));
+ipcMain.handle('shell:openExternal', (_, url) => {
+  try {
+    const p = new URL(url).protocol;
+    if (p === 'http:' || p === 'https:' || p === 'mailto:') {
+      return shell.openExternal(url);
+    }
+  } catch (e) { }
+  return false;
+});
 ipcMain.handle('app:getPath', (_, name) => app.getPath(name));
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getInfo', () => ({
-  version: app.getVersion() || '2.0.0',
+  version: app.getVersion() || '1.1.14',
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
   platform: process.platform,
   arch: process.arch,
+  isWin7: isWin7,
 }));
 
 // --- Print ---
@@ -2257,6 +2337,63 @@ app.whenReady().then(async () => {
 
   createWindow();
   setupAutoUpdate();
+
+  // Benchmark Mode
+  const benchmarkArg = process.argv.find(arg => arg.startsWith('--benchmark='));
+  if (benchmarkArg) {
+    const tabsToOpen = parseInt(benchmarkArg.split('=')[1], 10);
+    if (!isNaN(tabsToOpen) && tabsToOpen > 0) {
+      console.log(`\n[Benchmark] Starting benchmark mode. Target tabs: ${tabsToOpen}`);
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log(`[Benchmark] Opening ${tabsToOpen} tabs...`);
+          // Use some light pages for testing
+          const testUrls = [
+            'https://en.wikipedia.org/wiki/Software_testing',
+            'https://en.wikipedia.org/wiki/Web_browser',
+            'https://en.wikipedia.org/wiki/Electron_(software_framework)'
+          ];
+          
+          for (let i = 0; i < tabsToOpen; i++) {
+             const url = testUrls[i % testUrls.length];
+             setTimeout(() => {
+               if (!mainWindow.isDestroyed()) {
+                 mainWindow.webContents.send('open-url-in-new-tab', url);
+               }
+             }, i * 300); // Open a tab every 300ms to avoid freezing IPC
+          }
+
+          // Start monitoring memory
+          let maxMem = 0;
+          let ticks = 0;
+          const interval = setInterval(async () => {
+             if (mainWindow.isDestroyed()) {
+                clearInterval(interval);
+                return;
+             }
+             const metrics = app.getAppMetrics();
+             let totalMemKB = 0;
+             let totalCpu = 0;
+             metrics.forEach(m => {
+                totalMemKB += m.memory.workingSetSize;
+                totalCpu += m.cpu.percentCPUUsage;
+             });
+             const totalMemMB = (totalMemKB / 1024).toFixed(2);
+             if (parseFloat(totalMemMB) > maxMem) maxMem = parseFloat(totalMemMB);
+             
+             console.log(`[Benchmark] 📊 CPU: ${totalCpu.toFixed(1)}% | RAM: ${totalMemMB} MB | Max RAM: ${maxMem} MB`);
+             
+             ticks++;
+             if (ticks >= 20) { // Monitor for 20 seconds
+                 clearInterval(interval);
+                 console.log(`[Benchmark] ✅ Benchmark complete! Opened ${tabsToOpen} tabs.`);
+                 console.log(`[Benchmark] ✅ Maximum RAM usage: ${maxMem} MB`);
+             }
+          }, 1000);
+        }
+      }, 3000); // Wait 3 seconds for UI to initialize
+    }
+  }
 });
 
 app.on('window-all-closed', () => {
