@@ -1871,7 +1871,8 @@
                                 await window.mauzer.updater.download?.();
                             } catch (e) {
                                 hideUpdateBanner();
-                                toast('Ошибка обновления: ' + (e?.message || 'неизвестно'), 'error');
+                                const dlUrl = manualUrl || `https://github.com/xx0loxi/update-mauzer/releases/latest`;
+                                window.mauzer.shell.openExternal?.(dlUrl);
                             }
                         }
                     });
@@ -1906,9 +1907,7 @@
                     _updatePct = -1;
                     if (_manualUpdateAvailable) return;
                     hideUpdateBanner();
-                    const msg = (d.message || '').toLowerCase();
-                    if (msg.includes('unpublish') || msg.includes('not found') || msg.includes('publish')) return;
-                    toast('Ошибка обновления: ' + (d.message || 'неизвестно'), 'error');
+                    console.warn('[Updater Error]:', d.message);
                 }
             });
         }
