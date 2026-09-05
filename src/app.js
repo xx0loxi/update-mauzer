@@ -296,6 +296,25 @@
     // ============================================================
     let _preloadPath = ''; // Cached preload path from main process
 
+    function buildWebview(tab, targetUrl) {
+        const wv = document.createElement('webview');
+        wv.id = 'wv-' + tab.id;
+        if (tab.incognito) {
+             if (state.isIncognitoWindow) wv.setAttribute('partition', 'incognito');
+             else wv.setAttribute('partition', 'incognito-' + tab.id);
+        }
+        wv.setAttribute('allowpopups', '');
+        wv.setAttribute('plugins', '');
+        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no, plugins=yes');
+        if (targetUrl.startsWith('file://') && _preloadPath) {
+            wv.setAttribute('preload', 'file:///' + _preloadPath.replace(/\\/g, '/'));
+        }
+        wv.src = targetUrl;
+        dom.webviewContainer.appendChild(wv);
+        setupWebview(tab.id, wv);
+        return wv;
+    }
+
     function createTab(url = '', opts = {}) {
         // Reuse existing Settings tab if requested
         const settingsHref = settingsUrl();
@@ -321,29 +340,12 @@
             canGoBack: false, canGoForward: false,
             pinned: opts.pinned || false, muted: false, audible: false, zoom: 1,
             incognito: isIncog,
+            discarded: false
         };
         state.tabs.push(tab);
 
-        const wv = document.createElement('webview');
-        wv.id = 'wv-' + id;
-        // Shared partition for Incognito Window to allow session sharing between tabs
-        if (isIncog) {
-             if (state.isIncognitoWindow) wv.setAttribute('partition', 'incognito');
-             else wv.setAttribute('partition', 'incognito-' + id);
-        }
-        wv.setAttribute('allowpopups', '');
-        wv.setAttribute('plugins', '');
-        // Security & Compatibility: Enable sandbox and disable node integration for guest pages
-        // This fixes YouTube/Google interface issues by making the environment look like a standard browser
-        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no, plugins=yes');
-        // Add preload for local file:// URLs so they get window.mauzer API
         const targetUrl = url || (isIncog ? incognitoUrl() : newtabUrl());
-        if (targetUrl.startsWith('file://') && _preloadPath) {
-            wv.setAttribute('preload', 'file:///' + _preloadPath.replace(/\\/g, '/'));
-        }
-        wv.src = targetUrl;
-        dom.webviewContainer.appendChild(wv);
-        setupWebview(id, wv);
+        buildWebview(tab, targetUrl);
         renderTabElement(tab);
         switchTab(id);
         updateTabCounter();
@@ -407,13 +409,22 @@
 
     function switchTab(id) {
         state.activeTabId = id;
+        
+        const tab = state.tabs.find(t => t.id === id);
+        if (tab && tab.discarded) {
+            tab.discarded = false;
+            buildWebview(tab, tab.url);
+            const el = document.getElementById('tab-el-' + id);
+            if (el) el.classList.remove('discarded-frost');
+        }
+
         state.tabs.forEach(t => {
             const el = document.getElementById('tab-el-' + t.id);
             const wv = document.getElementById('wv-' + t.id);
             if (el) el.classList.toggle('active', t.id === id);
             if (wv) wv.classList.toggle('active', t.id === id);
         });
-        const tab = state.tabs.find(t => t.id === id);
+        
         if (tab) {
             dom.urlInput.value = tab.url && !tab.url.includes('newtab.html') ? tab.url : '';
             dom.btnBack.disabled = !tab.canGoBack;
@@ -659,11 +670,26 @@
     // ============================================================
     // FROST MODE
     // ============================================================
+    function discardTab(id) {
+        const tab = state.tabs.find(t => t.id === id);
+        // Do not discard active, audible, or already discarded tabs
+        if (!tab || id === state.activeTabId || tab.audible || tab.discarded) return;
+        
+        const wv = document.getElementById('wv-' + id);
+        if (wv) wv.remove(); // Completely unload from RAM
+        
+        tab.discarded = true;
+        state.frozenTabs.add(id);
+        updateFrostBadge();
+        const el = document.getElementById('tab-el-' + id);
+        if (el) el.classList.add('discarded-frost');
+    }
+
     function resetFrostTimer(id) {
         clearTimeout(state.frostTimers[id]);
         if (!state.settings.frostEnabled) return;
         state.frostTimers[id] = setTimeout(() => {
-            if (id !== state.activeTabId) { state.frozenTabs.add(id); updateFrostBadge(); }
+            discardTab(id);
         }, state.settings.frostTimeout || 30000);
     }
     function updateFrostBadge() {
