@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.1.15",
+    "version": "1.1.16",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
@@ -64,9 +64,6 @@
     },
     "dependencies": {
         "better-sqlite3": "^8.2.0",
-        "electron-updater": "^6.8.3",
-        "msedge-tts": "^2.0.4",
-        "sqlite3": "^5.1.4",
-        "ws": "^8.19.0"
+        "electron-updater": "^6.8.3"
     }
 }

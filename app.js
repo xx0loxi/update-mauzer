@@ -1222,6 +1222,7 @@
     function showQrCode() {
         const tab = state.tabs.find(t => t.id === state.activeTabId);
         if (!tab || !tab.url) { toast('Нет URL для QR-кода', 'error'); return; }
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tab.url)}`;
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:center;justify-content:center;animation:qr-overlay-in 0.25s ease-out;';
         overlay.innerHTML = `
@@ -1237,37 +1238,12 @@
       </style>
       <div class="qr-card">
         <h3 class="qr-title">QR-код страницы</h3>
-        <canvas id="qr-canvas" class="qr-img" width="224" height="224"></canvas>
-        <p class="qr-url">${escapeHtml(tab.url)}</p>
+        <img src="${qrUrl}" alt="QR" class="qr-img">
+        <p class="qr-url">${tab.url}</p>
         <button id="qr-close-btn" class="qr-close">Закрыть</button>
       </div>
     `;
         document.body.appendChild(overlay);
-        // QR is generated locally (lib/qrcode.js) — the URL never leaves the machine
-        try {
-            if (typeof qrcode !== 'undefined') {
-                qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
-                const qr = qrcode(0, 'M');
-                qr.addData(tab.url, 'Byte');
-                qr.make();
-                const canvas = overlay.querySelector('#qr-canvas');
-                const ctx = canvas.getContext('2d');
-                const count = qr.getModuleCount();
-                const cell = 224 / (count + 8); // 4-module quiet zone
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(0, 0, 224, 224);
-                ctx.fillStyle = '#000';
-                for (let r = 0; r < count; r++) {
-                    for (let c = 0; c < count; c++) {
-                        if (qr.isDark(r, c)) ctx.fillRect(4 * cell + c * cell, 4 * cell + r * cell, cell + 0.5, cell + 0.5);
-                    }
-                }
-            } else {
-                overlay.querySelector('#qr-canvas').outerHTML = '<p class="qr-url">Не удалось сгенерировать QR-код</p>';
-            }
-        } catch (e) {
-            overlay.querySelector('#qr-canvas').outerHTML = '<p class="qr-url">URL слишком длинный для QR-кода</p>';
-        }
         overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.id === 'qr-close-btn') overlay.remove(); });
     }
 
@@ -1314,24 +1290,15 @@
     // PULSE
     // ============================================================
     const pulseToggle = document.getElementById('pulse-toggle-input');
-    const pulsePanel = document.getElementById('pulse-panel');
-    const pulseStatus = document.getElementById('pulse-status');
-
-    function setPulseUi(enabled) {
-        if (pulseToggle) pulseToggle.checked = enabled;
-        if (pulseStatus) pulseStatus.textContent = state.settings.language === 'en'
-            ? (enabled ? 'Protection active' : 'Protection off')
-            : (enabled ? 'Защита активна' : 'Защита выключена');
-        if (pulsePanel) pulsePanel.classList.toggle('off', !enabled);
-    }
-
+    
     // Init Pulse state
-    window.mauzer.pulse.getState().then(setPulseUi);
+    window.mauzer.pulse.getState().then(enabled => {
+        if(pulseToggle) pulseToggle.checked = enabled;
+    });
 
     if(pulseToggle) {
         pulseToggle.addEventListener('change', async (e) => {
             const enabled = e.target.checked;
-            setPulseUi(enabled);
             await window.mauzer.pulse.toggle(enabled);
             const status = state.settings.language === 'en' ? (enabled ? 'Enabled' : 'Disabled') : (enabled ? 'Включена' : 'Выключена');
             toast(`Pulse: ${status}`);
@@ -1350,17 +1317,11 @@
                 }
             }
 
-            // Force reload to apply/remove cosmetic rules immediately —
-            // but skip local pages: reloading the newtab makes its animated
-            // background jump, and it has no ads to re-scan anyway.
+            // Force reload to apply/remove cosmetic rules immediately
             const wv = document.getElementById('wv-' + state.activeTabId);
             if (wv) {
-                try {
-                    const u = wv.getURL();
-                    if (u && !u.startsWith('file://') && !u.startsWith('mauzer://')) {
-                        wv.executeJavaScript('location.reload()').catch(() => {});
-                    }
-                } catch (err) {}
+                // location.reload() in webview context to clear injected scripts/styles
+                wv.executeJavaScript('location.reload()').catch(() => {});
             }
         });
     }
@@ -1386,23 +1347,6 @@
     // ============================================================
     // SETTINGS
     // ============================================================
-    // insertCSS layers stack up on pages that don't reload (newtab/settings
-    // receive every settings-changed broadcast), so remove the previous
-    // stylesheet before inserting a fresh one.
-    const _themeCssKeys = new WeakMap();
-    function insertThemeCss(wv, css) {
-        (async () => {
-            try {
-                const old = _themeCssKeys.get(wv);
-                if (old) {
-                    try { await wv.removeInsertedCSS(old); } catch (e) { }
-                }
-                const key = await wv.insertCSS(css);
-                _themeCssKeys.set(wv, key);
-            } catch (e) { }
-        })();
-    }
-
     function applySettings() {
         const s = state.settings;
         const prevTheme = state.currentTheme;
@@ -1453,9 +1397,9 @@
                     } catch (e) {}
                 `).catch(() => {});
                 if (url.startsWith('file://') || url.startsWith('mauzer://')) {
-                    insertThemeCss(wv, `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`);
+                    wv.insertCSS(`:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`).catch(() => {});
                 } else {
-                    insertThemeCss(wv, `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; }`);
+                    wv.insertCSS(`:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; }`).catch(() => {});
                 }
             } catch (e) { }
         });
@@ -2061,39 +2005,6 @@
         }, 1000);
     }
 
-    // Restored tabs start paused: any <video>/<audio> is paused until the
-    // user interacts with the page (click/key/touch), or for max 20s window.
-    function attachAutoPause(wv) {
-        const script = `
-            (function() {
-                if (window.__mauzerAutoPause) return;
-                window.__mauzerAutoPause = true;
-                var active = true;
-                function pauseAll() {
-                    if (!active) return;
-                    try {
-                        document.querySelectorAll('video, audio').forEach(function(m) {
-                            if (!m.paused) m.pause();
-                        });
-                    } catch (e) {}
-                }
-                function stop() {
-                    active = false;
-                    clearInterval(iv);
-                }
-                var iv = setInterval(pauseAll, 300);
-                setTimeout(stop, 20000);
-                ['mousedown', 'keydown', 'touchstart'].forEach(function(ev) {
-                    document.addEventListener(ev, stop, true);
-                });
-                pauseAll();
-            })();
-        `;
-        const run = () => wv.executeJavaScript(script).catch(() => {});
-        wv.addEventListener('dom-ready', run, { once: true });
-        wv.addEventListener('did-finish-load', run, { once: true });
-    }
-
     async function restoreSessionState() {
         if (state.isIncognitoWindow) return false;
         
@@ -2108,11 +2019,15 @@
                 if (shouldRestore || t.pinned) {
                     const newId = createTab(t.url, { title: t.title, pinned: t.pinned, allowDuplicateHome: true });
                     restoredCount++;
-                    // Any restored page with media (YouTube video, series site, etc.)
-                    // starts paused until the user interacts with it
-                    if (newId && t.url && /^(https?:\/\/|file:\/\/)/.test(t.url)) {
+                    if (newId && t.url && t.url.includes('youtube.com/watch')) {
                         const wv = document.getElementById('wv-' + newId);
-                        if (wv) attachAutoPause(wv);
+                        if (wv) {
+                            const pauseVideo = () => {
+                                wv.executeJavaScript(`(() => { const v = document.querySelector('video'); if (v) v.pause(); })();`).catch(() => {});
+                            };
+                            wv.addEventListener('dom-ready', pauseVideo, { once: true });
+                            wv.addEventListener('did-finish-load', pauseVideo, { once: true });
+                        }
                     }
                 }
             }
@@ -2175,11 +2090,7 @@
         }
         
         updateWebviewSize();
-        // Poll Pulse stats only while the panel is actually open —
-        // no point sending IPC every 10s into a hidden panel
-        setInterval(() => {
-            if (dom.pulsePanel.style.display !== 'none') updatePulse();
-        }, 10000);
+        setInterval(updatePulse, 10000);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

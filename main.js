@@ -2,15 +2,15 @@
 // MAUZER BROWSER — Main Process (v2.0 — 103 Features)
 // ============================================================
 
-const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme, net } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme, net, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
-const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 const { autoUpdater } = require('electron-updater');
-const { isGoogleLoginUrl, readJSON, writeJSON, normalizeVersion, compareVersions } = require('./src/main/utils');
+const { isGoogleLoginUrl, readJSON, writeJSON, flushPendingWrites, normalizeVersion, compareVersions } = require('./src/main/utils');
 const importer = require('./src/main/importer');
+const historyDb = require('./src/main/history-db');
 
 // --- Windows 7 & Old PC Compatibility & Optimization ---
 const isWin7 = os.release().startsWith('6.1');
@@ -92,6 +92,25 @@ let pulseStats = {
   dataSavedKB: 0,
   sessionStart: Date.now()
 };
+
+let pulseUpdateTimer = null;
+function broadcastPulseStats(immediate = false) {
+  if (immediate) {
+    if (pulseUpdateTimer) { clearTimeout(pulseUpdateTimer); pulseUpdateTimer = null; }
+    windows.forEach(w => {
+      if (w && !w.isDestroyed()) w.webContents.send('pulse-stats-update', { ...pulseStats });
+    });
+    return;
+  }
+  if (!pulseUpdateTimer) {
+    pulseUpdateTimer = setTimeout(() => {
+      pulseUpdateTimer = null;
+      windows.forEach(w => {
+        if (w && !w.isDestroyed()) w.webContents.send('pulse-stats-update', { ...pulseStats });
+      });
+    }, 500); // 500ms throttle to prevent IPC flooding
+  }
+}
 
 // --- Filter sources (large, external) ---
 const FILTER_SOURCES = [
@@ -201,7 +220,9 @@ function fetchGithubReleases(useAuth = true) {
     const token = useAuth ? (process.env.GITHUB_TOKEN || '') : '';
     const req = https.request({
       hostname: 'api.github.com',
-      path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
+      // /releases/latest returns one small object instead of the whole release
+      // history; conditional requests with ETag don't count against the API rate limit
+      path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
       method: 'GET',
       headers: {
         'User-Agent': 'Mauzer',
@@ -235,7 +256,10 @@ function fetchGithubReleases(useAuth = true) {
         }
 
         try {
-          const releases = Array.isArray(json) ? json : [];
+          // /releases/latest returns a single release object (not an array);
+          // normalize to the array shape checkGithubFallback expects
+          const release = Array.isArray(json) ? json[0] : json;
+          const releases = release && !release.draft ? [release] : [];
           const newMeta = {
             etag: res.headers?.etag || etag || '',
             lastModified: res.headers?.['last-modified'] || lastModified || '',
@@ -294,6 +318,7 @@ const DEFAULT_SETTINGS = {
   httpsOnly: false,
   fingerprintProtection: true,
   doNotTrack: true,
+  searchSuggest: true,
   clearOnExit: false,
   trackingProtection: 'basic',
   popupBlocking: true,
@@ -314,50 +339,36 @@ function saveSettings(data) {
 }
 
 // ============================================================
-// HISTORY
+// HISTORY (SQLite-backed, see src/main/history-db.js)
 // ============================================================
 function getHistory() {
-  return readJSON('history.json', []);
+  return historyDb.get(5000);
 }
 
 function addHistoryEntry(entry) {
-  const history = getHistory();
-  history.unshift({
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    url: entry.url,
-    title: entry.title || entry.url,
-    favicon: entry.favicon || '',
-    timestamp: Date.now(),
-  });
-  // Keep last 5000 entries
-  if (history.length > 5000) history.length = 5000;
-  writeJSON('history.json', history);
+  historyDb.add(entry);
 }
 
 function clearHistory() {
-  writeJSON('history.json', []);
+  historyDb.clear();
 }
 
 function removeHistoryEntry(id) {
-  const history = getHistory();
-  const filtered = history.filter(h => h.id !== id);
-  writeJSON('history.json', filtered);
+  historyDb.remove(id);
+}
+
+function removeHistoryEntries(ids) {
+  historyDb.removeMany(ids);
 }
 
 function searchHistory(query) {
-  const history = getHistory();
-  if (!query) return history.slice(0, 200);
-  const q = query.toLowerCase();
-  return history.filter(h =>
-    h.url.toLowerCase().includes(q) || h.title.toLowerCase().includes(q)
-  ).slice(0, 200);
+  if (!query) return historyDb.get(200);
+  return historyDb.search(query, 200);
 }
 
 // ============================================================
 // DOWNLOADS
 // ============================================================
-let downloads = [];
-
 function getDownloads() {
   return readJSON('downloads.json', []);
 }
@@ -581,24 +592,6 @@ function saveFlags(flags) {
 }
 
 // ============================================================
-// USAGE STATS
-// ============================================================
-function getUsageStats() {
-  return readJSON('usage.json', { sites: {}, totalTime: 0 });
-}
-
-function trackUsage(url, seconds) {
-  try {
-    const host = new URL(url).hostname;
-    const stats = getUsageStats();
-    if (!stats.sites[host]) stats.sites[host] = 0;
-    stats.sites[host] += seconds;
-    stats.totalTime += seconds;
-    writeJSON('usage.json', stats);
-  } catch (e) { }
-}
-
-// ============================================================
 // AD & TRACKER BLOCKER
 // ============================================================
 const BLOCKED_DOMAINS = [
@@ -785,132 +778,15 @@ const BLOCKED_DOMAINS = [
   'popads.net', 'popcash.net', 'propellerads.com'
 ];
 
-const TRACKER_DOMAINS = [
-  'google-analytics.com', 'googletagmanager.com', 'connect.facebook.net',
-  'pixel.facebook.com', 'mc.yandex.ru', 'quantserve.com',
-  'scorecardresearch.com', 'bluekai.com', 'demdex.net', 'krxd.net',
-  'hotjar.com', 'fullstory.com', 'clarity.ms', 'amplitude.com',
-  'mouseflow.com', 'crazyegg.com', 'mixpanel.com', 'segment.io',
-  'yandexmetrica.com', 'counter.yadro.ru',
-  'adnxs.com', 'adsrvr.org', 'adform.net', 'adcolony.com', 'media.net', 'outbrain.com', 'taboola.com',
-  'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'aan.amazon.com',
-  'criteo.com', 'criteo.net', 'rubiconproject.com', 'pubmatic.com',
-  'openx.net', 'casalemedia.com', 'indexww.com', 'indexexchange.com', 'cdn.indexexchange.com', 'hilb.casalemedia.com', 'bidswitch.net',
-  'smartadserver.com', 'yieldmo.com', 'sharethrough.com', 'triplelift.com', 'tlx.3lift.com',
-  'quantserve.com', 'scorecardresearch.com',
-  'exelator.com', 'demdex.net', 'krxd.net', 'liadm.com', 'tapad.com',
-  'adservr.org', 'smartyads.com', 'ad.gt', 'contextweb.com', 'eb2.3lift.com', 'flx.3lift.com',
-  'apex.go.sonobi.com', 'c.gumgum.com', 'a.teads.tv', 'cdn.teads.tv', 'cdn.kargo.com', 'sync.kargo.com',
-  // Fingerprinting / behavioral / identity
-  'fingerprintjs.com', 'fpjs.io', 'api.fpjs.io',
-  'siftscience.com', 'cdn.siftscience.com', 'permutive.com', 'cdn.permutive.com',
-  'onetag-sys.com', 'pipipo.com', 'id5-sync.com', 'crwdcntrl.net',
-  'mathtag.com', 'sync.mathtag.com', 'pixel.mathtag.com', 'thetradedesk.com',
-  // LiveRamp
-  'rlcdn.com', 'idsync.rlcdn.com', 'api.rlcdn.com',
-  // Mobile attribution
-  'appsflyer.com', 'app.appsflyer.com', 'adjust.com', 'app.adjust.com', 'branch.io', 'api2.branch.io', 'bnc.lt',
-  'kochava.com', 'control.kochava.com', 'singular.net',
-  'applovin.com', 'd.applovin.com', 'rt.applovin.com', 'ms.applovin.com',
-  'api.vungle.com', 'vungle.com', 'liftoff.io',
-  'auction.unityads.unity3d.com', 'webview.unityads.unity3d.com', 'config.unity3d.com', 'adserver.unityads.unity3d.com', 'unityads.unity3d.com',
-  'live.chartboost.com', 'init.supersonicads.com', 'api.fyber.com', 'inmobi.com', 'ironSource.mobi', 'is.com', 'outcome-ssp.supersonicads.com',
-  // Push / engagement
-  'wzrkt.com', 'clevertap-prod.com',
-  // Apple ads/analytics
-  'iadsdk.apple.com', 'metrics.icloud.com', 'api-adservices.apple.com',
-  'books-analytics-events.apple.com', 'weather-analytics-events.apple.com', 'notes-analytics-events.apple.com',
-  'metrics.mzstatic.com', 'xp.apple.com',
-  // Realme/Oppo
-  'iot-eu-logser.realme.com', 'iot-logser.realme.com', 'bdapi-ads.realme.com', 'bdapi-in-ads.realme.com',
-  'adsfs.oppomobile.com', 'adx.ads.oppomobile.com', 'ck.ads.oppomobile.com', 'data.ads.oppomobile.com',
-  // OnePlus/Huawei/Xiaomi
-  'open.oneplus.net',
-  'metrics.data.hicloud.com', 'metrics2.data.hicloud.com', 'grs.hicloud.com', 'logservice.hicloud.com', 'logservice1.hicloud.com', 'logbak.hicloud.com', 'ads.huawei.com',
-  'api.ad.xiaomi.com', 'data.mistat.xiaomi.com', 'data.mistat.india.xiaomi.com', 'data.mistat.rus.xiaomi.com',
-  'sdkconfig.ad.xiaomi.com', 'sdkconfig.ad.intl.xiaomi.com', 'tracking.rus.miui.com', 'tracking.miui.com',
-  // LG / Samsung ads ecosystems
-  'us.info.lgsmartad.com', 'us.lbs.lgappstv.com', 'ad.lgappstv.com', 'info.lgsmartad.com', 'ngfts.lge.com', 'yumenetworks.com', 'smartclip.net', 'smartclip.com',
-  // Microsoft telemetry
-  'settings-win.data.microsoft.com', 'vortex.data.microsoft.com', 'vortex-win.data.microsoft.com', 'watson.telemetry.microsoft.com', 'telemetry.microsoft.com',
-  // Amazon FireTV metrics/ads
-  'device-metrics-us.amazon.com', 'device-metrics-us-2.amazon.com', 'mads-eu.amazon.com',
-  // Meta / Instagram / Snapchat
-  'graph.facebook.com', 'tr.facebook.com',
-  'graph.instagram.com', 'i.instagram.com',
-  'sc-static.net', 'tr.snapchat.com', 'ads.snapchat.com', 'sc-analytics.appspot.com',
-  // LinkedIn / X / Reddit
-  'ads.linkedin.com', 'analytics.poindrive.linkedin.com', 'snap.licdn.com', 'px.ads.linkedin.com',
-  'static-ads-twitter.com', 'ads-api.twitter.com', 'analytics.twitter.com', 'ads.x.com',
-  'events.reddit.com', 'events.redditmedia.com', 'd.reddit.com',
-  // TikTok / Pinterest / Quora
-  'ads-api.tiktok.com', 'analytics.tiktok.com', 'ads-sg.tiktok.com', 'analytics-sg.tiktok.com',
-  'business-api.tiktok.com', 'ads.tiktok.com', 'log.byteoversea.com', 'mon.byteoversea.com',
-  'ct.pinterest.com', 'log.pinterest.com', 'trk.pinterest.com',
-  'pixel.quora.com',
-  // AdRoll / NextRoll
-  'adroll.com', 's.adroll.com', 'd.adroll.com',
-  // Email / marketing trackers
-  'track.mailerlite.com', 'click.mailerlite.com', 'assets.mailerlite.com',
-  'track.customer.io', 'mailchimp.com',
-  'app.convertkit.com', 'open.convertkit.com',
-  'email.mailgun.net', 'pi.pardot.com', 'mandrillapp.com', 'getresponse.com', 'pixel.aweber.com', 'sendgrid.net',
-  'freshmarketer.com', 'static.chartbeat.com',
-  'pendo.io', 'cdn.pendo.io', 'app.pendo.io',
-  'matomo.cloud', 'piwik.pro',
-  // Analytics extras
-  'analytics.google.com', 'tagmanager.google.com', 'informer.yandex.ru', 'mc.yandex.com',
-  // Social static/CDN
-  'syndication.twitter.com', 'static.ads-twitter.com', 't.co',
-  'staticxx.facebook.com',
-  // Email / marketing trackers
-  'track.hubspot.com', 'munchkin.marketo.net', 'trackcmp.net', 'list-manage.com',
-  // Affiliate / performance networks
-  'arndoezrs.net', 'dpbolvw.net', 'lkqlhce.com',
-  'shareasale.com', 'shareasale-analytics.com',
-  'click.linksynergy.com', 'ad.linksynergy.com', 'track.linksynergy.com',
-  'impact.com', 'd.impactradius-event.com', 'api.impact.com',
-  'awin1.com', 'zenaps.com',
-  'partnerstack.com', 'api.partnerstack.com',
-  'refersion.com', 'api.refersion.com',
-  's.skimresources.com', 't.skimresources.com', 'go.skimresources.com', 'redirector.skimresources.com',
-  'redirect.viglink.com', 'cdn.viglink.com', 'api.viglink.com',
-  // A/B testing platforms
-  'cdn.optimizely.com', 'logx.optimizely.com', 'api.optimizely.com',
-  'cdn.dynamicyield.com',
-  'stream.launchdarkly.com', 'events.launchdarkly.com', 'mobile.launchdarkly.com', 'app.launchdarkly.com',
-  'streaming.split.io', 'sdk.split.io', 'cdn.split.io', 'events.split.io',
-  'cdn-pci.optimizely.com',
-  'kameleoon.eu', 'vwo.com', 'statsigapi.net', 'cdn.configcat.com', 'featuregates.org',
-  // Video ads / VAST / players
-  'imasdk.googleapis.com', 'dai.google.com',
-  'g.jwpsrv.com', 'ssl.p.jwpcdn.com',
-  'mssl.fwmrm.net',
-  'cd.connatix.com', 'capi.connatix.com', 'vid.connatix.com',
-  'metrics.brightcove.com',
-  's.innovid.com',
-  'tremorhub.com', 'ads.tremorhub.com',
-  // Monitoring / logging
-  'js.honeybadger.io',
-  'cdn.rollbar.com', 'api.rollbar.com', 'rollbar.com',
-  'app.getsentry.com', 'cdn.ravenjs.com', 'd2wy8f7a9ursnm.cloudfront.net',
-  'cdn.lr-ingest.com', 'firebase-settings.crashlytics.com', 'cdn.logrocket.io',
-  'trackjs.com', 'usage.trackjs.com', 'capture.trackjs.com', 'api.raygun.io',
-  // Consent / CMPs
-  'cdn.cookielaw.org', 'geolocation.onetrust.com', 'consent.cookiebot.com', 'consentcdn.cookiebot.com', 'cookiebot.com',
-  'consent.trustarc.com', 'sdk.privacy-center.org', 'cdn.privacy-mgmt.com', 'app.usercentrics.eu',
-  'wrapper-api.sp-prod.net', 'cookies-data.onetrust.io', 'cdn.onetrust.com', 'optanon.blob.core.windows.net',
-  'api.privacy-center.org', 'aggregator.service.usercentrics.eu', 'api.usercentrics.eu', 'consent-pref.trustarc.com',
-  'privacymanager.io', 'c.betrad.com', 'didomi.io',
-  // Crypto miners / malvertising / malware
-  'coinimp.com', 'www.coinimp.com', 'webminepool.com', 'minero.cc', 'mineral1.io', 'jsecoin.com', 'crypto-loot.org', 'monerominer.rocks',
-  'propellerclick.com', 'onclickads.net', 'popmyads.com', 'clickadu.com', 'trafficjunky.net', 'exoclick.com', 'juicyads.com',
-  '2giga.link', 'greatis.com', 'statdynamic.com',
-  'popads.net', 'popcash.net', 'propellerads.com'
-];
-
 const BLOCKED_DOMAINS_SET = new Set(BLOCKED_DOMAINS);
-const TRACKER_DOMAINS_SET = new Set(TRACKER_DOMAINS);
+
+// Tracker classification for Pulse stats: everything in the main blocklist
+// counts, plus a few tracker-only domains. One small list instead of a
+// 300-line copy of BLOCKED_DOMAINS.
+const TRACKER_EXTRA_DOMAINS = [
+  'list-manage.com'
+];
+const TRACKER_DOMAINS_SET = new Set([...BLOCKED_DOMAINS_SET, ...TRACKER_EXTRA_DOMAINS]);
 
 function checkDomainInSet(hostname, set) {
   if (set.has(hostname)) return true;
@@ -943,15 +819,27 @@ function isTrackerDomain(hostname) {
 }
 
 let pulseEnabled = true;
-// Allow disabling YouTube in-video ad blocking (user requested)
-const disableYouTubeAdblock = true;
 
-function setupAdBlocker() {
+let _dntEnabled = null;
+function getDntEnabled() {
+  // Cached: loadSettings() here would spread a 30-key object on EVERY request.
+  // Invalidated from the settings:save / config:save handlers.
+  if (_dntEnabled === null) _dntEnabled = !!loadSettings().doNotTrack;
+  return _dntEnabled;
+}
+
+function attachAdBlockerToSession(ses) {
+  if (!ses || !ses.webRequest) return;
+  try {
+    ses.setUserAgent(SPOOFED_UA);
+  } catch(e) {}
+
   // Helper: detect third-party to reduce breakage (compares target host to referrer host)
-  const isThirdPartyRequest = (details) => {
+  // Takes the already-parsed request URL — avoids a second `new URL()` per request.
+  const isThirdPartyRequest = (details, reqUrl) => {
     try {
       if (!details.referrer) return true;
-      const reqHost = new URL(details.url).hostname;
+      const reqHost = reqUrl.hostname;
       const refHost = new URL(details.referrer).hostname;
       return !(reqHost === refHost || reqHost.endsWith('.' + refHost) || refHost.endsWith('.' + reqHost));
     } catch (e) {
@@ -974,70 +862,91 @@ function setupAdBlocker() {
     /googlesyndication\.com/i
   ];
 
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+  ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
     if (!pulseEnabled) { callback({}); return; }
 
-    // JSON-Surgeon for YouTube player: disabled per user request (allow in-video ads)
-    if (!disableYouTubeAdblock && details.resourceType === 'xhr' && details.url.includes('youtube.com') && /\/player/.test(details.url)) {
-      const filterResponseData = session.defaultSession.webRequest.filterResponseData;
-      if (typeof filterResponseData !== 'function') {
-        callback({});
-        return;
-      }
-      const filter = filterResponseData(details.id);
-      let data = [];
-      filter.on('data', (chunk) => { data.push(chunk); });
-      filter.on('end', () => {
-        const raw = Buffer.concat(data).toString();
-        try {
-          const json = JSON.parse(raw);
-          delete json.adPlacements;
-          delete json.adBreaks;
-          delete json.playerAds;
-          delete json.adSlots;
-          const modified = Buffer.from(JSON.stringify(json));
-          filter.write(modified);
-        } catch (e) {
-          filter.write(Buffer.concat(data));
-        }
-        filter.end();
-      });
-      callback({});
-      return;
-    }
-
-    // Stealth Network: fake 200 OK for /log_event requests
-    if (/\/log_event/.test(details.url)) {
+    // Stealth Network: fake 200 OK for YouTube ads and telemetry to completely eliminate ads
+    if (
+      /\/log_event/.test(details.url) ||
+      /\/api\/stats\/ads/.test(details.url) ||
+      /\/api\/stats\/atr.*[?&](adformat|ad_type)/.test(details.url) ||
+      /\/pagead\//.test(details.url) ||
+      /youtube\.com\/ptracking/.test(details.url) ||
+      /youtube\.com\/get_midroll_info/.test(details.url) ||
+      /googleads\.g\.doubleclick\.net/.test(details.url) ||
+      /static\.doubleclick\.net\/instream/.test(details.url) ||
+      /googlevideo\.com\/videoplayback.*[?&](adformat|ad_type|ctier)/.test(details.url)
+    ) {
+      pulseStats.adsBlocked++;
+      broadcastPulseStats();
       callback({ redirectURL: 'data:,' });
       return;
     }
 
+    let url;
     try {
-      const url = new URL(details.url);
-      const thirdParty = isThirdPartyRequest(details);
+      url = new URL(details.url);
+    } catch (e) {
+      pulseStats.requestsTotal++;
+      callback({});
+      return;
+    }
+    const thirdParty = isThirdPartyRequest(details, url);
 
-      // Block by domain (prefer third-party to avoid trimming first-party assets)
-      if (thirdParty && isBlockedDomain(url.hostname)) {
-        pulseStats.adsBlocked++;
-        pulseStats.dataSavedKB += 15;
-        if (isTrackerDomain(url.hostname)) pulseStats.trackersBlocked++;
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('pulse-stats-update', { ...pulseStats });
-        }
-        callback({ cancel: true });
-        return;
-      }
-      // Block by URL pattern (Yandex pack loaders, etc.)
-      const fullUrl = details.url;
-      if (BLOCKED_URL_PATTERNS.some(p => p.test(fullUrl))) {
-        pulseStats.adsBlocked++;
-        console.log('[AdBlock] Blocked Yandex pack loader:', fullUrl);
-        callback({ cancel: true });
-        return;
-      }
-    } catch (e) { }
+    // Block by domain (prefer third-party to avoid trimming first-party assets)
+    if (thirdParty && isBlockedDomain(url.hostname)) {
+      pulseStats.adsBlocked++;
+      pulseStats.dataSavedKB += 15;
+      if (isTrackerDomain(url.hostname)) pulseStats.trackersBlocked++;
+      broadcastPulseStats();
+      callback({ cancel: true });
+      return;
+    }
+    // Block by URL pattern (Yandex pack loaders, etc.)
+    const fullUrl = details.url;
+    if (BLOCKED_URL_PATTERNS.some(p => p.test(fullUrl))) {
+      pulseStats.adsBlocked++;
+      broadcastPulseStats();
+      console.log('[AdBlock] Blocked Yandex pack loader:', fullUrl);
+      callback({ cancel: true });
+      return;
+    }
     pulseStats.requestsTotal++;
     callback({});
+  });
+
+  const filter = {
+    urls: ['https://accounts.google.com/*', 'https://*.google.com/*', 'https://*.youtube.com/*', '*://*/*']
+  };
+
+  ses.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+    const headers = { ...details.requestHeaders };
+    
+    // Remove all Electron-specific headers
+    Object.keys(headers).forEach(k => {
+      if (k.toLowerCase().startsWith('x-electron') || k.toLowerCase() === 'sec-ch-ua-full-version') {
+        delete headers[k];
+      }
+    });
+    
+    // Force Chrome User-Agent
+    headers['User-Agent'] = SPOOFED_UA;
+    
+    // Set other Chrome-like headers for consistency
+    headers['sec-ch-ua'] = `"Not-A.Brand";v="99", "Chromium";v="124", "Google Chrome";v="124"`;
+    headers['sec-ch-ua-mobile'] = '?0';
+    headers['sec-ch-ua-platform'] = '"Windows"';
+    
+    if (getDntEnabled()) headers['DNT'] = '1';
+    
+    callback({ cancel: false, requestHeaders: headers });
+  });
+}
+
+function setupAdBlocker() {
+  attachAdBlockerToSession(session.defaultSession);
+  app.on('session-created', (ses) => {
+    attachAdBlockerToSession(ses);
   });
 }
 
@@ -1231,11 +1140,27 @@ async function handleGoogleLoginExternal(url, webContents) {
   }
 }
 
-function setupAntiFingerprint() {
+function setupAntiFingerprint(win) {
+  if (!win || win.isDestroyed()) return;
   const antiDetectJS = getAntiDetectScript();
   const settings = loadSettings();
 
-  mainWindow.webContents.on('did-attach-webview', (event, wc) => {
+  // insertCSS survives SPA navigations (pushState keeps the same document),
+  // so re-inserting on every did-navigate-in-page stacks copies. Track the
+  // last inserted key per webContents and remove it before re-inserting.
+  const adblockCssKeys = new WeakMap();
+  const insertCssOnce = async (wc, css) => {
+    try {
+      const oldKey = adblockCssKeys.get(wc);
+      if (oldKey) {
+        try { await wc.removeInsertedCSS(oldKey); } catch (e) { }
+      }
+      const key = await wc.insertCSS(css);
+      adblockCssKeys.set(wc, key);
+    } catch (e) { }
+  };
+
+  win.webContents.on('did-attach-webview', (event, wc) => {
     wc.setUserAgent(SPOOFED_UA);
 
     // Intercept Google login navigations — open in popup BrowserWindow
@@ -1281,194 +1206,267 @@ function setupAntiFingerprint() {
             .bro-suggest, .bro-popup { display: none !important; }
           `).catch(() => { });
         }
+      }
 
-    // YouTube Ad Blocker — Pulse Engine v2 (CSS Only for stability)
-        if (url.includes('youtube.com') && pulseEnabled && !settings.disableYouTubeAdblock) {
-          // Relaxed CSS: avoid hiding generic containers that might contain content
-// CleanView: expanded CSS selectors for ad placeholders
-    wc.insertCSS(`
-      /* Common Ad Containers */
+      // Native dark mode signal
+      nativeTheme.themeSource = settings.theme || 'dark';
+
+      // Smooth scroll injection
+      if (settings.smoothScroll) {
+        wc.insertCSS(`html { scroll-behavior: smooth !important; }`).catch(() => { });
+      }
+    });
+
+    // Comprehensive uBlock Origin / AdGuard rules for YouTube & Web
+    const YOUTUBE_ADBLOCK_CSS = `
+      .ytp-suggested-action, .ytp-suggested-action-badge,
+      .ytp-ad-action-interstitial, .ytp-ad-overlay-container,
+      .ytp-ad-overlay-slot, .ytp-ad-image-overlay, .ytp-ad-text-overlay,
+      .ytp-ad-preview-container, .ytp-ad-player-overlay-flyout-cta,
+      .ytp-ad-button-vm, .ytp-ad-text, .ytp-ad-module,
+      #masthead-ad, ytd-ad-slot-renderer, ytd-display-ad-renderer,
+      ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer,
+      ytd-promoted-sparkles-web-renderer, ytd-merch-shelf-renderer,
+      ytd-companion-slot-renderer, ytd-statement-banner-renderer,
+      .ytd-player-legacy-ad-renderer, #player-ads, .ad-div, #merchandise-promo,
+      #shopping-timely-shelf, .badge-shape-wiz--ad, .badge-shape-wiz--ad-secondary,
+      .ytp-ad-overlay-close-button,
+      .ytp-ad-message-container,
+      .ytp-ad-player-overlay-layout,
+      ytd-rich-item-renderer:has(ytd-ad-slot-renderer),
+      ytd-item-section-renderer:has(ytd-ad-slot-renderer),
+      ytd-ad-slot-renderer[ad-slot-type],
+      ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]
+      { display: none !important; }
+    `;
+
+    const YOUTUBE_ZERO_ADS_JS = `
+      (function() {
+        // uBlock Origin: Neutralize YouTube EXPERIMENT_FLAGS that force ads
+        try {
+          if (!window.ytcfg) window.ytcfg = { data_: {} };
+          if (!window.ytcfg.data_) window.ytcfg.data_ = {};
+          if (!window.ytcfg.data_.EXPERIMENT_FLAGS) window.ytcfg.data_.EXPERIMENT_FLAGS = {};
+          const ef = window.ytcfg.data_.EXPERIMENT_FLAGS;
+          ef.all_web_network_ad_formats = false;
+          ef.all_web_enable_ad_signals = false;
+          ef.web_enable_ad_signals = false;
+          ef.web_player_enable_ad_signals = false;
+          ef.html5_ad_frequency_cap = 0;
+          if (typeof window.ytcfg.set === 'function' && !window.ytcfg._patched) {
+            window.ytcfg._patched = true;
+            const origSet = window.ytcfg.set;
+            window.ytcfg.set = function(...args) {
+              if (args[0] && typeof args[0] === 'object' && args[0].EXPERIMENT_FLAGS) {
+                args[0].EXPERIMENT_FLAGS.all_web_network_ad_formats = false;
+                args[0].EXPERIMENT_FLAGS.all_web_enable_ad_signals = false;
+                args[0].EXPERIMENT_FLAGS.web_enable_ad_signals = false;
+              }
+              return origSet.apply(this, args);
+            };
+          }
+        } catch(e) {}
+
+        if (window.__mauzerZeroAds) {
+          if (typeof cleanDomAds === 'function') cleanDomAds();
+          return;
+        }
+        window.__mauzerZeroAds = true;
+
+        function pruneAdData(obj) {
+          if (!obj || typeof obj !== 'object') return obj;
+          try {
+            delete obj.adPlacements;
+            delete obj.adSlots;
+            delete obj.playerAds;
+            delete obj.adBreakHeartbeatParams;
+            if (obj.playbackTracking) {
+              delete obj.playbackTracking.videostatsPlaybackUrl;
+              delete obj.playbackTracking.atrUrl;
+              delete obj.playbackTracking.videostatsDelayplayUrl;
+            }
+          } catch(e) {}
+          return obj;
+        }
+
+        // 1. Prune window.ytInitialPlayerResponse
+        if (window.ytInitialPlayerResponse) {
+          pruneAdData(window.ytInitialPlayerResponse);
+        }
+        if (window.ytInitialData && window.ytInitialData.playerResponse) {
+          pruneAdData(window.ytInitialData.playerResponse);
+        }
+        let _ytResp = window.ytInitialPlayerResponse;
+        try {
+          Object.defineProperty(window, 'ytInitialPlayerResponse', {
+            get() { return _ytResp; },
+            set(val) { _ytResp = pruneAdData(val); },
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e) {}
+
+        // 2. Intercept JSON.parse globally
+        const origParse = JSON.parse;
+        JSON.parse = function(...args) {
+          const res = origParse.apply(this, args);
+          if (res && typeof res === 'object') {
+            if (res.adPlacements || res.playerAds || res.adSlots) {
+              pruneAdData(res);
+            }
+            if (res.playerResponse) {
+              pruneAdData(res.playerResponse);
+            }
+          }
+          return res;
+        };
+
+        // 3. Intercept fetch (uBlock Origin: trusted-replace-fetch-response + json-prune)
+        const origFetch = window.fetch;
+        window.fetch = async function(...args) {
+          const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+          const response = await origFetch.apply(this, args);
+          if (typeof url === 'string' && (url.includes('/youtubei/v1/') || url.includes('/player') || url.includes('/browse'))) {
+            try {
+              const text = await response.text();
+              if (text.includes('"adSlots"') || text.includes('"adPlacements"') || text.includes('"playerAds"')) {
+                const cleaned = text
+                  .replaceAll('"adSlots"', '"no_adSlots"')
+                  .replaceAll('"adPlacements"', '"no_adPlacements"')
+                  .replaceAll('"playerAds"', '"no_playerAds"')
+                  .replaceAll('"adBreakHeartbeatParams"', '"no_adBreak"');
+                return new Response(cleaned, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                });
+              }
+              return new Response(text, {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+              });
+            } catch(e) {
+              return response;
+            }
+          }
+          return response;
+        };
+
+        // 4. Intercept XMLHttpRequest
+        const origXhrOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          this._isYt = typeof url === 'string' && (url.includes('/youtubei/v1/') || url.includes('/player') || url.includes('/browse'));
+          return origXhrOpen.call(this, method, url, ...rest);
+        };
+        const origXhrSend = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function(...args) {
+          if (this._isYt) {
+            this.addEventListener('readystatechange', () => {
+              if (this.readyState === 4 && this.responseText) {
+                try {
+                  if (this.responseText.includes('"adSlots"') || this.responseText.includes('"adPlacements"')) {
+                    const cleaned = this.responseText
+                      .replaceAll('"adSlots"', '"no_adSlots"')
+                      .replaceAll('"adPlacements"', '"no_adPlacements"')
+                      .replaceAll('"playerAds"', '"no_playerAds"');
+                    Object.defineProperty(this, 'responseText', { value: cleaned, configurable: true });
+                    Object.defineProperty(this, 'response', { value: cleaned, configurable: true });
+                  }
+                } catch(e) {}
+              }
+            });
+          }
+          return origXhrSend.apply(this, args);
+        };
+
+        // 5. DOM cleaner for sidebar cards, suggested actions & banner interstitials
+        function cleanDomAds() {
+          try {
+            const selectors = [
+              'ytd-ad-slot-renderer',
+              'ytd-in-feed-ad-layout-renderer',
+              'ytd-banner-promo-renderer',
+              'ytd-promoted-sparkles-web-renderer',
+              'ytd-companion-slot-renderer',
+              'ytd-statement-banner-renderer',
+              '#player-ads',
+              '#masthead-ad',
+              '#shopping-timely-shelf',
+              '.ytp-suggested-action',
+              '.ytp-suggested-action-badge',
+              '.ytp-ad-action-interstitial',
+              '.ytp-ad-overlay-container',
+              '.ytp-ad-overlay-slot',
+              '.ytp-ad-button-vm',
+              '.ytp-ad-text',
+              '.ytp-ad-preview-container',
+              '.ytp-ad-module',
+              '.ytp-ad-message-container',
+              '.ytp-ad-player-overlay-layout',
+              '.badge-shape-wiz--ad',
+              '.badge-shape-wiz--ad-secondary',
+              'ytd-rich-item-renderer:has(ytd-ad-slot-renderer)',
+              'ytd-item-section-renderer:has(ytd-ad-slot-renderer)'
+            ];
+            selectors.forEach(sel => {
+              document.querySelectorAll(sel).forEach(el => el.remove());
+            });
+
+            const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+            if (player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'))) {
+              if (typeof player.skipAd === 'function') player.skipAd();
+              const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-skip-button-slot button');
+              if (skipBtn) skipBtn.click();
+            }
+          } catch(e) {}
+        }
+
+        window.addEventListener('yt-navigate-finish', cleanDomAds);
+        window.addEventListener('yt-page-data-updated', cleanDomAds);
+        document.addEventListener('DOMContentLoaded', cleanDomAds);
+        // Poll slowly and only while the tab is visible — a 300ms timer in
+        // every background tab is constant CPU drain for no benefit.
+        setInterval(() => {
+          if (document.visibilityState === 'visible') cleanDomAds();
+        }, 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') cleanDomAds();
+        });
+      })();
+    `;
+
+    const GENERIC_ADBLOCK_CSS = `
       .adsbygoogle, .google-auto-placed,
       div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
       iframe[id^="google_ads_frame"],
       .ad-banner, .ad-box, .ad-container, .ad-slot,
       .banner-ad, .sidebar-ad, .text-ad, .sponsored-link,
       [class*="yandex_ad"], [id*="yandex_ad"],
-      .ya-share2, .ya-context-panel, div[class*="ya-site-form"],
+      .ya-share2, .ya-context-panel, 
+      div[class*="ya-site-form"],
       #ad_banner, .b-banner,
-      .share-buttons, .social-share,
-      /* YouTube specific */
-      .video-ads, .ytp-ad-module, .ytp-ad-image-overlay,
-      .ytp-ad-text-overlay, .ytp-ad-overlay-container,
-            .ytp-ad-player-overlay-flyout-cta, .ytp-ad-button-icon,
-            .ytp-ad-preview-container, .ytp-ad-skip-button-slot,
-            #masthead-ad, ytd-ad-slot-renderer, ytd-display-ad-renderer,
-            ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer,
-            ytd-promoted-sparkles-web-renderer, ytd-merch-shelf-renderer,
-            ytd-companion-slot-renderer, ytd-statement-banner-renderer,
-            .ytd-player-legacy-ad-renderer, #player-ads, .ad-div, #merchandise-promo,
-            .ad-showing, .ytp-ad-overlay-close-button
-            { display: none !important; }
-          `).catch(() => {});
+      .share-buttons, .social-share
+    `;
 
-          // Player Guard & Ghost: script injection to skip ads and fake ad script loads
-          wc.executeJavaScript(`
-              // Player Guard: observe ad containers and skip
-              (function() {
-                // Store references for cleanup
-                window.__pulsCleanup = window.__pulsCleanup || {};
-                
-                // Clear any existing interval/observer to prevent memory leaks on re-injection
-                if (window.__pulsCleanup.skipInterval) {
-                  clearInterval(window.__pulsCleanup.skipInterval);
-                  window.__pulsCleanup.skipInterval = null;
-                }
-                if (window.__pulsCleanup.observer) {
-                  window.__pulsCleanup.observer.disconnect();
-                  window.__pulsCleanup.observer = null;
-                }
-                
-                window.__pulsCleanup.styleTag = null;
+    const applyAdblock = () => {
+      if (!pulseEnabled) return;
+      let url = '';
+      try { url = wc.getURL(); } catch (e) {}
+      if (!url) return;
 
-                const skipAd = () => {
-                  const video = document.querySelector('video');
-                  const ad = document.querySelector('.ad-showing');
-                  if (video && ad) {
-                    video.muted = true;
-                    video.playbackRate = 4.0;
-                    if (isFinite(video.duration)) video.currentTime = video.duration;
-                    const skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-                    if (skipBtn) skipBtn.click();
-                  }
-                  const closeBtn = document.querySelector('.ytp-ad-overlay-close-button');
-                  if (closeBtn) closeBtn.click();
-                };
-
-                // DOM cleaner: remove ad slot elements and notify Pulse
-                const adSlotSelectors = ['ytd-ad-slot-renderer', 'ytd-companion-slot-renderer', '#masthead-ad', 'ytd-statement-banner-renderer', 'ytd-promoted-sparkles-web-renderer', 'ytd-display-ad-renderer', '#player-ads'];
-                const removeAdSlots = () => {
-                  adSlotSelectors.forEach(sel => {
-                    document.querySelectorAll(sel).forEach(el => {
-                      el.remove();
-                      try { window.mauzer?.pulse?.adBlocked(); } catch(e) {}
-                    });
-                  });
-                };
-                
-                // Only use MutationObserver, setInterval is redundant and causes CPU spikes
-                window.__pulsCleanup.observer = new MutationObserver(() => { skipAd(); removeAdSlots(); });
-                window.__pulsCleanup.observer.observe(document.body, { childList: true, subtree: true });
-
-              // Listen for Puls disable message
-              window.addEventListener('message', (e) => {
-                if (e.data && e.data.type === 'puls-disable') {
-                  if (window.__pulsCleanup.observer) {
-                    window.__pulsCleanup.observer.disconnect();
-                    window.__pulsCleanup.observer = null;
-                  }
-                  if (window.__pulsCleanup.skipInterval) {
-                    clearInterval(window.__pulsCleanup.skipInterval);
-                    window.__pulsCleanup.skipInterval = null;
-                  }
-                  if (window.__pulsCleanup.styleTag) {
-                    window.__pulsCleanup.styleTag.remove();
-                    window.__pulsCleanup.styleTag = null;
-                  }
-                }
-              });
-            })();
-            // Ghost: override fetch and XHR for ad script URLs
-            (function() {
-              const fakeResponse = (url) => new Response('', { status: 200, headers: { 'Content-Type': 'application/javascript' } });
-              const adPatterns = [/doubleclick\.net/, /pagead\//, /adservice\.google/];
-              const origFetch = window.fetch;
-              window.fetch = (...args) => {
-                try {
-                  const url = args[0]?.toString?.() || '';
-                  if (adPatterns.some(p => p.test(url))) return Promise.resolve(fakeResponse(url));
-                } catch (e) {}
-                return origFetch.apply(window, args);
-              };
-              const origOpen = XMLHttpRequest.prototype.open;
-              XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-                try {
-                  const urlStr = url?.toString?.() || '';
-                  if (adPatterns.some(p => p.test(urlStr))) {
-                    this.send = () => { this.dispatchEvent(new Event('load')); };
-                    return;
-                  }
-                } catch (e) {}
-                return origOpen.call(this, method, url, ...rest);
-              };
-                };
-                return xhr;
-              }
-              window.XMLHttpRequest = MockXHR;
-            })();
-             })();
-          `).catch(() => {});
-        }
-
-        // Generic Cosmetic Ad Blocking (Global)
-        if (pulseEnabled && !url.startsWith('file://') && !url.startsWith('mauzer://')) {
-          wc.insertCSS(`
-            /* Common Ad Containers */
-            .adsbygoogle, .google-auto-placed,
-            div[id^="google_ads_iframe"], div[id^="div-gpt-ad"],
-            iframe[id^="google_ads_frame"],
-            /* Generic Names */
-            .ad-banner, .ad-box, .ad-container, .ad-slot,
-            .banner-ad, .sidebar-ad, .text-ad, .sponsored-link,
-            /* Yandex / RU specific */
-            [class*="yandex_ad"], [id*="yandex_ad"],
-            .ya-share2, .ya-context-panel, 
-            div[class*="ya-site-form"],
-            /* Mail.ru */
-            #ad_banner, .b-banner,
-            /* Social Widgets (often distracting) */
-            .share-buttons, .social-share
-          `).catch(() => { });
-        }
+      if (url.includes('youtube.com')) {
+        insertCssOnce(wc, YOUTUBE_ADBLOCK_CSS);
+        wc.executeJavaScript(YOUTUBE_ZERO_ADS_JS).catch(() => {});
+      } else if (!url.startsWith('file://') && !url.startsWith('mauzer://')) {
+        insertCssOnce(wc, GENERIC_ADBLOCK_CSS);
       }
+    };
 
-      // Native dark mode signal
-  nativeTheme.themeSource = settings.theme || 'dark';
-
-  // Smooth scroll injection
-  if (settings.smoothScroll) {
-    wc.insertCSS(`html { scroll-behavior: smooth !important; }`).catch(() => { });
-  }
-});
-});
-
-  // Headers: Cunning User-Agent spoofing via headers
-  // Google sometimes ignores setUserAgent if set as a simple string.
-  // We intercept requests and replace the header "on the fly".
-  const filter = {
-    urls: ['https://accounts.google.com/*', 'https://*.google.com/*', 'https://*.youtube.com/*', '*://*/*']
-  };
-
-  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-    const headers = { ...details.requestHeaders };
-    
-    // Remove all Electron-specific headers
-    Object.keys(headers).forEach(k => {
-      if (k.toLowerCase().startsWith('x-electron') || k.toLowerCase() === 'sec-ch-ua-full-version') {
-        delete headers[k];
-      }
-    });
-    
-    // Force Chrome User-Agent
-    headers['User-Agent'] = SPOOFED_UA;
-    
-    // Set other Chrome-like headers for consistency
-    headers['sec-ch-ua'] = `"Not-A.Brand";v="99", "Chromium";v="124", "Google Chrome";v="124"`;
-    headers['sec-ch-ua-mobile'] = '?0';
-    headers['sec-ch-ua-platform'] = '"Windows"';
-    
-    if (settings.doNotTrack) headers['DNT'] = '1';
-    
-    callback({ cancel: false, requestHeaders: headers });
+    // Re-apply on every load and SPA navigation
+    wc.on('did-finish-load', applyAdblock);
+    wc.on('did-navigate-in-page', applyAdblock);
+    wc.on('did-navigate', applyAdblock);
   });
 }
 
@@ -1505,25 +1503,27 @@ function setupDownloads() {
       timestamp: Date.now(),
     };
 
+    const broadcastDownload = (channel, payload) => {
+      windows.forEach(w => {
+        if (w && !w.isDestroyed()) w.webContents.send(channel, payload);
+      });
+    };
+
     item.on('updated', (event, state) => {
       dlItem.receivedBytes = item.getReceivedBytes();
       dlItem.state = state;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-progress', { ...dlItem });
-      }
+      broadcastDownload('download-progress', { ...dlItem });
     });
 
     item.once('done', (event, state) => {
       dlItem.state = state;
       dlItem.receivedBytes = dlItem.totalBytes;
       addDownload(dlItem);
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-complete', { ...dlItem });
-        mainWindow.webContents.send('toast', {
-          message: `Загружено: ${fileName}`,
-          type: 'success'
-        });
-      }
+      broadcastDownload('download-complete', { ...dlItem });
+      broadcastDownload('toast', {
+        message: `Загружено: ${fileName}`,
+        type: 'success'
+      });
     });
   });
 }
@@ -1597,7 +1597,10 @@ function createWindow(isIncognito = false) {
   }]);
   Menu.setApplicationMenu(menu);
 
-  win.loadFile(path.join(__dirname, 'src', 'index.html'));
+  // Pass the incognito flag via query param so the renderer knows BEFORE
+  // it creates any tabs (the 'set-incognito' IPC arrives too late — after init).
+  win.loadFile(path.join(__dirname, 'src', 'index.html'),
+    isIncognito ? { query: { incognito: '1' } } : undefined);
 
   win.once('ready-to-show', () => {
     win.show();
@@ -1622,15 +1625,18 @@ function createWindow(isIncognito = false) {
 
   win.on('closed', () => {
     windows = windows.filter(w => w !== win);
-    if (win === mainWindow) mainWindow = null;
+    if (win === mainWindow) {
+      mainWindow = windows[0] || null;
+    }
   });
 
   windows.push(win);
 
+  setupAntiFingerprint(win);
+
   if (!mainWindow) {
     mainWindow = win;
     setupAdBlocker();
-    setupAntiFingerprint();
     setupDownloads();
     setupWebViewPermissions();
   }
@@ -1642,15 +1648,58 @@ function createWindow(isIncognito = false) {
 // WEBVIEW PERMISSIONS
 // ============================================================
 function setupWebViewPermissions() {
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowedPermissions = ['clipboard-read', 'clipboard-write', 'fullscreen', 'pointerLock', 'media', 'mediaKeySystem', 'audio', 'microphone'];
-    callback(allowedPermissions.includes(permission));
+  const alwaysAllowed = ['clipboard-read', 'clipboard-write', 'fullscreen', 'pointerLock', 'mediaKeySystem', 'audio'];
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (alwaysAllowed.includes(permission)) return callback(true);
+
+    // Camera/microphone: per-site decision, remembered in permissions.json
+    if (permission === 'media' || permission === 'microphone') {
+      try {
+        const url = (details && details.requestingUrl) || (webContents && !webContents.isDestroyed() ? webContents.getURL() : '') || '';
+        const host = new URL(url).hostname;
+        if (!host) return callback(false);
+        const perms = getSitePermissions();
+        const stored = perms[host] && perms[host][permission];
+        if (stored === true) return callback(true);
+        if (stored === false) return callback(false);
+
+        const kinds = (details && details.mediaTypes) || [];
+        const what = kinds.includes('video') ? 'камеру и/или микрофон' : 'микрофон';
+        const targetWin = (webContents && !webContents.isDestroyed() && BrowserWindow.fromWebContents(webContents)) || mainWindow;
+        dialog.showMessageBox(targetWin, {
+          type: 'question',
+          title: 'Разрешение доступа',
+          message: `Сайт ${host} запрашивает доступ к ${what}.`,
+          detail: 'Разрешение будет запомнено. Изменить его можно в настройках сайта.',
+          buttons: ['Разрешить', 'Заблокировать'],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true
+        }).then(({ response }) => {
+          const granted = response === 0;
+          try { setSitePermission(host, permission, granted); } catch (e) { }
+          callback(granted);
+        }).catch(() => callback(false));
+        return;
+      } catch (e) {
+        return callback(false);
+      }
+    }
+    callback(false);
   });
 
   // Also handle permission checks (not just requests)
-  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    const allowedChecks = ['media', 'mediaKeySystem', 'audio', 'microphone', 'clipboard-read', 'clipboard-write'];
-    return allowedChecks.includes(permission);
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    if (alwaysAllowed.includes(permission)) return true;
+    if (permission === 'media' || permission === 'microphone') {
+      try {
+        const host = new URL(requestingOrigin).hostname;
+        const perms = getSitePermissions();
+        return !!(perms[host] && perms[host][permission] === true);
+      } catch (e) { return false; }
+    }
+    return false;
   });
 
   app.on('web-contents-created', (event, contents) => {
@@ -1689,9 +1738,13 @@ function setupWebViewPermissions() {
       try {
         const parsed = new URL(navigationUrl);
         if (parsed.protocol === 'file:') {
-          const appPathNorm = __dirname.replace(/\\/g, '/').toLowerCase();
-          const targetNorm = parsed.pathname.replace(/\\/g, '/').toLowerCase();
-          if (!targetNorm.includes(appPathNorm)) {
+          const appDir = path.resolve(__dirname);
+          let targetPath = '';
+          try { targetPath = decodeURIComponent(parsed.pathname); } catch (e) { targetPath = parsed.pathname; }
+          // Windows file URLs look like file:///C:/... — strip the leading slash before resolving
+          if (/^\/[A-Za-z]:[\/]/.test(targetPath)) targetPath = targetPath.slice(1);
+          const rel = path.relative(appDir, path.resolve(targetPath));
+          if (rel.startsWith('..') || path.isAbsolute(rel)) {
             navEvent.preventDefault();
             console.warn('[Security] Blocked unauthorized file navigation to:', navigationUrl);
           }
@@ -1830,11 +1883,19 @@ async function applyThemeToWeb(settings) {
 ipcMain.handle('settings:load', () => loadSettings());
 ipcMain.handle('settings:save', (_, data) => {
   saveSettings(data);
+  _dntEnabled = null; // invalidate request-header cache
   applyThemeToWeb(data);
   // Notify ALL windows that settings changed so they can reload
   windows.forEach(w => {
     if (w && !w.isDestroyed()) {
       w.webContents.send('settings-changed', data);
+    }
+  });
+  // Also notify embedded webviews (newtab, settings pages) — each webview is
+  // its own IPC context and never receives messages sent to the host window.
+  webContents.getAllWebContents().forEach(wc => {
+    if (wc.hostWebContents && !wc.isDestroyed()) {
+      wc.send('settings-changed', data);
     }
   });
   return true;
@@ -1847,16 +1908,17 @@ ipcMain.handle('history:get', (_, query) => query ? searchHistory(query) : getHi
 ipcMain.handle('history:add', (_, entry) => { addHistoryEntry(entry); return true; });
 ipcMain.handle('history:clear', () => { clearHistory(); return true; });
 ipcMain.handle('history:remove', (_, id) => { removeHistoryEntry(id); return true; });
-ipcMain.handle('history:search', (_, query) => searchHistory(query));// --- Downloads ---
+ipcMain.handle('history:removeMany', (_, ids) => { removeHistoryEntries(ids); return true; });
+ipcMain.handle('history:search', (_, query) => searchHistory(query));
+
+// --- Downloads ---
 ipcMain.handle('downloads:get', () => getDownloads());
 ipcMain.handle('downloads:clear', () => { clearDownloads(); return true; });
 
 // --- Pulse ---
 ipcMain.on('pulse:ad-blocked', () => {
   pulseStats.adsBlocked++;
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('pulse-stats-update', { ...pulseStats });
-  }
+  broadcastPulseStats();
 });
 ipcMain.handle('pulse:toggle', (_, enabled) => {
   pulseEnabled = !!enabled;
@@ -1867,56 +1929,33 @@ ipcMain.handle('pulse:get-state', () => pulseEnabled);
 // Per-site whitelist for Puls
 const PULS_WHITELIST_KEY = 'puls-whitelist-domains';
 ipcMain.handle('pulse:get-whitelist', async () => {
-  try {
-    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
-    if (fs.existsSync(dataPath)) {
-      const content = fs.readFileSync(dataPath, 'utf-8');
-      return JSON.parse(content);
-    }
-  } catch (e) {}
-  return [];
+  return readJSON('puls-whitelist.json', []);
 });
 ipcMain.handle('pulse:add-whitelist', async (_, domain) => {
-  try {
-    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
-    let whitelist = [];
-    if (fs.existsSync(dataPath)) {
-      whitelist = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    }
-    if (!whitelist.includes(domain)) {
-      whitelist.push(domain);
-      fs.writeFileSync(dataPath, JSON.stringify(whitelist));
-    }
-    return whitelist;
-  } catch (e) {}
-  return [];
+  if (!domain) return readJSON('puls-whitelist.json', []);
+  const list = readJSON('puls-whitelist.json', []);
+  if (!list.includes(domain)) {
+    list.push(domain);
+    writeJSON('puls-whitelist.json', list);
+  }
+  return list;
 });
 ipcMain.handle('pulse:remove-whitelist', async (_, domain) => {
-  try {
-    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
-    let whitelist = [];
-    if (fs.existsSync(dataPath)) {
-      whitelist = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-    }
-    whitelist = whitelist.filter(d => d !== domain);
-    fs.writeFileSync(dataPath, JSON.stringify(whitelist));
-    return whitelist;
-  } catch (e) {}
-  return [];
+  const list = readJSON('puls-whitelist.json', []);
+  const updated = list.filter(d => d !== domain);
+  writeJSON('puls-whitelist.json', updated);
+  return updated;
 });
 ipcMain.handle('pulse:clear-whitelist', async () => {
-  try {
-    const dataPath = path.join(app.getPath('userData'), 'mauzer-data', 'puls-whitelist.json');
-    if (fs.existsSync(dataPath)) {
-      fs.unlinkSync(dataPath);
-    }
-  } catch (e) {}
+  writeJSON('puls-whitelist.json', []);
   return [];
 });
 
 // --- Search ---
 ipcMain.handle('search:suggest', async (_, query) => {
   if (!query) return [];
+  // Privacy: every keystroke would otherwise be sent to Google
+  if (loadSettings().searchSuggest === false) return [];
   try {
     const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`);
     if (!res.ok) return [];
@@ -1930,16 +1969,45 @@ ipcMain.handle('search:suggest', async (_, query) => {
 
 // --- Downloads Actions ---
 ipcMain.handle('downloads:open', async (_, filepath) => {
-  if (!filepath) return false;
+  if (!filepath || typeof filepath !== 'string') return false;
   try {
-    await shell.openPath(filepath);
+    const resolved = path.resolve(filepath);
+    const downloadsDir = path.resolve(app.getPath('downloads'));
+    const rel = path.relative(downloadsDir.toLowerCase(), resolved.toLowerCase());
+    const isInsideDownloads = rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    if (!isInsideDownloads) {
+      console.warn('[Security] Blocked unauthorized downloads:open:', filepath);
+      return false;
+    }
+    // Block direct silent execution of dangerous shell script extensions
+    const dangerousExts = ['.bat', '.cmd', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.ps1', '.scr', '.reg'];
+    if (dangerousExts.some(ext => resolved.toLowerCase().endsWith(ext))) {
+      shell.showItemInFolder(resolved);
+      return true;
+    }
+    await shell.openPath(resolved);
     return true;
   } catch (e) {
     console.error('Failed to open download', e);
     return false;
   }
 });
-ipcMain.handle('downloads:showInFolder', (_, filepath) => { shell.showItemInFolder(filepath); });
+ipcMain.handle('downloads:showInFolder', (_, filepath) => {
+  if (!filepath || typeof filepath !== 'string') return false;
+  try {
+    const resolved = path.resolve(filepath);
+    const downloadsDir = path.resolve(app.getPath('downloads'));
+    const rel = path.relative(downloadsDir.toLowerCase(), resolved.toLowerCase());
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      console.warn('[Security] Blocked unauthorized downloads:showInFolder:', filepath);
+      return false;
+    }
+    shell.showItemInFolder(resolved);
+    return true;
+  } catch (e) {
+    return false;
+  }
+});
 ipcMain.handle('downloads:openFolder', () => { shell.openPath(app.getPath('downloads')); });
 
 // --- Bookmarks ---
@@ -1992,10 +2060,6 @@ ipcMain.handle('permissions:set', (_, site, perm, val) => setSitePermission(site
 ipcMain.handle('flags:get', () => getFlags());
 ipcMain.handle('flags:save', (_, flags) => { saveFlags(flags); return true; });
 
-// --- Usage Stats ---
-ipcMain.handle('usage:get', () => getUsageStats());
-ipcMain.handle('usage:track', (_, url, seconds) => { trackUsage(url, seconds); return true; });
-
 ipcMain.handle('update:restart', () => {
   autoUpdater.quitAndInstall();
   return true;
@@ -2014,12 +2078,13 @@ ipcMain.handle('update:download', async () => {
 ipcMain.handle('pulse:getStats', () => ({ ...pulseStats }));
 ipcMain.handle('pulse:resetStats', () => {
   pulseStats = { adsBlocked: 0, trackersBlocked: 0, requestsTotal: 0, dataSavedKB: 0, sessionStart: Date.now() };
+  broadcastPulseStats(true);
   return true;
 });
 
 // --- Config (legacy compat) ---
 ipcMain.handle('config:load', () => loadSettings());
-ipcMain.handle('config:save', (_, data) => { saveSettings(data); return true; });
+ipcMain.handle('config:save', (_, data) => { saveSettings(data); _dntEnabled = null; return true; });
 
 // --- System ---
 ipcMain.handle('shell:openExternal', (_, url) => {
@@ -2034,7 +2099,7 @@ ipcMain.handle('shell:openExternal', (_, url) => {
 ipcMain.handle('app:getPath', (_, name) => app.getPath(name));
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getInfo', () => ({
-  version: app.getVersion() || '1.1.14',
+  version: app.getVersion() || '1.1.16',
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
@@ -2129,25 +2194,9 @@ ipcMain.handle('import:bookmarks', async (_, browser) => {
 ipcMain.handle('import:history', async (_, browser) => {
   const result = await importer.importHistory(browser);
   if (result.count > 0) {
-    const history = getHistory();
-    // Simple merge: add new items that don't exist by URL+Timestamp
-    const existingKeys = new Set(history.map(h => h.url + h.timestamp));
-    const toAdd = [];
-    
-    result.items.forEach(item => {
-      const key = item.url + item.timestamp;
-      if (!existingKeys.has(key)) {
-        toAdd.push({
-          ...item,
-          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-          favicon: '' // Can't easily import favicons yet
-        });
-      }
-    });
-    
-    const merged = [...toAdd, ...history].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5000);
-    writeJSON('history.json', merged);
-    return { count: toAdd.length };
+    // UNIQUE(url, timestamp) index dedupes automatically
+    const inserted = historyDb.addMany(result.items);
+    return { count: inserted };
   }
   return { count: 0 };
 });
@@ -2155,15 +2204,34 @@ ipcMain.handle('import:history', async (_, browser) => {
 // Import passwords (NEW)
 ipcMain.handle('import:passwords', async (_, browser) => {
   const result = await importer.importPasswords(browser);
-  // We don't have a password manager yet in this codebase version, 
-  // so we'll save them to a secure file 'logins.json' for now.
-  // In a real app, this should be encrypted with a master password.
   if (result.count > 0) {
     const logins = readJSON('logins.json', []);
     const newItems = result.items.filter(n => !logins.some(e => e.url === n.url && e.username === n.username));
     
     if (newItems.length > 0) {
-      newItems.forEach(i => logins.push(i));
+      let encryptionAvailable = false;
+      try {
+        encryptionAvailable = !!(safeStorage && safeStorage.isEncryptionAvailable());
+      } catch (e) { }
+      if (!encryptionAvailable) {
+        // Never write plaintext passwords to disk
+        console.warn('[Security] safeStorage unavailable — password import skipped');
+        return { count: 0 };
+      }
+      newItems.forEach(i => {
+        let storedPassword;
+        try {
+          storedPassword = 'enc:' + safeStorage.encryptString(i.password).toString('base64');
+        } catch (e) {
+          return;
+        }
+        logins.push({
+          url: i.url,
+          username: i.username,
+          password: storedPassword,
+          timestamp: i.timestamp || Date.now()
+        });
+      });
       writeJSON('logins.json', logins);
     }
     return { count: newItems.length };
@@ -2249,14 +2317,14 @@ function setupAutoUpdate() {
       .finally(() => {
         checking = false;
       });
-    // Also trigger fallback in parallel so UI appears quickly even if updater lags
-    checkGithubFallback(currentVersion);
+    // No parallel fallback here: autoUpdater is authoritative in packaged builds,
+    // and the fallback only fires when it errors (see catch above) — this keeps
+    // GitHub API requests (and rate limits) to a minimum.
   };
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ status: 'checking' }));
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', info }));
   autoUpdater.on('update-not-available', (info) => {
     sendUpdateStatus({ status: 'not-available', info });
-    checkGithubFallback(app.getVersion());
   });
   autoUpdater.on('download-progress', (progress) => sendUpdateStatus({
     status: 'downloading',
@@ -2344,62 +2412,116 @@ app.whenReady().then(async () => {
   createWindow();
   setupAutoUpdate();
 
-  // Benchmark Mode
+  // Benchmark & Stress Testing Mode
   const benchmarkArg = process.argv.find(arg => arg.startsWith('--benchmark='));
   if (benchmarkArg) {
-    const tabsToOpen = parseInt(benchmarkArg.split('=')[1], 10);
-    if (!isNaN(tabsToOpen) && tabsToOpen > 0) {
-      console.log(`\n[Benchmark] Starting benchmark mode. Target tabs: ${tabsToOpen}`);
-      setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          console.log(`[Benchmark] Opening ${tabsToOpen} tabs...`);
-          // Use some light pages for testing
-          const testUrls = [
-            'https://en.wikipedia.org/wiki/Software_testing',
-            'https://en.wikipedia.org/wiki/Web_browser',
-            'https://en.wikipedia.org/wiki/Electron_(software_framework)'
-          ];
-          
-          for (let i = 0; i < tabsToOpen; i++) {
-             const url = testUrls[i % testUrls.length];
-             setTimeout(() => {
-               if (!mainWindow.isDestroyed()) {
-                 mainWindow.webContents.send('open-url-in-new-tab', url);
-               }
-             }, i * 300); // Open a tab every 300ms to avoid freezing IPC
-          }
+    const tabsToOpen = parseInt(benchmarkArg.split('=')[1], 10) || 15;
+    console.log(`\n[Benchmark] =================================================`);
+    console.log(`[Benchmark] 🚀 STARTING FULL SYSTEM & HEAVY TABS BENCHMARK`);
+    console.log(`[Benchmark] Target Tabs: ${tabsToOpen} HEAVY real-world web pages`);
+    console.log(`[Benchmark] =================================================\n`);
 
-          // Start monitoring memory
-          let maxMem = 0;
-          let ticks = 0;
-          const interval = setInterval(async () => {
-             if (mainWindow.isDestroyed()) {
-                clearInterval(interval);
-                return;
+    let crashCount = 0;
+    app.on('render-process-gone', (e, wc, details) => {
+      crashCount++;
+      console.log(`[Benchmark] ❌ PROCESS CRASH DETECTED: ${details.reason} (exit code: ${details.exitCode})`);
+    });
+
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log(`[Benchmark] [STAGE 1] Opening ${tabsToOpen} heavy tabs (YouTube, GitHub, Reddit, Wikipedia)...`);
+        
+        const heavyUrls = [
+          'https://www.youtube.com',
+          'https://github.com/trending',
+          'https://en.wikipedia.org/wiki/Web_browser',
+          'https://en.wikipedia.org/wiki/World_Wide_Web',
+          'https://news.ycombinator.com'
+        ];
+        
+        for (let i = 0; i < tabsToOpen; i++) {
+           const url = heavyUrls[i % heavyUrls.length];
+           setTimeout(() => {
+             if (!mainWindow.isDestroyed()) {
+               mainWindow.webContents.send('open-url-in-new-tab', url);
              }
-             const metrics = app.getAppMetrics();
-             let totalMemKB = 0;
-             let totalCpu = 0;
-             metrics.forEach(m => {
-                totalMemKB += m.memory.workingSetSize;
-                totalCpu += m.cpu.percentCPUUsage;
-             });
-             const totalMemMB = (totalMemKB / 1024).toFixed(2);
-             if (parseFloat(totalMemMB) > maxMem) maxMem = parseFloat(totalMemMB);
-             
-             console.log(`[Benchmark] 📊 CPU: ${totalCpu.toFixed(1)}% | RAM: ${totalMemMB} MB | Max RAM: ${maxMem} MB`);
-             
-             ticks++;
-             if (ticks >= 20) { // Monitor for 20 seconds
-                 clearInterval(interval);
-                 console.log(`[Benchmark] ✅ Benchmark complete! Opened ${tabsToOpen} tabs.`);
-                 console.log(`[Benchmark] ✅ Maximum RAM usage: ${maxMem} MB`);
-             }
-          }, 1000);
+           }, i * 350);
         }
-      }, 3000); // Wait 3 seconds for UI to initialize
-    }
+
+        let maxLoadingMem = 0;
+        let settledMem = 0;
+        let peakCpu = 0;
+        let ticks = 0;
+
+        const interval = setInterval(async () => {
+           if (mainWindow.isDestroyed()) {
+              clearInterval(interval);
+              return;
+           }
+           const metrics = app.getAppMetrics();
+           let totalMemKB = 0;
+           let totalCpu = 0;
+           metrics.forEach(m => {
+              totalMemKB += m.memory.workingSetSize;
+              totalCpu += m.cpu.percentCPUUsage;
+           });
+           const totalMemMB = parseFloat((totalMemKB / 1024).toFixed(2));
+           const cpu = parseFloat(totalCpu.toFixed(1));
+           if (cpu > peakCpu) peakCpu = cpu;
+
+           ticks++;
+
+           if (ticks <= 12) {
+             // Stage 1: Active loading phase
+             if (totalMemMB > maxLoadingMem) maxLoadingMem = totalMemMB;
+             console.log(`[Benchmark] ⏳ [Loading Phase] CPU: ${cpu}% | RAM: ${totalMemMB} MB (Peak: ${maxLoadingMem} MB)`);
+           } else if (ticks <= 20) {
+             // Stage 2: Settled phase after full load
+             settledMem = totalMemMB;
+             console.log(`[Benchmark] 🌿 [Settled Phase] CPU: ${cpu}% | RAM: ${totalMemMB} MB | Peak was: ${maxLoadingMem} MB`);
+           } else if (ticks === 21) {
+             // Stage 3: Automated UI Chaos / Monkey test
+             console.log(`\n[Benchmark] 🤖 [STAGE 3] Automated UI Chaos / Monkey Testing...`);
+             console.log(`[Benchmark] Testing rapid tab switching, closing tabs, shortcut triggers...`);
+             try {
+               mainWindow.webContents.executeJavaScript(`
+                 (function() {
+                   // Rapid tab switching test
+                   const tabs = Array.from(document.querySelectorAll('.tab'));
+                   tabs.forEach((t, idx) => {
+                     setTimeout(() => t.click(), idx * 100);
+                   });
+                   // Test closing 4 tabs
+                   setTimeout(() => {
+                     const closes = Array.from(document.querySelectorAll('.tab-close')).slice(0, 4);
+                     closes.forEach(c => c.click());
+                   }, 1500);
+                 })();
+               `).catch(() => {});
+             } catch(e) {}
+           } else if (ticks <= 26) {
+             console.log(`[Benchmark] 🧪 [Stress Testing] CPU: ${cpu}% | RAM: ${totalMemMB} MB`);
+           } else {
+             clearInterval(interval);
+             console.log(`\n[Benchmark] =================================================`);
+             console.log(`[Benchmark] 📊 FINAL BENCHMARK & STABILITY REPORT`);
+             console.log(`[Benchmark] =================================================`);
+             console.log(`[Benchmark] 📈 Пик памяти при одновременной загрузке: ${maxLoadingMem} MB`);
+             console.log(`[Benchmark] 📉 Память после полной прогрузки всех вкладок: ${settledMem} MB`);
+             console.log(`[Benchmark] ⚡ Пиковая нагрузка на процессор: ${peakCpu}%`);
+             console.log(`[Benchmark] 🛡️ Проверка на вылеты и критические ошибки: ${crashCount === 0 ? '0 вылетов (ИДЕАЛЬНО)' : crashCount + ' вылетов'}`);
+             console.log(`[Benchmark] =================================================\n`);
+           }
+        }, 1000);
+      }
+    }, 2500);
   }
+});
+
+// Write all debounced JSON writes to disk before the process exits,
+// otherwise session/settings changes made in the last second are lost.
+app.on('before-quit', () => {
+  flushPendingWrites();
 });
 
 app.on('window-all-closed', () => {

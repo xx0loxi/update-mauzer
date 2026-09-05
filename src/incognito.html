@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Инкогнито — Mauzer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="fonts/inter.css">
     <style>
         *,
         *::before,
@@ -348,6 +348,16 @@
             });
         }
 
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function renderSuggestions(list) {
             if (!list || !list.length) {
                 hideSuggestions();
@@ -355,12 +365,12 @@
             }
             
             suggestionsBox.innerHTML = list.map(text => `
-                <li class="suggestion-item" data-val="${text.replace(/"/g, '&quot;')}">
+                <li class="suggestion-item" data-val="${escapeHtml(text)}">
                     <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <span>${text}</span>
+                    <span>${escapeHtml(text)}</span>
                 </li>
             `).join('');
             

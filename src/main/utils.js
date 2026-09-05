@@ -33,6 +33,12 @@ function compareVersions(a, b) {
 const cache = new Map();
 const writeTimeouts = new Map();
 
+// Pretty-print only settings.json (human-edited); compact JSON for big data
+// files — roughly half the size and much faster to serialize.
+function serialize(file, data) {
+  return JSON.stringify(data, null, file === 'settings.json' ? 2 : 0);
+}
+
 function readJSON(file, fallback = []) {
   if (cache.has(file)) return cache.get(file);
   try {
@@ -63,7 +69,7 @@ function writeJSON(file, data) {
       const dir = path.join(app.getPath('userData'), 'mauzer-data');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       // Use async write to avoid blocking the main thread
-      fs.writeFile(path.join(dir, file), JSON.stringify(data, null, 2), 'utf8', (err) => {
+      fs.writeFile(path.join(dir, file), serialize(file, data), 'utf8', (err) => {
         if (err) console.error(`Async write ${file} error:`, err);
       });
     } catch (e) { console.error(`Write setup ${file} error:`, e); }
@@ -72,10 +78,26 @@ function writeJSON(file, data) {
   writeTimeouts.set(file, timeoutId);
 }
 
+// Flush all debounced writes to disk immediately (used on app quit).
+function flushPendingWrites() {
+  writeTimeouts.forEach((timeoutId, file) => {
+    clearTimeout(timeoutId);
+    const data = cache.get(file);
+    if (data === undefined) return;
+    try {
+      const dir = path.join(app.getPath('userData'), 'mauzer-data');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, file), serialize(file, data), 'utf8');
+    } catch (e) { console.error(`Flush write ${file} error:`, e); }
+  });
+  writeTimeouts.clear();
+}
+
 module.exports = {
   isGoogleLoginUrl,
   normalizeVersion,
   compareVersions,
   readJSON,
-  writeJSON
+  writeJSON,
+  flushPendingWrites
 };

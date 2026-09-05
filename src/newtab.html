@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>MAUZER</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="fonts/inter.css">
     <style>
         *,
         *::before,
@@ -36,29 +36,99 @@
             color: rgba(0, 0, 0, 0.9);
         }
 
-        /* Background glow */
-        .glow {
+        /* === Animated background scene === */
+        .bg-scene {
             position: fixed;
-            border-radius: 50%;
-            filter: blur(140px);
-            opacity: 0.04;
+            inset: 0;
+            overflow: hidden;
             pointer-events: none;
+            z-index: 0;
         }
 
-        .glow-1 {
-            top: -10%;
-            left: 10%;
-            width: 600px;
-            height: 600px;
-            background: #888;
+        /* Vignette to keep edges deep and dark */
+        .bg-scene::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
         }
 
-        .glow-2 {
-            bottom: -10%;
-            right: 10%;
-            width: 600px;
-            height: 600px;
-            background: #aaa;
+        .aurora {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(110px);
+            mix-blend-mode: screen;
+            opacity: 0.55;
+            will-change: transform;
+        }
+
+        .aurora-1 {
+            top: -22%;
+            left: -12%;
+            width: 62vw;
+            height: 62vw;
+            background: radial-gradient(circle at 35% 35%, rgba(79, 70, 229, 0.5) 0%, rgba(79, 70, 229, 0.12) 45%, transparent 68%);
+            animation: drift-1 28s ease-in-out infinite;
+        }
+
+        .aurora-2 {
+            bottom: -28%;
+            right: -14%;
+            width: 68vw;
+            height: 68vw;
+            background: radial-gradient(circle at 60% 60%, rgba(8, 145, 178, 0.45) 0%, rgba(8, 145, 178, 0.1) 45%, transparent 68%);
+            animation: drift-2 36s ease-in-out infinite;
+        }
+
+        .aurora-3 {
+            top: 18%;
+            right: 12%;
+            width: 44vw;
+            height: 44vw;
+            background: radial-gradient(circle at 50% 40%, rgba(147, 51, 234, 0.38) 0%, rgba(147, 51, 234, 0.1) 45%, transparent 68%);
+            animation: drift-3 24s ease-in-out infinite;
+        }
+
+        .aurora-4 {
+            bottom: 6%;
+            left: 16%;
+            width: 38vw;
+            height: 38vw;
+            background: radial-gradient(circle at 45% 55%, rgba(14, 165, 233, 0.3) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 68%);
+            animation: drift-4 32s ease-in-out infinite;
+        }
+
+        @keyframes drift-1 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            33% { transform: translate3d(9vw, 7vh, 0) scale(1.12); }
+            66% { transform: translate3d(-5vw, 12vh, 0) scale(0.94); }
+        }
+
+        @keyframes drift-2 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            40% { transform: translate3d(-10vw, -8vh, 0) scale(1.08); }
+            70% { transform: translate3d(4vw, -14vh, 0) scale(0.92); }
+        }
+
+        @keyframes drift-3 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+            50% { transform: translate3d(-8vw, 10vh, 0) scale(1.15) rotate(12deg); }
+        }
+
+        @keyframes drift-4 {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            45% { transform: translate3d(7vw, -9vh, 0) scale(1.1); }
+            75% { transform: translate3d(-6vw, -4vh, 0) scale(0.95); }
+        }
+
+        /* Constellation particles canvas (drawn by JS) */
+        #fx-canvas {
+            position: absolute;
+            inset: 0;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .aurora { animation: none; }
         }
 
         .container {
@@ -189,19 +259,27 @@
             color: rgba(255, 255, 255, 0.45);
         }
 
-        /* Expanded widget (in-place) */
+        /* Expanded widget (in-place, smooth unfold) */
         .weather-expanded {
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 10px;
             overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .weather-widget.expanded {
             width: 280px;
             padding: 14px 18px;
         }
         .weather-widget.expanded .weather-expanded {
-            display: flex;
+            max-height: 340px;
+            opacity: 1;
+            transform: translateY(0);
         }
         .weather-details {
             display: flex;
@@ -683,8 +761,30 @@
             color: rgba(0, 0, 0, 0.86);
         }
 
-        [data-theme="light"] .glow {
-            display: none;
+        [data-theme="light"] .bg-scene::after {
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.06) 100%);
+        }
+
+        [data-theme="light"] .aurora {
+            mix-blend-mode: normal;
+            opacity: 0.35;
+            filter: blur(120px);
+        }
+
+        [data-theme="light"] .aurora-1 {
+            background: radial-gradient(circle at 35% 35%, rgba(147, 197, 253, 0.55) 0%, rgba(147, 197, 253, 0.15) 45%, transparent 68%);
+        }
+
+        [data-theme="light"] .aurora-2 {
+            background: radial-gradient(circle at 60% 60%, rgba(165, 243, 252, 0.6) 0%, rgba(165, 243, 252, 0.15) 45%, transparent 68%);
+        }
+
+        [data-theme="light"] .aurora-3 {
+            background: radial-gradient(circle at 50% 40%, rgba(251, 207, 232, 0.5) 0%, rgba(251, 207, 232, 0.15) 45%, transparent 68%);
+        }
+
+        [data-theme="light"] .aurora-4 {
+            background: radial-gradient(circle at 45% 55%, rgba(199, 210, 254, 0.5) 0%, rgba(199, 210, 254, 0.15) 45%, transparent 68%);
         }
 
         [data-theme="light"] .logo {
@@ -889,8 +989,13 @@
 </head>
 
 <body>
-    <div class="glow glow-1"></div>
-    <div class="glow glow-2"></div>
+    <div class="bg-scene" aria-hidden="true">
+        <div class="aurora aurora-1"></div>
+        <div class="aurora aurora-2"></div>
+        <div class="aurora aurora-3"></div>
+        <div class="aurora aurora-4"></div>
+        <canvas id="fx-canvas" aria-hidden="true"></canvas>
+    </div>
 
     <!-- Weather Widget -->
     <div id="weather-widget" class="weather-widget">
@@ -962,6 +1067,174 @@
     </div>
 
     <script>
+        // === Constellation particles (canvas, ~30 fps, paused when hidden) ===
+        (function initConstellation() {
+            const canvas = document.getElementById('fx-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            const LINK_DIST = 140;       // max px distance for a connecting line
+            const FRAME_MS = 1000 / 40;  // 40 fps — smooth, still cheap on CPU
+            const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+
+            let W = 0, H = 0, particles = [], rafId = 0, lastFrame = 0;
+            let isLight = false;
+
+            function spawn() {
+                const vx = (Math.random() - 0.5) * 48; // px per second
+                const vy = (Math.random() - 0.5) * 48;
+                return {
+                    x: Math.random() * W,
+                    y: Math.random() * H,
+                    vx, vy,
+                    r: 1 + Math.random() * 1.4,
+                    sp: Math.hypot(vx, vy) || 1 // own speed — the slower point anchors the line
+                };
+            }
+
+            function resize() {
+                const oldW = W, oldH = H;
+                W = window.innerWidth;
+                H = window.innerHeight;
+                // Fresh tabs can briefly report a 0x0 viewport — spawning into
+                // it would pile every particle at (0,0) and they'd stay as a
+                // clump in the corner after the window grows. Wait for real size.
+                if (!W || !H) return;
+                canvas.width = Math.round(W * DPR);
+                canvas.height = Math.round(H * DPR);
+                ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+                // Rescale existing particles BEFORE adding new ones — keeps the
+                // spread uniform when the viewport grows/shrinks (otherwise
+                // particles spawned for the small initial size pile up in the
+                // corners right after the browser opens). New particles spawned
+                // below already use the fresh full-size W/H.
+                if (oldW > 0 && oldH > 0 && (oldW !== W || oldH !== H)) {
+                    const kx = W / oldW, ky = H / oldH;
+                    for (const p of particles) {
+                        p.x *= kx;
+                        p.y *= ky;
+                    }
+                }
+                // Density scales with area, hard-capped so big screens stay cheap
+                const target = Math.min(100, Math.max(40, Math.round((W * H) / 14000)));
+                while (particles.length < target) particles.push(spawn());
+                particles.length = Math.min(particles.length, target);
+            }
+
+            function draw(dt) {
+                // Light theme gets darker, slightly stronger ink so it stays visible
+                const rgb = isLight ? '13,13,13' : '255,255,255';
+                const dotA = isLight ? 0.65 : 0.5;
+                const lineMax = isLight ? 0.28 : 0.18;
+
+                ctx.clearRect(0, 0, W, H);
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
+                    if (p.y < -10) p.y = H + 10; else if (p.y > H + 10) p.y = -10;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+                    ctx.fillStyle = 'rgba(' + rgb + ',' + dotA + ')';
+                    ctx.fill();
+                }
+
+                const d2max = LINK_DIST * LINK_DIST;
+                for (let i = 0; i < particles.length; i++) {
+                    const a = particles[i];
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const b = particles[j];
+                        const dx = a.x - b.x, dy = a.y - b.y;
+                        const d2 = dx * dx + dy * dy;
+                        if (d2 >= d2max) continue;
+                        const t = 1 - Math.sqrt(d2) / LINK_DIST;
+                        // The slower point is the anchor: the thread stays attached
+                        // to the one that "stayed" and stretches toward the runner.
+                        const anchor = a.sp <= b.sp ? a : b;
+                        const other = anchor === a ? b : a;
+                        // Short connection band so the line never dangles far
+                        // into empty space: appears close, disappears quickly.
+                        let g = (t - 0.35) / 0.3;
+                        g = g <= 0 ? 0 : g >= 1 ? 1 : g * g * (3 - 2 * g);
+                        if (g <= 0.01) continue;
+                        const ex = anchor.x + (other.x - anchor.x) * g;
+                        const ey = anchor.y + (other.y - anchor.y) * g;
+                        // Full opacity the whole time — the line retracts, not fades
+                        ctx.strokeStyle = 'rgba(' + rgb + ',' + lineMax + ')';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(anchor.x, anchor.y);
+                        ctx.lineTo(ex, ey);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            let frameCount = 0;
+            function loop(ts) {
+                rafId = requestAnimationFrame(loop);
+                if (!lastFrame) { lastFrame = ts; return; }
+                const elapsed = ts - lastFrame;
+                if (elapsed < FRAME_MS) return;
+                // Cheap safety net (~once a second): if the viewport changed
+                // without a resize event firing, catch up
+                if ((++frameCount & 31) === 0 &&
+                    (window.innerWidth !== W || window.innerHeight !== H)) {
+                    resize();
+                }
+                draw(Math.min(elapsed / 1000, 0.1));
+                lastFrame = ts;
+            }
+
+            function start() {
+                if (!rafId && !reducedMotion) {
+                    lastFrame = 0;
+                    rafId = requestAnimationFrame(loop);
+                }
+            }
+
+            function stop() {
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = 0;
+                }
+            }
+
+            function applyMode() {
+                isLight = (document.documentElement.getAttribute('data-theme') || 'dark') === 'light';
+                if (reducedMotion) {
+                    stop();
+                    draw(0);
+                } else {
+                    start();
+                }
+            }
+
+            // React to theme switches from settings
+            new MutationObserver(applyMode)
+                .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+            // No work at all while the page is hidden
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) stop(); else applyMode();
+            });
+
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    resize();
+                    if (reducedMotion) draw(0);
+                }, 150);
+            });
+
+            resize();
+            applyMode();
+        })();
+
         const defaultLinks = [
             { url: 'https://www.youtube.com', title: 'YouTube' },
             { url: 'https://chatgpt.com', title: 'ChatGPT' },
@@ -981,6 +1254,16 @@
         const suggestionsBox = document.getElementById('suggestions');
         let selectedIndex = -1;
         let debounceTimer;
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         // Auto-focus on load and load accent color
         window.addEventListener('load', async () => {
@@ -1069,12 +1352,12 @@
             }
             
             suggestionsBox.innerHTML = list.map(text => `
-                <li class="suggestion-item" data-val="${text.replace(/"/g, '&quot;')}">
+                <li class="suggestion-item" data-val="${escapeHtml(text)}">
                     <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <span>${text}</span>
+                    <span>${escapeHtml(text)}</span>
                 </li>
             `).join('');
             
@@ -1161,7 +1444,14 @@
             const colorIndex = Math.abs((hostname || title || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % bgColors.length;
             const badgeColor = bgColors[colorIndex];
 
-            return `<img src="https://www.google.com/s2/favicons?domain=${hostname}&sz=128" alt=""
+            // Privacy: fetch the icon from the site itself, not a third-party service
+            let iconUrl = '';
+            try {
+                const u = new URL(url);
+                if (u.protocol === 'http:' || u.protocol === 'https:') iconUrl = u.origin + '/favicon.ico';
+            } catch (e) { }
+
+            return `<img src="${iconUrl}" alt=""
                       onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
                     <div class="quick-link-letter" style="display:none; background:${badgeColor};">${letter}</div>`;
         }
@@ -1179,7 +1469,7 @@
           <div class="quick-link-icon">
             ${getQuickLinkIcon(link.url, link.title)}
           </div>
-          <span class="quick-link-title">${link.title}</span>
+          <span class="quick-link-title">${escapeHtml(link.title)}</span>
           <button class="quick-link-menu-btn" type="button">⋯</button>
         `;
                 a.addEventListener('click', (e) => {
@@ -1351,7 +1641,9 @@
             searchWrap.classList.remove('neon-flash');
         }
 
-        // Apply theme (URL param has priority, otherwise take current settings and react to changes)
+        // Apply theme (settings win over the URL param — a stale ?theme= baked
+        // into the tab URL must not survive a reload; the param is only used
+        // for the first paint and as a fallback when settings are unavailable)
         const params = new URLSearchParams(window.location.search);
         const themeFromParam = params.get('theme');
 
@@ -1363,7 +1655,8 @@
 
         if (themeFromParam) {
             applyTheme(themeFromParam);
-        } else if (window.mauzer?.settings?.load) {
+        }
+        if (window.mauzer?.settings?.load) {
             window.mauzer.settings.load().then(s => applyTheme(s?.theme || 'dark')).catch(() => {});
         }
 
@@ -1383,9 +1676,27 @@
             const windEl = document.getElementById('weather-wind');
             const forecastEl = document.getElementById('weather-forecast');
 
-            // Click widget -> toggle expanded
+            // Click widget -> toggle expanded.
+            // Width is pinned to explicit px before toggling, because CSS cannot
+            // animate between a fixed width and `auto` — without this the
+            // collapse would snap instantly.
             widget.addEventListener('click', () => {
-                widget.classList.toggle('expanded');
+                const isExpanded = widget.classList.contains('expanded');
+                const current = widget.getBoundingClientRect().width;
+                let target;
+                if (isExpanded) {
+                    widget.classList.remove('expanded');
+                    widget.style.width = 'auto';
+                    target = widget.getBoundingClientRect().width; // natural collapsed width
+                } else {
+                    target = 280; // .weather-widget.expanded width
+                }
+                widget.style.width = current + 'px';
+                void widget.offsetWidth; // reflow so the pinned start width takes effect
+                widget.classList.toggle('expanded', !isExpanded);
+                widget.style.width = target + 'px';
+                clearTimeout(widget._widthTimer);
+                widget._widthTimer = setTimeout(() => { widget.style.width = ''; }, 500);
             });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') widget.classList.remove('expanded');
@@ -1418,17 +1729,21 @@
             try {
                 let lat, lon, city;
                 try {
-                    const geoRes = await fetch('http://ip-api.com/json/?fields=status,message,lat,lon,city,regionName');
+                    const geoRes = await fetch('https://ipapi.co/json/');
+                    if (!geoRes.ok) throw new Error('Primary geo failed');
                     const geo = await geoRes.json();
-                    if (geo.status !== 'success') throw new Error(geo.message || 'Geo failed');
-                    lat = geo.lat; lon = geo.lon;
-                    city = geo.city || geo.regionName || 'Unknown';
+                    lat = geo.latitude; lon = geo.longitude;
+                    city = geo.city || geo.region || 'Unknown';
                 } catch (err1) {
-                    const geoRes2 = await fetch('https://ipapi.co/json/');
-                    if (!geoRes2.ok) throw new Error('Backup geo failed');
-                    const geo2 = await geoRes2.json();
-                    lat = geo2.latitude; lon = geo2.longitude;
-                    city = geo2.city || geo2.region || 'Unknown';
+                    try {
+                        const geoRes2 = await fetch('https://get.geojs.io/v1/ip/geo.json');
+                        if (!geoRes2.ok) throw new Error('Backup geo failed');
+                        const geo2 = await geoRes2.json();
+                        lat = parseFloat(geo2.latitude); lon = parseFloat(geo2.longitude);
+                        city = geo2.city || geo2.region || 'Unknown';
+                    } catch (err2) {
+                        lat = 55.75; lon = 37.61; city = 'Moscow'; // Safe default
+                    }
                 }
 
                 const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);

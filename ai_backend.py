@@ -11,8 +11,8 @@ import os
 import tempfile
 import edge_tts
 from openai import OpenAI
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -156,10 +156,25 @@ TOOLS = [
 # APP SETUP
 # ============================================================
 app = FastAPI()
+
+# Only local app pages (file:// sends Origin "null") may call this API.
+# Web pages from the internet send their real origin — reject them so a
+# random site in any browser can't burn the user's OpenAI key.
+ALLOWED_ORIGINS = {"null", "http://localhost", "http://127.0.0.1"}
+
+
+@app.middleware("http")
+async def origin_guard(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin and origin not in ALLOWED_ORIGINS:
+        return JSONResponse({"error": "forbidden origin"}, status_code=403)
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["null"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

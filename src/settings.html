@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Настройки — Mauzer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="fonts/inter.css">
     <style>
         *,
         *::before,
@@ -216,7 +216,8 @@
         }
 
         select:focus {
-            border-color: rgba(255, 255, 255, 0.2);
+            border-color: var(--accent, #808080);
+            box-shadow: 0 0 0 3px var(--accent-hover, rgba(128, 128, 128, 0.15));
         }
 
         option {
@@ -280,7 +281,9 @@
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--accent-hover, rgba(255, 255, 255, 0.1));
+            border-color: var(--accent, #808080);
+            color: var(--accent, #808080);
         }
 
         .about-section {
@@ -469,6 +472,13 @@
             </div>
             <div class="setting-row">
                 <div class="setting-info">
+                    <div class="setting-label">Search Suggestions</div>
+                    <div class="setting-desc" data-i18n="suggestDesc">Отправлять запросы в поисковик для подсказок</div>
+                </div>
+                <div class="toggle" data-key="searchSuggest"></div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-info">
                     <div class="setting-label">Fingerprint Protection</div>
                     <div class="setting-desc" data-i18n="fpDesc">Скрытие данных об устройстве</div>
                 </div>
@@ -633,6 +643,19 @@
 
         let settings = {};
 
+        // Set accent + derived translucent variants (hover/glow) from one hex
+        function setAccentVars(hex) {
+            const root = document.documentElement.style;
+            root.setProperty('--accent', hex);
+            try {
+                const h = hex.replace('#', '');
+                const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+                const R = (bigint >> 16) & 255, G = (bigint >> 8) & 255, B = bigint & 255;
+                root.setProperty('--accent-hover', `rgba(${R}, ${G}, ${B}, 0.15)`);
+                root.setProperty('--accent-glow', `rgba(${R}, ${G}, ${B}, 0.25)`);
+            } catch (e) { }
+        }
+
         function showToast(msg) {
             const old = document.querySelector('.toast');
             if (old) old.remove();
@@ -655,7 +678,7 @@
         function applyToUI() {
             document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
             if (settings.accentColor) {
-                document.documentElement.style.setProperty('--accent', settings.accentColor);
+                setAccentVars(settings.accentColor);
             }
             // Selects
             document.querySelectorAll('select[data-key]').forEach(sel => {
@@ -679,7 +702,7 @@
                 dot.title = c.name;
                 dot.addEventListener('click', async () => {
                     settings.accentColor = c.val;
-                    document.documentElement.style.setProperty('--accent', c.val);
+                    setAccentVars(c.val);
                     await window.mauzer.settings.save(settings);
                     cr.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
                     dot.classList.add('active');

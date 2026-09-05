@@ -3,9 +3,9 @@ const https = require('https');
 const path = require('path');
 
 const FILTER_SOURCES = [
+  'https://raw.githubusercontent.com/iam-py-test/uBlock-combo/main/list.txt',
   'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.mini.txt',
-  'https://cdn.jsdelivr.net/gh/hagezi/nrd@latest/adblock/nrd7.txt',
-  'https://raw.githubusercontent.com/iam-py-test/uBlock-combo/main/list.txt'
+  'https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt'
 ];
 
 function parseHostsList(raw) {

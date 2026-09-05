@@ -138,8 +138,9 @@ async function importHistory(browserId) {
   fs.copyFileSync(historyPath, tmpPath);
   
   const items = [];
+  let db;
   try {
-    const db = new Database(tmpPath, { readonly: true });
+    db = new Database(tmpPath, { readonly: true });
     const rows = db.prepare(`
       SELECT url, title, last_visit_time 
       FROM urls 
@@ -156,10 +157,11 @@ async function importHistory(browserId) {
         items.push({ url: r.url, title: r.title || r.url, timestamp: ts });
       }
     }
-    db.close();
   } catch (e) {
     console.error('History import failed:', e);
   } finally {
+    // Close before unlinking: on Windows a temp file can't be deleted while open
+    try { if (db) db.close(); } catch (e) { }
     try { fs.unlinkSync(tmpPath); } catch(e) {}
   }
   
@@ -222,8 +224,9 @@ async function importPasswords(browserId) {
   fs.copyFileSync(loginDataPath, tmpPath);
   
   const items = [];
+  let db;
   try {
-    const db = new Database(tmpPath, { readonly: true });
+    db = new Database(tmpPath, { readonly: true });
     const rows = db.prepare(`
       SELECT origin_url, username_value, password_value 
       FROM logins 
@@ -254,10 +257,10 @@ async function importPasswords(browserId) {
         });
       }
     }
-    db.close();
   } catch (e) {
     console.error('Password import failed:', e);
   } finally {
+    try { if (db) db.close(); } catch (e) { }
     try { fs.unlinkSync(tmpPath); } catch(e) {}
   }
   
@@ -287,8 +290,9 @@ async function importCookies(browserId) {
   fs.copyFileSync(cookiesPath, tmpPath);
   
   const items = [];
+  let db;
   try {
-    const db = new Database(tmpPath, { readonly: true });
+    db = new Database(tmpPath, { readonly: true });
     // is_httponly, samesite might be in newer schemas only, check columns if needed.
     // Standard schema usually has them.
     const rows = db.prepare(`
@@ -337,10 +341,10 @@ async function importCookies(browserId) {
         });
       }
     }
-    db.close();
   } catch (e) {
     console.error('Cookies import failed:', e);
   } finally {
+    try { if (db) db.close(); } catch (e) { }
     try { fs.unlinkSync(tmpPath); } catch(e) {}
   }
   

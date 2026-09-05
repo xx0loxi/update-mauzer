@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('mauzer', {
         add: (entry) => ipcRenderer.invoke('history:add', entry),
         clear: () => ipcRenderer.invoke('history:clear'),
         remove: (id) => ipcRenderer.invoke('history:remove', id),
+        removeMany: (ids) => ipcRenderer.invoke('history:removeMany', ids),
         search: (query) => ipcRenderer.invoke('history:search', query),
     },
 
@@ -103,12 +104,6 @@ contextBridge.exposeInMainWorld('mauzer', {
     flags: {
         get: () => ipcRenderer.invoke('flags:get'),
         save: (flags) => ipcRenderer.invoke('flags:save', flags),
-    },
-
-    // --- Usage Stats ---
-    usage: {
-        get: () => ipcRenderer.invoke('usage:get'),
-        track: (url, seconds) => ipcRenderer.invoke('usage:track', url, seconds),
     },
 
     updater: {

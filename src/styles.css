@@ -1970,14 +1970,17 @@ body {
   position: fixed;
   top: calc(var(--titlebar-h) + var(--navbar-h) + 10px);
   right: 16px;
-  width: 340px;
-  background: var(--bg-secondary);
+  width: 348px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--border-subtle);
   z-index: 400;
   animation: panel-in 0.3s var(--ease-bounce);
   overflow: hidden;
+  transition: var(--theme-transition);
 }
 
 @keyframes panel-in {
@@ -1991,14 +1994,72 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.pulse-header h3 {
+.pulse-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pulse-badge {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.16), rgba(56, 189, 248, 0.1));
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  color: var(--success);
+  transition: var(--theme-transition);
+}
+
+.pulse-badge svg {
+  width: 19px;
+  height: 19px;
+}
+
+.pulse-badge::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.pulse-title-text h3 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.pulse-status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  transition: color var(--dur-normal) var(--ease);
+}
+
+/* Protection disabled — calm neutral look, just the status changes */
+.pulse-panel.off .pulse-badge {
+  background: var(--bg-tertiary);
+  border-color: var(--border-light);
+  color: var(--text-tertiary);
+}
+
+.pulse-panel.off .pulse-badge::after {
+  display: none;
 }
 
 .panel-close-btn {
@@ -2025,8 +2086,8 @@ body {
 .pulse-switch {
   position: relative;
   display: inline-block;
-  width: 36px;
-  height: 20px;
+  width: 40px;
+  height: 22px;
   cursor: pointer;
 }
 
@@ -2045,59 +2106,105 @@ body {
   bottom: 0;
   background-color: var(--bg-tertiary);
   transition: .3s;
-  border-radius: 20px;
+  border-radius: 22px;
   border: 1px solid var(--border-light);
 }
 
 .pulse-slider:before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   left: 2px;
-  bottom: 2px;
+  top: 2px;
   background-color: var(--text-tertiary);
-  transition: .3s;
+  transition: .3s var(--ease);
   border-radius: 50%;
 }
 
 input:checked + .pulse-slider {
   background-color: var(--success);
   border-color: var(--success);
+  box-shadow: 0 0 14px rgba(74, 222, 128, 0.35);
 }
 
 input:checked + .pulse-slider:before {
-  transform: translateX(16px);
+  transform: translateX(18px);
   background-color: #fff;
 }
 
 .pulse-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px;
-  background: var(--border-subtle);
-  border-bottom-left-radius: var(--radius-lg);
-  border-bottom-right-radius: var(--radius-lg);
+  gap: 8px;
+  padding: 12px;
 }
 
 .pulse-stat {
-  background: var(--bg-secondary);
-  padding: 16px;
+  --stat-color: var(--accent);
+  padding: 14px 12px;
   text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.pulse-stat:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+}
+
+.pulse-stat.ads { --stat-color: #fb7185; }
+.pulse-stat.trackers { --stat-color: #fbbf24; }
+.pulse-stat.traffic { --stat-color: #38bdf8; }
+.pulse-stat.session { --stat-color: #a78bfa; }
+
+.pulse-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 8px;
+  border-radius: 9px;
+  color: var(--stat-color);
+  background: color-mix(in srgb, var(--stat-color) 12%, transparent);
+}
+
+.pulse-stat-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .pulse-stat-value {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  font-variant-numeric: tabular-nums;
 }
 
 .pulse-stat-label {
   font-size: 10px;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+}
+
+/* Light theme: tinted cards need dark-tinted fills */
+[data-theme="light"] .pulse-stat {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .pulse-stat:hover {
+  background: rgba(0, 0, 0, 0.055);
+}
+
+[data-theme="light"] .pulse-panel {
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* Frost section removed */
@@ -2761,4 +2868,166 @@ input:checked + .pulse-slider:before {
   justify-content: space-between;
   padding: 10px 18px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ============================================================
+   ACCENT COLOR — EXTENDED UI COVERAGE
+   Акцент красит не только полоску вкладки, а весь интерфейс:
+   кнопки, активную вкладку, панели, меню, скроллбар, тосты.
+   ============================================================ */
+
+/* --- Кнопки навигации (назад/вперёд/обновить/домой) --- */
+.nav-btn:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+.nav-btn:active {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* --- Кнопка новой вкладки --- */
+.btn-new-tab:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+  border-color: var(--border-accent);
+}
+
+/* --- Кнопки окна (свернуть/развернуть; close остаётся красным) --- */
+.window-btn:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+
+/* --- Активная вкладка --- */
+.tab.active {
+  background: var(--accent-hover);
+}
+.tab.active .tab-title {
+  color: var(--accent);
+}
+.tab .tab-close:hover,
+.tab .tab-audio:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* --- Адресная строка --- */
+.url-action-btn:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+.url-action-btn.bookmarked {
+  color: var(--accent);
+}
+.url-security-icon.secure {
+  color: var(--accent);
+}
+
+/* --- Подсказки под адресной строкой --- */
+.suggestion-item:hover,
+.suggestion-item.selected {
+  background: var(--accent-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.url-autocomplete-item:hover,
+.url-autocomplete-item.selected {
+  background: var(--accent-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* --- Боковая панель --- */
+.sidebar-tab:hover {
+  color: var(--accent);
+}
+.sidebar-tab.active {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+.sidebar-item:hover {
+  background: var(--accent-hover);
+}
+.sidebar-action-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.sidebar-action-btn:hover {
+  filter: brightness(1.1);
+}
+.sidebar-clear-all-btn:hover,
+.sidebar-clear-day-btn:hover {
+  color: var(--accent);
+}
+
+/* --- Панель закладок --- */
+.bookmark-item:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+
+/* --- Командная палитра (Ctrl+K) --- */
+.command-item:hover,
+.command-item.selected {
+  background: var(--accent-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.command-item.selected .command-item-icon {
+  color: var(--accent);
+}
+
+/* --- Контекстные меню --- */
+.context-menu-item:hover {
+  background: var(--accent-hover);
+}
+.context-menu-item:hover .context-menu-icon {
+  color: var(--accent);
+}
+
+/* --- Кнопки-фичи (Frost, Pulse, скриншот и т.д.) --- */
+.feature-btn:hover {
+  color: var(--accent);
+}
+.feature-btn.active {
+  background: var(--accent-hover);
+}
+
+/* --- Тосты: обычный тост подсвечивается акцентом --- */
+.toast {
+  border-left: 3px solid var(--accent);
+}
+
+/* --- Статус-бар --- */
+.status-version {
+  color: var(--accent);
+}
+.status-badge:hover {
+  background: var(--accent-hover);
+  color: var(--accent);
+}
+.zoom-indicator {
+  border-color: var(--border-accent);
+}
+#zoom-reset:hover {
+  color: var(--accent);
+}
+
+/* --- Панель загрузок / Pulse --- */
+.dl-item:hover {
+  background: var(--accent-hover);
+}
+
+/* --- Find bar --- */
+.find-bar button:hover {
+  color: var(--accent);
+}
+
+/* --- Ripple при клике на кнопки --- */
+.ripple {
+  background: var(--accent-glow);
+}
+
+/* --- Скроллбары --- */
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
