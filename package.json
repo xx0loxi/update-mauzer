@@ -13,7 +13,7 @@
         "dev": "chcp 65001 >nul && cmd /c \"(set ELECTRON_RUN_AS_NODE=) & electron . --dev\"",
         "benchmark": "node benchmark.js",
         "update-filters": "node scripts/update-filters.js",
-        "prebuild": "npm run update-filters",
+        "prebuild": "cmd /c \"if exist dist rmdir /s /q dist\" && npm run update-filters",
         "test:ui": "node scripts/test-ui.js",
         "build": "electron-builder --win",
         "release": "electron-builder --win --publish always"
