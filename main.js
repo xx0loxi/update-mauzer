@@ -2000,8 +2000,14 @@ ipcMain.handle('update:restart', () => {
   autoUpdater.quitAndInstall();
   return true;
 });
-ipcMain.handle('update:download', () => {
-  return autoUpdater.downloadUpdate();
+ipcMain.handle('update:download', async () => {
+  try {
+    return await autoUpdater.downloadUpdate();
+  } catch (err) {
+    console.error('[UPDATE] autoUpdater.downloadUpdate failed:', err);
+    shell.openExternal(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`);
+    return false;
+  }
 });
 
 // --- Pulse ---
