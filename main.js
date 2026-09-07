@@ -21,9 +21,13 @@ const isLowEnd = process.env.SIMULATE_LOW_END === '1' || os.totalmem() < 4.5 * 1
 app.commandLine.appendSwitch('enable-features', 'ProcessPerSite,IntensiveWakeUpThrottling');
 // 2. Disable strict site isolation (Massive RAM savings for heavy tabs)
 app.commandLine.appendSwitch('disable-site-isolation-trials');
-// 3. Limit renderer processes based on system power
-app.commandLine.appendSwitch('renderer-process-limit', isLowEnd ? '2' : '15');
-app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees');
+// 3. Limit renderer processes based on system power — 8 instead of the old
+//    15: Frost Mode unloads inactive tabs anyway, and every renderer process
+//    costs 40-80 MB, so this cap is the biggest RAM lever with many tabs open
+app.commandLine.appendSwitch('renderer-process-limit', isLowEnd ? '2' : '8');
+// disable-features may be appended only ONCE — Chromium keeps the LAST value,
+// so the second appendSwitch below silently dropped this whole list. Merged.
+app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees,WebAuthentication,WebAuth,WebAuthn');
 
 if (isWin7 || isLowEnd) {
   // Old PCs often lack proper GPU drivers or RAM.
@@ -35,6 +39,16 @@ if (isWin7 || isLowEnd) {
   app.commandLine.appendSwitch('enable-low-end-device-mode');
   app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
   console.log('[Mauzer] Windows 7 or Low-End PC detected. Extra optimization limits applied.');
+}
+
+// Hidden benchmark/test runs (MAUZER_HIDDEN_TEST=1 or --security-selftest):
+// the window never shows, but renderers must run unthrottled so measurements
+// taken invisibly are comparable to a visible run
+const HIDDEN_RUN = process.env.MAUZER_HIDDEN_TEST === '1' || process.argv.includes('--security-selftest');
+if (HIDDEN_RUN) {
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('disable-background-timer-throttling');
 }
 
 function loadEnvFile(p) {
@@ -74,8 +88,9 @@ app.userAgentFallback = SPOOFED_UA;
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 // Other helpful flags for stealth
 // WebAuthentication,WebAuth,WebAuthn - kills "Windows Security" popup
+// (merged into the single disable-features switch above — a duplicate
+// appendSwitch call silently overwrites the earlier list)
 // REMOVED: NetworkService (deprecated/dangerous), OutOfBlinkCors (might break layout/resources)
-app.commandLine.appendSwitch('disable-features', 'WebAuthentication,WebAuth,WebAuthn'); 
 // app.commandLine.appendSwitch('disable-site-isolation-trials'); // Removed as it can cause rendering issues
 
 // --- Globals ---
@@ -188,8 +203,10 @@ function loadLocalFilters() {
   }
 }
 
-// Load filters at startup
-loadLocalFilters();
+// Parse the 5+ MB filter list after the window is already coming up — a sync
+// JSON.parse of this size stalls the main process for a noticeable slice of
+// the startup. The first few requests simply pass with the static list only.
+app.whenReady().then(() => setTimeout(loadLocalFilters, 300)).catch(() => {});
 
 // --- Data Storage ---
 const DATA_DIR = () => path.join(app.getPath('userData'), 'mauzer-data');
@@ -305,25 +322,19 @@ const DEFAULT_SETTINGS = {
   theme: 'dark',
   accentColor: '#808080',
   searchEngine: 'google',
-  homePage: 'mauzer://newtab',
   newtabBackground: 'default',
-  newtabCustomBg: '',
   fontSize: 'medium',
   density: 'comfortable',
-  sidebarPosition: 'left',
   showBookmarksBar: false,
   restoreSession: false,
   smoothScroll: true,
-  forceDarkMode: false,
   httpsOnly: false,
   fingerprintProtection: true,
   doNotTrack: true,
   searchSuggest: true,
+  weatherEnabled: true,
   clearOnExit: false,
-  trackingProtection: 'basic',
-  popupBlocking: true,
   tabCountWarning: 50,
-  lowRamMode: false,
   frostEnabled: true,
   frostTimeout: 30000,
   alwaysOnTop: false,
@@ -828,6 +839,35 @@ function getDntEnabled() {
   return _dntEnabled;
 }
 
+let _httpsOnly = null;
+function getHttpsOnly() {
+  if (_httpsOnly === null) _httpsOnly = !!loadSettings().httpsOnly;
+  return _httpsOnly;
+}
+
+function isLocalHostname(host) {
+  const h = (host || '').toLowerCase();
+  if (h === 'localhost' || h === '::1' || h.endsWith('.local') || h.endsWith('.localhost')) return true;
+  if (/^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h)) return true;
+  const m172 = /^172\.(\d+)\./.exec(h);
+  if (m172) { const n = parseInt(m172[1], 10); if (n >= 16 && n <= 31) return true; }
+  return false;
+}
+
+// HTTPS-Only: upgrade plain http:// requests to https:// (top-level and
+// subresources). Local/private addresses are never redirected.
+function httpsOnlyRedirect(details) {
+  if (!getHttpsOnly()) return null;
+  if (typeof details.url !== 'string' || !details.url.startsWith('http://')) return null;
+  try {
+    const u = new URL(details.url);
+    if (isLocalHostname(u.hostname)) return null;
+    return 'https://' + details.url.slice('http://'.length);
+  } catch (e) {
+    return null;
+  }
+}
+
 function attachAdBlockerToSession(ses) {
   if (!ses || !ses.webRequest) return;
   try {
@@ -863,6 +903,10 @@ function attachAdBlockerToSession(ses) {
   ];
 
   ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    // HTTPS-Only upgrade first — applies regardless of the Pulse toggle
+    const upgradeUrl = httpsOnlyRedirect(details);
+    if (upgradeUrl) { callback({ redirectURL: upgradeUrl }); return; }
+
     if (!pulseEnabled) { callback({}); return; }
 
     // Stealth Network: fake 200 OK for YouTube ads and telemetry to completely eliminate ads
@@ -933,7 +977,7 @@ function attachAdBlockerToSession(ses) {
     headers['User-Agent'] = SPOOFED_UA;
     
     // Set other Chrome-like headers for consistency
-    headers['sec-ch-ua'] = `"Not-A.Brand";v="99", "Chromium";v="124", "Google Chrome";v="124"`;
+    headers['sec-ch-ua'] = `"Not-A.Brand";v="99", "Chromium";v="108", "Google Chrome";v="108"`;
     headers['sec-ch-ua-mobile'] = '?0';
     headers['sec-ch-ua-platform'] = '"Windows"';
     
@@ -997,8 +1041,8 @@ function getAntiDetectScript() {
           get: () => ({
             brands: [
               { brand: 'Not-A.Brand', version: '99' },
-              { brand: 'Chromium', version: '124' },
-              { brand: 'Google Chrome', version: '124' }
+              { brand: 'Chromium', version: '108' },
+              { brand: 'Google Chrome', version: '108' }
             ],
             mobile: false,
             platform: 'Windows',
@@ -1009,14 +1053,14 @@ function getAntiDetectScript() {
                 brands: this.brands,
                 fullVersionList: [
                   { brand: 'Not-A.Brand', version: '99.0.0.0' },
-                  { brand: 'Chromium', version: '124.0.0.0' },
-                  { brand: 'Google Chrome', version: '124.0.0.0' }
+                  { brand: 'Chromium', version: '108.0.0.0' },
+                  { brand: 'Google Chrome', version: '108.0.0.0' }
                 ],
                 mobile: false,
                 model: '',
                 platform: 'Windows',
                 platformVersion: '10.0.0',
-                uaFullVersion: '124.0.0.0'
+                uaFullVersion: '108.0.0.0'
               });
             }
           })
@@ -1474,21 +1518,45 @@ function setupAntiFingerprint(win) {
 // DOWNLOADS HANDLER
 // ============================================================
 function setupDownloads() {
-  session.defaultSession.on('will-download', (event, item, webContents) => {
+  const attachedSessions = new WeakSet();
+  const attach = (ses) => {
+    if (!ses || attachedSessions.has(ses)) return;
+    attachedSessions.add(ses);
+    // Downloads from incognito sessions (partition 'incognito*') are never
+    // recorded in downloads.json — only the default session's are.
+    const recordHistory = ses === session.defaultSession;
+    ses.on('will-download', (event, item, webContents) => {
     // Open PDFs inline instead of forcing download
     const mime = item.getMimeType();
     if (mime && mime.toLowerCase() === 'application/pdf') {
       const pdfUrl = item.getURL();
       event.preventDefault();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('open-url-in-new-tab', pdfUrl);
+      // Open in the window the download came from (may be incognito)
+      const hostWin = (webContents && BrowserWindow.fromWebContents(webContents)) || mainWindow;
+      if (hostWin && !hostWin.isDestroyed()) {
+        hostWin.webContents.send('open-url-in-new-tab', pdfUrl);
       }
       return;
     }
 
-    const fileName = item.getFilename();
+    // The suggested name comes from Content-Disposition — attacker-controlled.
+    // Force a bare filename, keep the path inside Downloads, never overwrite.
+    let fileName = path.basename(String(item.getFilename() || '')).trim().replace(/[<>:"|?*\x00-\x1f]/g, '_') || 'download';
     const totalBytes = item.getTotalBytes();
-    const downloadPath = path.join(app.getPath('downloads'), fileName);
+    const downloadsDir = app.getPath('downloads');
+    let downloadPath = path.join(downloadsDir, fileName);
+    const rel = path.relative(path.resolve(downloadsDir), path.resolve(downloadPath));
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      downloadPath = path.join(downloadsDir, 'download');
+    }
+    if (fs.existsSync(downloadPath)) {
+      const ext = path.extname(downloadPath);
+      const base = path.basename(downloadPath, ext);
+      for (let i = 1; i < 1000 && fs.existsSync(downloadPath); i++) {
+        downloadPath = path.join(downloadsDir, `${base} (${i})${ext}`);
+      }
+    }
+    fileName = path.basename(downloadPath);
 
     item.setSavePath(downloadPath);
 
@@ -1518,6 +1586,7 @@ function setupDownloads() {
     item.once('done', (event, state) => {
       dlItem.state = state;
       dlItem.receivedBytes = dlItem.totalBytes;
+      if (!recordHistory) return; // incognito: file is saved, but nothing is persisted
       addDownload(dlItem);
       broadcastDownload('download-complete', { ...dlItem });
       broadcastDownload('toast', {
@@ -1525,7 +1594,10 @@ function setupDownloads() {
         type: 'success'
       });
     });
-  });
+    });
+  };
+  attach(session.defaultSession);
+  app.on('session-created', attach);
 }
 
 // ============================================================
@@ -1603,7 +1675,8 @@ function createWindow(isIncognito = false) {
     isIncognito ? { query: { incognito: '1' } } : undefined);
 
   win.once('ready-to-show', () => {
-    win.show();
+    // Hidden runs (benchmark / security self-test) stay invisible
+    if (!HIDDEN_RUN) win.show();
     if (isIncognito) {
       win.webContents.send('set-incognito', true);
     }
@@ -1647,14 +1720,29 @@ function createWindow(isIncognito = false) {
 // ============================================================
 // WEBVIEW PERMISSIONS
 // ============================================================
-function setupWebViewPermissions() {
-  const alwaysAllowed = ['clipboard-read', 'clipboard-write', 'fullscreen', 'pointerLock', 'mediaKeySystem', 'audio'];
+// Local pages that may carry the full IPC preload into a webview — only the
+// app's own UI pages, never an arbitrary file:// document (e.g. an HTML file
+// from Downloads)
+const APP_LOCAL_PAGE_RE = /\/(newtab|settings|incognito)\.html($|[?#])/i;
+function isAppLocalPageUrl(url) {
+  try { return APP_LOCAL_PAGE_RE.test(decodeURIComponent(url)); } catch (e) { return APP_LOCAL_PAGE_RE.test(url); }
+}
 
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+// Permission handlers must exist on EVERY session: without one Electron
+// auto-grants the request, and incognito partitions create their own sessions
+// — a site there would get the mic/camera silently, with no dialog at all.
+function attachPermissionHandlers(ses) {
+  if (!ses || typeof ses.setPermissionRequestHandler !== 'function') return;
+  // clipboard-read is deliberately NOT auto-granted: a silent read is a
+  // silent data leak, it goes through the same per-site dialog as the mic.
+  // clipboard-write only pushes data OUT, so it stays automatic.
+  const alwaysAllowed = ['clipboard-write', 'fullscreen', 'pointerLock', 'mediaKeySystem', 'audio'];
+
+  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
     if (alwaysAllowed.includes(permission)) return callback(true);
 
-    // Camera/microphone: per-site decision, remembered in permissions.json
-    if (permission === 'media' || permission === 'microphone') {
+    // Camera/microphone/clipboard: per-site decision, remembered in permissions.json
+    if (permission === 'media' || permission === 'microphone' || permission === 'clipboard-read') {
       try {
         const url = (details && details.requestingUrl) || (webContents && !webContents.isDestroyed() ? webContents.getURL() : '') || '';
         const host = new URL(url).hostname;
@@ -1664,8 +1752,13 @@ function setupWebViewPermissions() {
         if (stored === true) return callback(true);
         if (stored === false) return callback(false);
 
-        const kinds = (details && details.mediaTypes) || [];
-        const what = kinds.includes('video') ? 'камеру и/или микрофон' : 'микрофон';
+        let what;
+        if (permission === 'clipboard-read') {
+          what = 'чтение буфера обмена';
+        } else {
+          const kinds = (details && details.mediaTypes) || [];
+          what = kinds.includes('video') ? 'камеру и/или микрофон' : 'микрофон';
+        }
         const targetWin = (webContents && !webContents.isDestroyed() && BrowserWindow.fromWebContents(webContents)) || mainWindow;
         dialog.showMessageBox(targetWin, {
           type: 'question',
@@ -1690,9 +1783,9 @@ function setupWebViewPermissions() {
   });
 
   // Also handle permission checks (not just requests)
-  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+  ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     if (alwaysAllowed.includes(permission)) return true;
-    if (permission === 'media' || permission === 'microphone') {
+    if (permission === 'media' || permission === 'microphone' || permission === 'clipboard-read') {
       try {
         const host = new URL(requestingOrigin).hostname;
         const perms = getSitePermissions();
@@ -1701,8 +1794,13 @@ function setupWebViewPermissions() {
     }
     return false;
   });
+}
 
-  app.on('web-contents-created', (event, contents) => {
+// WebView/host guards must be registered at module scope: the first window's
+// shell webContents is created BEFORE app.whenReady, and a handler registered
+// later would never see its 'web-contents-created' event (this exact gap kept
+// will-attach-webview dead until the security self-test caught it).
+app.on('web-contents-created', (event, contents) => {
     // Security: Secure webview attachments
     contents.on('will-attach-webview', (wvEvent, webPreferences, params) => {
       // Prevent untrusted webviews from gaining Node.js access
@@ -1712,10 +1810,21 @@ function setupWebViewPermissions() {
       webPreferences.enableRemoteModule = false;
       webPreferences.sandbox = true;
 
-      // Only allow preload if it strictly points to local app directory
-      if (webPreferences.preload && !webPreferences.preload.startsWith(path.join(__dirname, 'preload.js')) && !webPreferences.preload.startsWith('file:///' + path.join(__dirname, 'preload.js').replace(/\\/g, '/'))) {
-        delete webPreferences.preload;
-        delete webPreferences.preloadURL;
+      // The preload may only ride along to the app's own UI pages. This is
+      // the real file:// gate — the initial webview src never fires
+      // will-navigate. Strips unless BOTH hold: the attach-time src is a
+      // confirmed app page (a webview can be appended before its src is set,
+      // so an unknown src keeps nothing) AND the preload is the app's own
+      // (checked in both Electron forms: path and preloadURL).
+      const trustedPreload = path.join(__dirname, 'preload.js');
+      const trustedPreloadUrl = 'file:///' + trustedPreload.replace(/\\/g, '/');
+      if (webPreferences.preload || webPreferences.preloadURL) {
+        const srcOk = typeof params.src === 'string' && isAppLocalPageUrl(params.src);
+        const preloadOk = webPreferences.preload === trustedPreload || webPreferences.preload === trustedPreloadUrl || webPreferences.preloadURL === trustedPreloadUrl;
+        if (!srcOk || !preloadOk) {
+          delete webPreferences.preload;
+          delete webPreferences.preloadURL;
+        }
       }
     });
 
@@ -1725,8 +1834,11 @@ function setupWebViewPermissions() {
         const parsed = new URL(url);
         // Only allow safe web protocols
         if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'mauzer:') {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('open-url-in-new-tab', url);
+          // Route popups into the window the call came from — the global
+          // mainWindow may be a normal window while the caller is incognito
+          const hostWin = BrowserWindow.fromWebContents(contents) || mainWindow;
+          if (hostWin && !hostWin.isDestroyed()) {
+            hostWin.webContents.send('open-url-in-new-tab', url);
           }
         }
       } catch (e) { }
@@ -1781,10 +1893,16 @@ function setupWebViewPermissions() {
 
       // Link
       if (params.linkURL) {
-        menuItems.push({
-          label: 'Открыть ссылку в новой вкладке',
-          click: () => mainWindow.webContents.send('open-url-in-new-tab', params.linkURL)
-        });
+        // Only web protocols — a file:// link opened this way would bypass the
+        // setWindowOpenHandler gate and load a local page in a webview
+        let linkSafe = false;
+        try { const p = new URL(params.linkURL).protocol; linkSafe = p === 'http:' || p === 'https:' || p === 'mauzer:'; } catch (e) { }
+        if (linkSafe) {
+          menuItems.push({
+            label: 'Открыть ссылку в новой вкладке',
+            click: () => mainWindow.webContents.send('open-url-in-new-tab', params.linkURL)
+          });
+        }
         menuItems.push({
           label: 'Копировать адрес ссылки',
           click: () => require('electron').clipboard.writeText(params.linkURL)
@@ -1823,7 +1941,13 @@ function setupWebViewPermissions() {
       const menu = Menu.buildFromTemplate(menuItems);
       menu.popup({ window: mainWindow });
     });
-  });
+});
+
+function setupWebViewPermissions() {
+  attachPermissionHandlers(session.defaultSession);
+  // Incognito partitions create their own in-memory sessions — each one must
+  // carry the same permission handlers as the default session
+  app.on('session-created', attachPermissionHandlers);
 }
 
 // ============================================================
@@ -1839,11 +1963,6 @@ ipcMain.handle('window:maximize', (e) => {
   if (w?.isMaximized()) w.unmaximize(); else w?.maximize();
 });
 ipcMain.handle('window:close', (e) => {
-  const settings = loadSettings();
-  if (settings.clearOnExit) {
-    session.defaultSession.clearStorageData();
-    clearHistory();
-  }
   BrowserWindow.fromWebContents(e.sender)?.close();
 });
 ipcMain.handle('window:isMaximized', (e) => {
@@ -1884,6 +2003,7 @@ ipcMain.handle('settings:load', () => loadSettings());
 ipcMain.handle('settings:save', (_, data) => {
   saveSettings(data);
   _dntEnabled = null; // invalidate request-header cache
+  _httpsOnly = null; // invalidate HTTPS-Only cache
   applyThemeToWeb(data);
   // Notify ALL windows that settings changed so they can reload
   windows.forEach(w => {
@@ -1904,7 +2024,10 @@ ipcMain.handle('settings:getDefault', () => DEFAULT_SETTINGS);
 ipcMain.handle('app:getPreloadPath', () => path.join(__dirname, 'preload.js'));
 
 // --- History ---
-ipcMain.handle('history:get', (_, query) => query ? searchHistory(query) : getHistory().slice(0, 200));
+// List views never need more than 200 rows — pulling 5000 over IPC just to
+// slice 200 wastes RAM and serialization time (getTopSites is the only
+// consumer of the full 5000)
+ipcMain.handle('history:get', (_, query) => query ? searchHistory(query) : historyDb.get(200));
 ipcMain.handle('history:add', (_, entry) => { addHistoryEntry(entry); return true; });
 ipcMain.handle('history:clear', () => { clearHistory(); return true; });
 ipcMain.handle('history:remove', (_, id) => { removeHistoryEntry(id); return true; });
@@ -1952,17 +2075,45 @@ ipcMain.handle('pulse:clear-whitelist', async () => {
 });
 
 // --- Search ---
-ipcMain.handle('search:suggest', async (_, query) => {
+// Incognito detection for privacy-sensitive IPC: an incognito webview runs in
+// its own partition session; the incognito window's shell is the default
+// session but carries ?incognito=1 in its URL.
+function isIncognitoSender(e) {
+  try {
+    if (!e || !e.sender || e.sender.isDestroyed()) return false;
+    if (e.sender.session !== session.defaultSession) return true;
+    return new URL(e.sender.getURL()).searchParams.get('incognito') === '1';
+  } catch (err) { return false; }
+}
+
+ipcMain.handle('search:suggest', async (e, query) => {
   if (!query) return [];
+  // Incognito never phones home: keystrokes from an incognito window must
+  // not reach the suggest endpoint
+  if (isIncognitoSender(e)) return [];
   // Privacy: every keystroke would otherwise be sent to Google
   if (loadSettings().searchSuggest === false) return [];
   try {
-    const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`);
-    if (!res.ok) return [];
-    const json = await res.json();
+    // https module instead of global fetch() — Electron 22 runs Node 16,
+    // where fetch does not exist and the call silently failed
+    const json = await new Promise((resolve, reject) => {
+      const req = https.get(
+        `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}`,
+        { headers: { 'User-Agent': 'Mauzer' } },
+        (res) => {
+          if (res.statusCode !== 200) { res.resume(); return reject(new Error('status ' + res.statusCode)); }
+          let buf = '';
+          res.setEncoding('utf8');
+          res.on('data', c => { buf += c; });
+          res.on('end', () => { try { resolve(JSON.parse(buf)); } catch (e) { reject(e); } });
+        }
+      );
+      req.on('error', reject);
+      req.setTimeout(5000, () => req.destroy(new Error('timeout')));
+    });
     return json[1] || [];
   } catch (e) {
-    console.error('Search suggest error:', e);
+    console.error('Search suggest error:', e.message || e);
     return [];
   }
 });
@@ -1979,8 +2130,13 @@ ipcMain.handle('downloads:open', async (_, filepath) => {
       console.warn('[Security] Blocked unauthorized downloads:open:', filepath);
       return false;
     }
-    // Block direct silent execution of dangerous shell script extensions
-    const dangerousExts = ['.bat', '.cmd', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.ps1', '.scr', '.reg'];
+    // Block direct silent execution of dangerous downloads — scripts AND
+    // executables/installers. The panel only reveals the file in Explorer;
+    // running it is a separate, conscious user action.
+    const dangerousExts = [
+      '.bat', '.cmd', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.ps1', '.psm1', '.scr', '.reg',
+      '.exe', '.msi', '.msix', '.msp', '.mst', '.com', '.pif', '.hta', '.jar', '.lnk', '.scf', '.apk'
+    ];
     if (dangerousExts.some(ext => resolved.toLowerCase().endsWith(ext))) {
       shell.showItemInFolder(resolved);
       return true;
@@ -2084,7 +2240,7 @@ ipcMain.handle('pulse:resetStats', () => {
 
 // --- Config (legacy compat) ---
 ipcMain.handle('config:load', () => loadSettings());
-ipcMain.handle('config:save', (_, data) => { saveSettings(data); _dntEnabled = null; return true; });
+ipcMain.handle('config:save', (_, data) => { saveSettings(data); _dntEnabled = null; _httpsOnly = null; return true; });
 
 // --- System ---
 ipcMain.handle('shell:openExternal', (_, url) => {
@@ -2096,16 +2252,22 @@ ipcMain.handle('shell:openExternal', (_, url) => {
   } catch (e) { }
   return false;
 });
-ipcMain.handle('app:getPath', (_, name) => app.getPath(name));
+// Only expose the handful of paths the UI actually needs — not exe/sessionData
+const ALLOWED_GET_PATHS = ['downloads', 'pictures', 'userData', 'home', 'temp'];
+ipcMain.handle('app:getPath', (_, name) => {
+  if (!ALLOWED_GET_PATHS.includes(name)) return null;
+  try { return app.getPath(name); } catch (e) { return null; }
+});
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getInfo', () => ({
-  version: app.getVersion() || '1.1.16',
+  version: app.getVersion(),
   electron: process.versions.electron,
   chrome: process.versions.chrome,
   node: process.versions.node,
   platform: process.platform,
   arch: process.arch,
   isWin7: isWin7,
+  isLowEnd: isWin7 || isLowEnd,
 }));
 
 // --- Print ---
@@ -2168,13 +2330,26 @@ function getBrowserPaths() {
   };
 }
 
+// Import credentials may only ever be requested by the import wizard — the
+// shared preload exposes mauzer.import.* to every local page, so any other
+// caller (e.g. a compromised local page) is rejected at the IPC boundary
+function isImportSender(e) {
+  try {
+    let url = (e && e.sender && !e.sender.isDestroyed()) ? e.sender.getURL() : '';
+    try { url = decodeURIComponent(url); } catch (err) { }
+    return /^file:/i.test(url) && /\/import\.html$/i.test(url);
+  } catch (err) { return false; }
+}
+
 // Detect installed browsers
-ipcMain.handle('import:detect', async () => {
+ipcMain.handle('import:detect', async (e) => {
+  if (!isImportSender(e)) return null;
   return importer.detectBrowsers();
 });
 
 // Import bookmarks
-ipcMain.handle('import:bookmarks', async (_, browser) => {
+ipcMain.handle('import:bookmarks', async (e, browser) => {
+  if (!isImportSender(e)) return { count: 0 };
   const result = await importer.importBookmarks(browser);
   if (result.count > 0) {
     const bookmarks = getBookmarks();
@@ -2191,7 +2366,8 @@ ipcMain.handle('import:bookmarks', async (_, browser) => {
 });
 
 // Import history
-ipcMain.handle('import:history', async (_, browser) => {
+ipcMain.handle('import:history', async (e, browser) => {
+  if (!isImportSender(e)) return { count: 0 };
   const result = await importer.importHistory(browser);
   if (result.count > 0) {
     // UNIQUE(url, timestamp) index dedupes automatically
@@ -2202,7 +2378,8 @@ ipcMain.handle('import:history', async (_, browser) => {
 });
 
 // Import passwords (NEW)
-ipcMain.handle('import:passwords', async (_, browser) => {
+ipcMain.handle('import:passwords', async (e, browser) => {
+  if (!isImportSender(e)) return { count: 0 };
   const result = await importer.importPasswords(browser);
   if (result.count > 0) {
     const logins = readJSON('logins.json', []);
@@ -2240,12 +2417,14 @@ ipcMain.handle('import:passwords', async (_, browser) => {
 });
 
 // Import cookies
-ipcMain.handle('import:cookies', async (_, browser) => {
+ipcMain.handle('import:cookies', async (e, browser) => {
+  if (!isImportSender(e)) return [];
   return await importer.importCookies(browser);
 });
 
 // Mark import as done
-ipcMain.handle('import:done', async () => {
+ipcMain.handle('import:done', async (e) => {
+  if (!isImportSender(e)) return false;
   fs.writeFileSync(IMPORT_MARKER, new Date().toISOString());
   return true;
 });
@@ -2289,7 +2468,8 @@ function setupAutoUpdate() {
   // Work in both packaged and dev.
   // autoUpdater will throw in dev — we catch and fall back to GitHub API.
   autoUpdater.autoDownload = false;
-  autoUpdater.allowPrerelease = true;
+  // Bare 1.1.x tags are stable releases; never auto-pull a prerelease
+  autoUpdater.allowPrerelease = false;
   let checking = false;
   let lastCheck = 0;
   const minIntervalMs = 5 * 60 * 1000;
@@ -2381,25 +2561,122 @@ if (process.defaultApp) {
 
 function handleDeepLink(url) {
   console.log('[DeepLink] Received:', url);
-  
+
   try {
     const u = new URL(url);
-    // mauzer://auth?token=...
+    // Only the exact auth host is recognized — anything else is ignored so
+    // a random website can't trigger app behavior via mauzer:// links.
+    // The token itself is never echoed to the screen.
     if (u.hostname === 'auth') {
-      const token = u.searchParams.get('token');
-      if (token) {
-        // Here we would use the token to set cookies or session
-        // For now, let's just show it works
-        dialog.showMessageBox(mainWindow, {
-          title: 'Deep Link Auth',
-          message: 'Received Auth Token via Deep Link!',
-          detail: 'Token: ' + token.substring(0, 10) + '...'
-        });
-      }
+      // Token auth is not implemented — a random website must not be able to
+      // make the app pop dialogs (or do anything else) via mauzer:// links
+      console.log('[DeepLink] auth token received but ignored');
     }
   } catch(e) {
     console.error('Deep link parse error:', e);
   }
+}
+
+// ============================================================
+// SECURITY SELF-TEST (--security-selftest)
+// Hidden-window probes asserting the renderer-side security gates:
+// contextIsolation, downloads/external-protocol guards, IPC sender
+// gating and the webview preload whitelist. Driven by
+// scripts/security-test.js; never runs in normal launches.
+// ============================================================
+async function runSecuritySelfTest() {
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const results = [];
+  const expect = (name, ok, got) => {
+    results.push(ok);
+    console.log(`[SelfTest] ${ok ? 'PASS' : 'FAIL'} ${name}${ok ? '' : ' (got: ' + JSON.stringify(got) + ')'}`);
+  };
+  let evilFile = null;
+  try {
+    // Wait for the shell page (fresh temp profile: first-run intro etc.)
+    let ready = false;
+    for (let i = 0; i < 25 && !ready; i++) {
+      await wait(1000);
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          ready = await mainWindow.webContents.executeJavaScript('typeof window.mauzer === "object" && !!document.getElementById("browser-shell")');
+        }
+      } catch (e) { }
+    }
+    if (!ready || mainWindow.isDestroyed()) throw new Error('main window did not boot');
+    const wc = mainWindow.webContents;
+
+    const calcPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'calc.exe');
+    evilFile = path.join(app.getPath('temp'), `mauzer-selftest-evil-${Date.now()}.html`);
+    fs.writeFileSync(evilFile, '<!doctype html><title>evil</title>');
+    const evilUrl = 'file:///' + evilFile.replace(/\\/g, '/');
+    const newtabUrl = 'file:///' + path.join(__dirname, 'src', 'newtab.html').replace(/\\/g, '/') + '?theme=dark';
+
+    const out = await wc.executeJavaScript(`(async () => {
+      const out = {};
+      out.mauzerApi = typeof window.mauzer;
+      out.nodeRequire = typeof window.require;
+      out.processGlobal = typeof window.process;
+      out.openOutsideDownloads = await window.mauzer.downloads.open(${JSON.stringify(calcPath)});
+      out.showInFolderOutside = await window.mauzer.downloads.showInFolder(${JSON.stringify(calcPath)});
+      out.openExternalFile = await window.mauzer.shell.openExternal('file:///C:/Windows');
+      out.openExternalJs = await window.mauzer.shell.openExternal('javascript:alert(1)');
+      out.getPathExe = await window.mauzer.app.getPath('exe');
+      out.getPathSessionData = await window.mauzer.app.getPath('sessionData');
+      out.importDetect = await window.mauzer.import.detect();
+      out.importPasswordsCount = (await window.mauzer.import.passwords('chrome')).count;
+      let historyLen = -1;
+      try {
+        const hist = await window.mauzer.history.get();
+        historyLen = Array.isArray(hist) ? hist.length : -1;
+      } catch (e) { historyLen = -2; }
+      out.historyLen = historyLen;
+      const preloadUrl = 'file:///' + (await window.mauzer.app.getPreloadPath()).replace(/\\\\/g, '/');
+      const probeWebview = (srcUrl) => new Promise((resolve) => {
+        const wv = document.createElement('webview');
+        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes');
+        wv.setAttribute('preload', preloadUrl);
+        let done = false;
+        wv.addEventListener('dom-ready', async () => {
+          if (done) return;
+          done = true;
+          let api = 'exec-error';
+          try { api = await wv.executeJavaScript('String(typeof window.mauzer)'); } catch (e) { }
+          try { wv.remove(); } catch (e) { }
+          resolve(api);
+        });
+        setTimeout(() => { if (!done) { done = true; try { wv.remove(); } catch (e) { } resolve('timeout'); } }, 15000);
+        wv.src = srcUrl;
+        document.body.appendChild(wv);
+      });
+      out.webviewEvilApi = await probeWebview(${JSON.stringify(evilUrl)});
+      out.webviewNewtabApi = await probeWebview(${JSON.stringify(newtabUrl)});
+      return out;
+    })()`, true);
+
+    expect('contextBridge API present in shell', out.mauzerApi === 'object', out.mauzerApi);
+    expect('no require() in renderer', out.nodeRequire === 'undefined', out.nodeRequire);
+    expect('no process global in renderer', out.processGlobal === 'undefined', out.processGlobal);
+    expect('downloads:open refuses paths outside Downloads', out.openOutsideDownloads === false, out.openOutsideDownloads);
+    expect('downloads:showInFolder refuses paths outside Downloads', out.showInFolderOutside === false, out.showInFolderOutside);
+    expect('shell:openExternal refuses file://', out.openExternalFile === false, out.openExternalFile);
+    expect('shell:openExternal refuses javascript:', out.openExternalJs === false, out.openExternalJs);
+    expect('app:getPath allowlist refuses "exe"', out.getPathExe === null, out.getPathExe);
+    expect('app:getPath allowlist refuses "sessionData"', out.getPathSessionData === null, out.getPathSessionData);
+    expect('import:detect gated to import.html only', out.importDetect === null, out.importDetect);
+    expect('import:passwords gated to import.html only', out.importPasswordsCount === 0, out.importPasswordsCount);
+    expect('history list capped at 200 rows', out.historyLen >= 0 && out.historyLen <= 200, out.historyLen);
+    expect('webview preload stripped for non-app file:// page', out.webviewEvilApi === 'undefined', out.webviewEvilApi);
+    expect('webview preload kept for app page (newtab)', out.webviewNewtabApi === 'object', out.webviewNewtabApi);
+  } catch (e) {
+    console.log('[SelfTest] FAIL harness (' + ((e && e.message) || e) + ')');
+    results.push(false);
+  }
+  try { if (evilFile && fs.existsSync(evilFile)) fs.unlinkSync(evilFile); } catch (e) { }
+  const passed = results.filter(Boolean).length;
+  console.log(`[SelfTest] RESULT: ${passed}/${results.length} passed`);
+  await wait(300);
+  app.exit(results.length > 0 && passed === results.length ? 0 : 1);
 }
 
 app.whenReady().then(async () => {
@@ -2411,6 +2688,12 @@ app.whenReady().then(async () => {
 
   createWindow();
   setupAutoUpdate();
+
+  // Security self-test: hidden run, IPC probes, exits with a code
+  // (see scripts/security-test.js)
+  if (process.argv.includes('--security-selftest')) {
+    runSecuritySelfTest();
+  }
 
   // Benchmark & Stress Testing Mode
   const benchmarkArg = process.argv.find(arg => arg.startsWith('--benchmark='));
@@ -2524,8 +2807,18 @@ app.on('before-quit', () => {
   flushPendingWrites();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+app.on('window-all-closed', async () => {
+  if (process.platform !== 'darwin') {
+    // "Clear on exit" belongs to the app lifecycle — wiping on any window's
+    // close button destroyed data even while other windows were still open.
+    if (loadSettings().clearOnExit) {
+      try {
+        await session.defaultSession.clearStorageData();
+        clearHistory();
+      } catch (e) { }
+    }
+    app.quit();
+  }
 });
 
 app.on('activate', () => {

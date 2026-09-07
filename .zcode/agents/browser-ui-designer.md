@@ -3,7 +3,7 @@ name: "browser-ui-designer"
 description: "Use this subagent whenever designing, styling, or coding UI/UX components for the desktop browser, including tabs, address bar (omnibox), navigation controls, sidebars, modal windows, themes, and CSS/styling architecture."
 color: green
 model: "custom:builtin%3Azai-start-plan:GLM-5.3-Flash"
-thoughtLevel: high
+thoughtLevel: max
 injectAgentsMd: true
 ---
 

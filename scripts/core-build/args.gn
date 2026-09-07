@@ -1,0 +1,33 @@
+# ============================================================
+# MAUZER CORE — args.gn (урезанная конфигурация ядра Electron 22.3.27)
+#
+# Electron уже является "вырезанным Chrome" (без UI/вкладок/расширений).
+# Это — финальный слой урезания: выкидываем то, что осталось лишнего,
+# и режем время/размер сборки. НИЧЕГО из этого не используется Mauzer'ом.
+# ВАЖНО: proprietary_codecs MUST остаться true — иначе YouTube не играет.
+# ============================================================
+
+# Цель
+target_os = "win"
+target_cpu = "x64"
+
+# Режим: релиз без отладочных символов (крупнейшая экономия линковки и диска)
+is_debug = false
+symbol_level = 0
+v8_symbol_level = 0
+
+# Без PGO/ThinLTO официальных сборок — экономит ЧАСЫ, ценой ~5% скорости
+is_official_build = false
+
+# Выкидываем мёртвые/ненужные Mauzer'у фичи
+enable_nacl = false            # NaCl — мёртвая технология Google
+enable_widevine = false        # DRM (Netflix и т.п.) — YouTube работает и без него
+enable_vr = false              # VR/AR
+enable_gamepad = false         # геймпады
+enable_midi = false            # MIDI-устройства
+enable_spellcheck = false      # проверка орфографии
+enable_print_preview = false   # окно печати Chrome (Electron юзает свою)
+
+# Кодеки — НЕ ТРОГАТЬ (иначе YouTube/H.264/AAC не играет)
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"

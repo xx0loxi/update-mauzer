@@ -186,6 +186,15 @@
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     }
+    // CSP: index.html forbids inline event handlers, so broken images are
+    // hidden via a listener instead of an onerror attribute
+    function hideBrokenImage(scope) {
+        const img = scope.querySelector('img');
+        if (!img) return;
+        const hide = () => { img.style.display = 'none'; };
+        img.addEventListener('error', hide);
+        if (img.complete && img.naturalWidth === 0) hide();
+    }
     function favicon(url) {
         // Privacy: request the icon from the site itself instead of leaking
         // every visited domain to a third-party favicon service.
@@ -321,7 +330,9 @@
         wv.setAttribute('allowpopups', '');
         wv.setAttribute('plugins', '');
         wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no, plugins=yes');
-        if (targetUrl.startsWith('file://') && _preloadPath) {
+        // The IPC preload rides only on the app's own pages — a random local
+        // HTML file opened in a tab must not get window.mauzer
+        if (targetUrl.startsWith('file://') && _preloadPath && /\/(newtab|settings|incognito)\.html($|[?#])/i.test(targetUrl)) {
             wv.setAttribute('preload', 'file:///' + _preloadPath.replace(/\\/g, '/'));
         }
         wv.src = targetUrl;
@@ -406,11 +417,12 @@
         el.draggable = true;
         el.innerHTML = `
       <div class="tab-loading" id="tab-load-${tab.id}"></div>
-      <img class="tab-favicon" id="tab-fav-${tab.id}" src="${escapeHtml(tab.favicon || '')}" onerror="this.style.display='none'" style="${tab.favicon ? '' : 'display:none'}">
+      <img class="tab-favicon" id="tab-fav-${tab.id}" src="${escapeHtml(tab.favicon || '')}" style="${tab.favicon ? '' : 'display:none'}">
       <span class="tab-title" id="tab-title-${tab.id}">${escapeHtml(tab.title)}</span>
       <span class="tab-audio" id="tab-audio-${tab.id}" title="Звук"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg></span>
       <span class="tab-close" id="tab-close-${tab.id}" title="Закрыть"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span>
     `;
+        hideBrokenImage(el);
         el.addEventListener('click', (e) => {
             if (e.target.closest('.tab-close')) { closeTab(tab.id); return; }
             if (e.target.closest('.tab-audio')) { toggleMute(tab.id); return; }
@@ -442,6 +454,11 @@
             const wv = document.getElementById('wv-' + t.id);
             if (el) el.classList.toggle('active', t.id === id);
             if (wv) wv.classList.toggle('active', t.id === id);
+            // Frost: the just-hidden tab must freeze after the timeout, the
+            // newly active one must not (its pending timer would fire while
+            // it is still active and silently re-arm forever otherwise)
+            if (t.id === id) clearTimeout(state.frostTimers[t.id]);
+            else resetFrostTimer(t.id);
         });
         
         if (tab) {
@@ -512,6 +529,7 @@
         state.frozenTabs.delete(id);
         delete state.loadTimers[id];
         delete state.frostTimers[id];
+        delete state.zoomLevels[id];
         
         // If closed tab was active, switch to another
         if (state.activeTabId === id) {
@@ -642,29 +660,39 @@
 
         wv.addEventListener('media-started-playing', () => {
             const t = state.tabs.find(x => x.id === id); if (t) t.audible = true;
+            clearTimeout(state.frostTimers[id]); // no freeze while audio plays
             const el = document.getElementById('tab-audio-' + id); if (el) el.classList.add('playing');
         });
         wv.addEventListener('media-paused', () => {
             const t = state.tabs.find(x => x.id === id); if (t) t.audible = false;
+            resetFrostTimer(id); // audio ended — eligible for frost again
             const el = document.getElementById('tab-audio-' + id); if (el) el.classList.remove('playing');
         });
 
-        wv.addEventListener('new-window', (e) => { e.preventDefault(); createTab(e.url); });
+        // Only safe schemes — e.url is controlled by the remote page; file://
+        // is denied here just like in the main-process window-open gate
+        wv.addEventListener('new-window', (e) => {
+            e.preventDefault();
+            if (/^(https?:\/\/|mauzer:)/i.test(e.url || '')) createTab(e.url);
+        });
 
-        // Ctrl+Wheel Zoom: inject into webview, relay via console-message
+        // Ctrl+Wheel Zoom: inject into webview, relay via console-message.
+        // Random per-webview prefix so page scripts can't fake zoom signals
+        // with console.log('__MAUZER_ZOOM__:...') — they can't guess it.
+        const zoomTag = '__MAUZER_ZOOM_' + Math.random().toString(36).slice(2, 10) + '__';
         wv.addEventListener('dom-ready', () => {
             wv.executeJavaScript(`
                 document.addEventListener('wheel', function(e) {
                     if (e.ctrlKey) {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('__MAUZER_ZOOM__:' + (e.deltaY < 0 ? 'in' : 'out'));
+                        console.log('${zoomTag}:' + (e.deltaY < 0 ? 'in' : 'out'));
                     }
                 }, { passive: false, capture: true });
             `).catch(() => { });
         });
         wv.addEventListener('console-message', (e) => {
-            if (e.message && e.message.startsWith('__MAUZER_ZOOM__:')) {
+            if (e.message && e.message.startsWith(zoomTag + ':')) {
                 const dir = e.message.split(':')[1];
                 setZoom(dir === 'in' ? 0.1 : -0.1);
             }
@@ -692,11 +720,16 @@
     function discardTab(id) {
         const tab = state.tabs.find(t => t.id === id);
         // Do not discard active, audible, or already discarded tabs
-        if (!tab || id === state.activeTabId || tab.audible || tab.discarded) return;
-        
+        if (!tab || tab.discarded) return;
+        // Active or playing audio? Re-arm instead of dropping out: the old
+        // code fired the timer once (armed on did-stop-loading) and if the
+        // tab happened to be active at that moment the timer died silently —
+        // the tab then NEVER froze and kept its renderer in RAM forever.
+        if (id === state.activeTabId || tab.audible) { resetFrostTimer(id); return; }
+
         const wv = document.getElementById('wv-' + id);
         if (wv) wv.remove(); // Completely unload from RAM
-        
+
         tab.discarded = true;
         state.frozenTabs.add(id);
         updateFrostBadge();
@@ -707,6 +740,7 @@
     function resetFrostTimer(id) {
         clearTimeout(state.frostTimers[id]);
         if (!state.settings.frostEnabled) return;
+        if (state.frozenTabs.has(id)) return; // already frozen
         state.frostTimers[id] = setTimeout(() => {
             discardTab(id);
         }, state.settings.frostTimeout || 30000);
@@ -749,7 +783,16 @@
         else openSidebar();
     }
 
+    // Wrapper: re-triggers the slide-in animation after every panel render
     async function renderSidebarPanel(panel) {
+        await renderSidebarPanelInner(panel);
+        const c = dom.sidebarPanel;
+        c.classList.remove('anim');
+        void c.offsetWidth; // restart CSS animation
+        c.classList.add('anim');
+    }
+
+    async function renderSidebarPanelInner(panel) {
         state.sidebarPanel = panel;
         $$('.sidebar-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === panel));
         const c = dom.sidebarPanel;
@@ -761,7 +804,8 @@
             if (!bms.length) { c.innerHTML += '<div class="sidebar-empty">Нет закладок</div>'; return; }
             bms.forEach(b => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
-                it.innerHTML = `<img src="${favicon(b.url)}" onerror="this.style.display='none'"><span class="sidebar-item-title">${escapeHtml(b.title)}</span><span class="sidebar-item-delete" data-id="${escapeHtml(b.id)}">✕</span>`;
+                it.innerHTML = `<img src="${favicon(b.url)}"><span class="sidebar-item-title">${escapeHtml(b.title)}</span><span class="sidebar-item-delete" data-id="${escapeHtml(b.id)}">✕</span>`;
+                hideBrokenImage(it);
                 it.addEventListener('click', (e) => { if (!e.target.closest('.sidebar-item-delete')) createTab(b.url); });
                 it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.bookmarks.remove(b.id); renderSidebarPanel('bookmarks'); });
                 c.appendChild(it);
@@ -823,7 +867,8 @@
                 group.items.forEach(entry => {
                     const it = document.createElement('div'); it.className = 'sidebar-item';
                     const time = new Date(entry.timestamp).toLocaleTimeString(lang === 'en' ? 'en' : 'ru', { hour: '2-digit', minute: '2-digit' });
-                    it.innerHTML = `<img src="${favicon(entry.url)}" onerror="this.style.display='none'"><span class="sidebar-item-title">${escapeHtml(entry.title || entry.url)}</span><span class="sidebar-item-meta">${escapeHtml(time)}</span><span class="sidebar-item-delete" title="${lang === 'en' ? 'Delete' : 'Удалить'}">✕</span>`;
+                    it.innerHTML = `<img src="${favicon(entry.url)}"><span class="sidebar-item-title">${escapeHtml(entry.title || entry.url)}</span><span class="sidebar-item-meta">${escapeHtml(time)}</span><span class="sidebar-item-delete" title="${lang === 'en' ? 'Delete' : 'Удалить'}">✕</span>`;
+                    hideBrokenImage(it);
                     it.addEventListener('click', (e) => { if (!e.target.closest('.sidebar-item-delete')) createTab(entry.url); });
                     it.querySelector('.sidebar-item-delete').addEventListener('click', async (e) => {
                         e.stopPropagation();
@@ -871,7 +916,8 @@
             if (!rl.length) { c.innerHTML += '<div class="sidebar-empty">Пусто</div>'; return; }
             rl.forEach(r => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
-                it.innerHTML = `<img src="${favicon(r.url)}" onerror="this.style.display='none'"><span class="sidebar-item-title">${escapeHtml(r.title)}</span><span class="sidebar-item-delete">✕</span>`;
+                it.innerHTML = `<img src="${favicon(r.url)}"><span class="sidebar-item-title">${escapeHtml(r.title)}</span><span class="sidebar-item-delete">✕</span>`;
+                hideBrokenImage(it);
                 it.addEventListener('click', (e) => { if (!e.target.closest('.sidebar-item-delete')) createTab(r.url); });
                 it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.readinglist.remove(r.id); renderSidebarPanel('readinglist'); });
                 c.appendChild(it);
@@ -996,6 +1042,7 @@
     // (showTabContextMenu defined above with ICONS)
 
     let _outsideClickHandler = null;
+    let _outsideClickTimer = 0;
     let _blurHandler = null;
     let _menuOpen = false;
     let _contextMenuAnchor = null;
@@ -1092,8 +1139,12 @@
         dom.contextMenu.style.visibility = '';
         dom.contextMenu.classList.add('show');
         _menuOpen = true;
-        // Close on outside click (mousedown + click)
-        setTimeout(() => {
+        // Close on outside click (mousedown + click). The delayed attach skips
+        // the opening click itself; if the menu is closed before the timer
+        // fires, no listener is ever attached (no orphaned handlers)
+        clearTimeout(_outsideClickTimer);
+        _outsideClickTimer = setTimeout(() => {
+            if (!_menuOpen) return;
             _outsideClickHandler = (e) => {
                 // Ignore clicks on the menu button itself so toggle works (close via handler below)
                 if (dom.btnMenu && dom.btnMenu.contains(e.target)) return;
@@ -1114,6 +1165,7 @@
         dom.contextMenu.classList.remove('show');
         _menuOpen = false;
         _contextMenuAnchor = null;
+        clearTimeout(_outsideClickTimer);
         if (_outsideClickHandler) {
             document.removeEventListener('mousedown', _outsideClickHandler, true);
             document.removeEventListener('click', _outsideClickHandler, true);
@@ -1222,7 +1274,10 @@
     function showQrCode() {
         const tab = state.tabs.find(t => t.id === state.activeTabId);
         if (!tab || !tab.url) { toast('Нет URL для QR-кода', 'error'); return; }
+        // Never stack a second overlay if one is already open
+        document.querySelectorAll('.qr-overlay').forEach(el => el.remove());
         const overlay = document.createElement('div');
+        overlay.className = 'qr-overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:center;justify-content:center;animation:qr-overlay-in 0.25s ease-out;';
         overlay.innerHTML = `
       <style>
@@ -1302,7 +1357,8 @@
             dom.urlAutocomplete.innerHTML = '';
             res.slice(0, 8).forEach(r => {
                 const el = document.createElement('div'); el.className = 'url-autocomplete-item';
-                el.innerHTML = `<img src="${favicon(r.url)}" onerror="this.style.display='none'"><span class="url-autocomplete-title">${escapeHtml(r.title)}</span><span class="url-autocomplete-url">${escapeHtml(r.url)}</span>`;
+                el.innerHTML = `<img src="${favicon(r.url)}"><span class="url-autocomplete-title">${escapeHtml(r.title)}</span><span class="url-autocomplete-url">${escapeHtml(r.url)}</span>`;
+                hideBrokenImage(el);
                 el.addEventListener('click', () => { dom.urlInput.value = r.url; navigate(r.url); dom.urlAutocomplete.style.display = 'none'; });
                 dom.urlAutocomplete.appendChild(el);
             });
@@ -1407,7 +1463,9 @@
         const s = state.settings;
         const prevTheme = state.currentTheme;
         const theme = s.theme || 'dark';
-        const accent = s.accentColor || '#808080';
+        // Strict hex validation: this value gets interpolated into JS strings
+        // executed inside remote pages — a malformed value must never pass
+        const accent = /^#[0-9a-fA-F]{3,8}$/.test(s.accentColor || '') ? s.accentColor : '#808080';
         const toRgba = (hex, alpha = 1) => {
             const h = hex.replace('#', '');
             const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
@@ -2007,6 +2065,7 @@
                 existing.state = 'progressing';
             } else {
                 state.downloadsList.unshift({ filename: d.filename, receivedBytes: d.receivedBytes, totalBytes: d.totalBytes, state: 'progressing' });
+                if (state.downloadsList.length > 50) state.downloadsList.length = 50;
             }
             if (dom.downloadsPanel.style.display !== 'none') renderDownloadsPanel();
         });
@@ -2025,6 +2084,7 @@
                 existing.totalBytes = d.totalBytes || existing.totalBytes || existing.receivedBytes;
             } else {
                 state.downloadsList.unshift({ filename: d.filename, receivedBytes: d.totalBytes || 0, totalBytes: d.totalBytes || 0, state: 'completed' });
+                if (state.downloadsList.length > 50) state.downloadsList.length = 50;
             }
             if (dom.downloadsPanel.style.display !== 'none') renderDownloadsPanel();
             if (state.sidebarPanel === 'downloads') renderSidebarPanel('downloads');
@@ -2045,8 +2105,9 @@
         clearTimeout(_saveSessionTimer);
         _saveSessionTimer = setTimeout(() => {
             const tabsToSave = state.tabs
-                // Skip default blank/newtab/incognito pages unless pinned
+                // Never persist incognito tabs to disk; skip default blank/newtab pages unless pinned
                 .filter(t => {
+                    if (t.incognito) return false;
                     const isBlank = !t.url || t.url === '' || t.url.includes('newtab.html') || t.url.includes('incognito.html') || t.url.startsWith('mauzer://newtab');
                     return !(isBlank && !t.pinned);
                 })

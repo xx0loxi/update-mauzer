@@ -719,7 +719,7 @@ body {
   right: 0;
   height: 2px;
   background: var(--accent);
-  animation: tab-breathe 3s ease-in-out infinite;
+  animation: tab-breathe 3s steps(19, end) infinite;
 }
 
 @keyframes tab-breathe {
@@ -838,7 +838,7 @@ body {
   border: 2px solid transparent;
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin 0.7s steps(18, end) infinite;
   flex-shrink: 0;
 }
 
@@ -893,7 +893,7 @@ body {
   height: 32px;
   margin-right: 4px;
   color: #8c64ff;
-  animation: incognito-pulse 3s infinite ease-in-out;
+  animation: incognito-pulse 3s steps(19, end) infinite;
 }
 
 @keyframes incognito-pulse {
@@ -1197,7 +1197,7 @@ body {
   height: 6px;
   background: var(--success);
   border-radius: 50%;
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: pulse-glow 2s steps(12, end) infinite;
 }
 
 @keyframes pulse-glow {
@@ -1286,7 +1286,7 @@ body {
   height: 100%;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   box-shadow: 0 0 12px var(--accent), 0 0 24px var(--accent);
-  animation: loading-slide 1.2s ease-in-out infinite;
+  animation: loading-slide 1.2s steps(30, end) infinite;
 }
 
 @keyframes loading-slide {
@@ -1456,6 +1456,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* Panel switch animation — re-triggered from app.js on every switch */
+.sidebar-panel.anim {
+  animation: sidebar-panel-in 0.28s cubic-bezier(0.33, 0, 0.15, 1);
+}
+
+@keyframes sidebar-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .sidebar-panel-title {
@@ -1762,9 +1774,12 @@ body {
   align-items: center;
   justify-content: space-between;
   height: var(--statusbar-h);
-  padding: 0 12px;
-  background: var(--bg-primary);
+  padding: 0 10px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border-top: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
   flex-shrink: 0;
   font-size: 11px;
 }
@@ -1779,9 +1794,12 @@ body {
 .status-version {
   color: var(--text-tertiary);
   font-size: 10px;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
-  transform: translateY(-2px);
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
 }
 
 .status-text {
@@ -1794,21 +1812,24 @@ body {
 
 .status-right {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
 .status-badge {
-  padding: 1px 6px;
+  padding: 2px 8px;
   background: var(--bg-tertiary);
-  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
   color: var(--text-tertiary);
   font-size: 10px;
   cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
 .status-badge:hover {
   color: var(--text-secondary);
+  border-color: var(--border-light);
 }
 
 /* === COMMAND PALETTE === */
@@ -2034,7 +2055,7 @@ body {
   border-radius: 50%;
   background: var(--success);
   box-shadow: 0 0 8px var(--success);
-  animation: pulse-glow 2s ease-in-out infinite;
+  animation: pulse-glow 2s steps(12, end) infinite;
 }
 
 .pulse-title-text h3 {
@@ -2650,7 +2671,7 @@ input:checked + .pulse-slider:before {
   width: 30px;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
-  animation: dl-shimmer 1.5s ease-in-out infinite;
+  animation: dl-shimmer 1.5s steps(19, end) infinite;
 }
 
 @keyframes dl-shimmer {

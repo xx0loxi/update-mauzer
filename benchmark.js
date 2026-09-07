@@ -25,8 +25,10 @@ if (LOW_END_SIMULATION) {
 }
 
 // Pass the --benchmark flag so the main.js knows it's a test
-// Use npx electron . to launch it locally
-const browserProcess = spawn('npx', ['electron', '.', `--benchmark=${TABS_TO_OPEN}`], {
+// Isolated temp profile: real user data is never touched and the run does
+// not collide with the single-instance lock of an already-open Mauzer
+const benchUserData = path.join(os.tmpdir(), `mauzer-bench-${Date.now()}`);
+const browserProcess = spawn('npx', ['electron', '.', `--benchmark=${TABS_TO_OPEN}`, `--user-data-dir=${benchUserData}`], {
     env,
     shell: true,
     cwd: __dirname

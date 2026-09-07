@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data:; font-src 'self' file: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Настройки — Mauzer</title>
     <link rel="stylesheet" href="fonts/inter.css">
     <style>
@@ -451,35 +452,42 @@
             <div class="section-title" data-i18n="sectionPrivacy">Приватность и безопасность</div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Smooth Scroll</div>
+                    <div class="setting-label" data-i18n="lblSmoothScroll">Smooth Scroll</div>
                     <div class="setting-desc" data-i18n="smoothScrollDesc">Плавная прокрутка на сайтах</div>
                 </div>
                 <div class="toggle" data-key="smoothScroll"></div>
             </div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">HTTPS Only</div>
+                    <div class="setting-label" data-i18n="lblHttpsOnly">HTTPS Only</div>
                     <div class="setting-desc" data-i18n="httpsDesc">Принудительное HTTPS</div>
                 </div>
                 <div class="toggle" data-key="httpsOnly"></div>
             </div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Do Not Track</div>
+                    <div class="setting-label" data-i18n="lblDnt">Do Not Track</div>
                     <div class="setting-desc" data-i18n="dntDesc">Отправлять заголовок DNT</div>
                 </div>
                 <div class="toggle" data-key="doNotTrack"></div>
             </div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Search Suggestions</div>
+                    <div class="setting-label" data-i18n="lblSuggest">Search Suggestions</div>
                     <div class="setting-desc" data-i18n="suggestDesc">Отправлять запросы в поисковик для подсказок</div>
                 </div>
                 <div class="toggle" data-key="searchSuggest"></div>
             </div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Fingerprint Protection</div>
+                    <div class="setting-label" data-i18n="lblWeather">Weather Widget</div>
+                    <div class="setting-desc" data-i18n="weatherDesc">Погода и определение города по IP на новой вкладке</div>
+                </div>
+                <div class="toggle" data-key="weatherEnabled"></div>
+            </div>
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label" data-i18n="lblFingerprint">Fingerprint Protection</div>
                     <div class="setting-desc" data-i18n="fpDesc">Скрытие данных об устройстве</div>
                 </div>
                 <div class="toggle" data-key="fingerprintProtection"></div>
@@ -498,17 +506,10 @@
             <div class="section-title" data-i18n="sectionPerformance">Производительность</div>
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Frost Mode</div>
+                    <div class="setting-label" data-i18n="lblFrost">Frost Mode</div>
                     <div class="setting-desc" data-i18n="frostDesc">Автозаморозка неактивных вкладок</div>
                 </div>
                 <div class="toggle" data-key="frostEnabled"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label">Low RAM Mode</div>
-                    <div class="setting-desc" data-i18n="lowRamDesc">Агрессивная экономия памяти</div>
-                </div>
-                <div class="toggle" data-key="lowRamMode"></div>
             </div>
             <div class="setting-row">
                 <div class="setting-info">
@@ -560,7 +561,7 @@
             <div class="section-title" data-i18n="sectionAbout">О браузере</div>
             <div class="about-section">
                 <img src="../MAUZER LOGO/7.png" alt="Mauzer">
-                <div class="about-version">Mauzer <span id="app-version">1.1.14</span></div>
+                <div class="about-version">Mauzer <span id="app-version">1.1.18</span></div>
                 <div class="about-meta" id="about-meta"></div>
             </div>
         </div>
@@ -581,6 +582,12 @@
                 sectionPrivacy: 'Приватность и безопасность',
                 smoothScrollDesc: 'Плавная прокрутка на сайтах',
                 httpsDesc: 'Принудительное HTTPS', dntDesc: 'Отправлять заголовок DNT',
+                suggestDesc: 'Отправлять запросы в поисковик для подсказок',
+                weatherDesc: 'Погода и определение города по IP на новой вкладке',
+                lblSmoothScroll: 'Плавная прокрутка', lblHttpsOnly: 'Только HTTPS',
+                lblDnt: 'Do Not Track', lblSuggest: 'Поисковые подсказки',
+                lblWeather: 'Виджет погоды', lblFingerprint: 'Защита от фингерпринта',
+                lblFrost: 'Режим заморозки',
                 fpDesc: 'Скрытие данных об устройстве',
                 clearOnExit: 'Очищать при выходе', clearOnExitDesc: 'Удалять данные при закрытии браузера',
                 sectionPerformance: 'Производительность',
@@ -603,6 +610,12 @@
                 sectionPrivacy: 'Privacy & Security',
                 smoothScrollDesc: 'Smooth scrolling on websites',
                 httpsDesc: 'Force HTTPS', dntDesc: 'Send DNT header',
+                suggestDesc: 'Send queries to the search engine for suggestions',
+                weatherDesc: 'Weather and IP-based city detection on the new tab',
+                lblSmoothScroll: 'Smooth Scroll', lblHttpsOnly: 'HTTPS Only',
+                lblDnt: 'Do Not Track', lblSuggest: 'Search Suggestions',
+                lblWeather: 'Weather Widget', lblFingerprint: 'Fingerprint Protection',
+                lblFrost: 'Frost Mode',
                 fpDesc: 'Hide device information',
                 clearOnExit: 'Clear on exit', clearOnExitDesc: 'Delete data when browser closes',
                 sectionPerformance: 'Performance',
@@ -760,6 +773,10 @@
             showToast(t('cacheCleared'));
         });
         document.getElementById('btn-clear-all').addEventListener('click', async () => {
+            const msg = (settings.language === 'en')
+                ? 'Delete ALL browsing data (history, cookies, cache)? This cannot be undone.'
+                : 'Удалить ВСЕ данные браузера (историю, cookie, кэш)? Это необратимо.';
+            if (!confirm(msg)) return;
             await window.mauzer.data.clearAll();
             showToast(t('allCleared'));
         });

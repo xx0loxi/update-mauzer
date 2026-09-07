@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data:; font-src 'self' file: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Добро пожаловать — Mauzer</title>
     <link rel="stylesheet" href="fonts/inter.css">
     <style>
@@ -33,7 +34,7 @@
             height: 200%;
             background: radial-gradient(ellipse at 30% 50%, rgba(120, 80, 255, 0.08) 0%, transparent 50%),
                 radial-gradient(ellipse at 70% 50%, rgba(255, 60, 120, 0.06) 0%, transparent 50%);
-            animation: bgShift 15s ease-in-out infinite;
+            animation: bgShift 15s steps(188, end) infinite;
             z-index: 0;
         }
 
@@ -61,7 +62,7 @@
             height: 80px;
             border-radius: 20px;
             margin: 0 auto 24px;
-            animation: logoPulse 3s ease-in-out infinite;
+            animation: logoPulse 3s steps(38, end) infinite;
         }
 
         @keyframes logoPulse {

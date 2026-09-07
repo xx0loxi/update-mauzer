@@ -4,6 +4,15 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Self-gate: this preload carries the full IPC API, so it must only ever
+// speak to the app's own pages. If it somehow ends up in any other document
+// (a webview preload attribute that bypassed main-process gating, a stray
+// BrowserWindow, …), it exposes NOTHING at all.
+const APP_PAGE_RE = /\/(index|newtab|settings|incognito|import)\.html($|[?#])/i;
+let isAppPage = false;
+try { isAppPage = APP_PAGE_RE.test(decodeURIComponent(location.href)); } catch (e) { }
+
+if (isAppPage) {
 contextBridge.exposeInMainWorld('mauzer', {
     // --- Window Controls ---
     window: {
@@ -183,3 +192,4 @@ contextBridge.exposeInMainWorld('mauzer', {
         minimize: () => ipcRenderer.send('import:minimize'),
     },
 });
+}

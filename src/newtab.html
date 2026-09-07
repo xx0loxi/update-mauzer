@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: https: http:; font-src 'self' file: data:; connect-src https://ipapi.co https://ipwho.is https://get.geojs.io https://api.bigdatacloud.net https://api.open-meteo.com; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>MAUZER</title>
     <link rel="stylesheet" href="fonts/inter.css">
     <style>
@@ -17,13 +18,15 @@
         html,
         body {
             height: 100%;
+            width: 100%;
             overflow: hidden;
             font-family: 'Inter', sans-serif;
             background: #0a0a0a;
             color: rgba(255, 255, 255, 0.9);
             display: flex;
-            align-items: center;
-            justify-content: center;
+            /* centering is done by .container{margin:auto} — it keeps the
+               content reachable on narrow windows instead of clipping both
+               edges like justify-content:center does */
             transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             user-select: none;
             -webkit-user-select: none;
@@ -68,7 +71,7 @@
             width: 62vw;
             height: 62vw;
             background: radial-gradient(circle at 35% 35%, rgba(79, 70, 229, 0.5) 0%, rgba(79, 70, 229, 0.12) 45%, transparent 68%);
-            animation: drift-1 28s ease-in-out infinite;
+            animation: drift-1 28s steps(116, end) infinite;
         }
 
         .aurora-2 {
@@ -77,7 +80,7 @@
             width: 68vw;
             height: 68vw;
             background: radial-gradient(circle at 60% 60%, rgba(8, 145, 178, 0.45) 0%, rgba(8, 145, 178, 0.1) 45%, transparent 68%);
-            animation: drift-2 36s ease-in-out infinite;
+            animation: drift-2 36s steps(150, end) infinite;
         }
 
         .aurora-3 {
@@ -86,7 +89,7 @@
             width: 44vw;
             height: 44vw;
             background: radial-gradient(circle at 50% 40%, rgba(147, 51, 234, 0.38) 0%, rgba(147, 51, 234, 0.1) 45%, transparent 68%);
-            animation: drift-3 24s ease-in-out infinite;
+            animation: drift-3 24s steps(150, end) infinite;
         }
 
         .aurora-4 {
@@ -95,7 +98,7 @@
             width: 38vw;
             height: 38vw;
             background: radial-gradient(circle at 45% 55%, rgba(14, 165, 233, 0.3) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 68%);
-            animation: drift-4 32s ease-in-out infinite;
+            animation: drift-4 32s steps(133, end) infinite;
         }
 
         @keyframes drift-1 {
@@ -131,6 +134,88 @@
             .aurora, .wi-scene, .wi-scene * { animation: none !important; }
         }
 
+        /* === Low-power tier (html.low-power, set by the head script) ===
+           Old CPUs: same scene, minus the layers that cost the most.
+           - 4th aurora blob (pure composite load, least visual loss)
+           - local glow: a blurred 800x400 layer repainting ~12x/s
+           - neon sweep: masked gradient repainting ~25x/s
+           Canvas and weather icon animations stay (both are cheap). */
+        html.low-power .aurora-4,
+        html.low-power .local-glow-bg {
+            display: none;
+        }
+
+        /* blend mode is extra composite work per frame — normal on low tier */
+        html.low-power .aurora {
+            mix-blend-mode: normal;
+        }
+
+        html.low-power .search-wrap::before {
+            animation: none;
+            opacity: 0;
+        }
+
+        /* On software rendering (Win7) every animation step forces a
+           full-window recomposite, so cost tracks step RATE, not layer size.
+           Measured: aurora ~4.6% CPU, the 28px weather icon ~3.5% (its spin
+           fires ~25 steps/s!), canvas 25fps ~2.3%. The icon goes static and
+           the aurora drift slows ~2.5x on the low tier — still alive, but
+           its steps now fall under the canvas frame rate. */
+        html.low-power .aurora-1 { animation-duration: 70s; }
+        html.low-power .aurora-2 { animation-duration: 90s; }
+        html.low-power .aurora-3 { animation-duration: 60s; }
+        html.low-power .aurora-4 { animation-duration: 80s; }
+        html.low-power .wi-scene,
+        html.low-power .wi-scene * {
+            animation: none !important;
+        }
+
+        /* blur(110px) is THE most expensive layer on software rendering
+           (Win7 always renders on CPU): every step of every drifting blob
+           re-rasterizes the whole screen. The radial gradients already fade
+           to transparent, so without the filter they stay soft. */
+        html.low-power .aurora {
+            filter: none;
+        }
+
+        /* The widget's backdrop blur re-filters the moving scene behind it
+           every frame; on the low tier swap the frost for a solid tint. */
+        html.low-power .weather-widget::before {
+            display: none;
+        }
+        html.low-power .weather-widget {
+            background: rgba(26, 26, 26, 0.78);
+        }
+        html[data-theme="light"].low-power .weather-widget {
+            background: rgba(245, 245, 245, 0.85);
+        }
+
+        /* Unfold animates layout properties (width/max-height/max-width) —
+           a reflow every frame. On the low tier toggle instantly instead. */
+        html.low-power .weather-widget,
+        html.low-power .weather-widget.no-anim,
+        html.low-power .weather-expanded,
+        html.low-power .weather-expanded .weather-details,
+        html.low-power .weather-expanded .forecast-item {
+            transition: none !important;
+        }
+
+        /* Pulsing box-shadow repaints while suggestions are open */
+        html.low-power body.suggestions-open .search-bar,
+        html.low-power body.suggestions-open .suggestions {
+            animation: none;
+        }
+
+        /* Idle freeze: after 20s without input JS adds .idle on <html> —
+           every background scene animation pauses until the next input */
+        html.idle .aurora,
+        html.idle .local-glow-bg,
+        html.idle .search-wrap::before,
+        html.idle .wi-scene,
+        html.idle .wi-scene * {
+            animation-play-state: paused !important;
+        }
+
         .container {
             display: flex;
             flex-direction: column;
@@ -140,6 +225,10 @@
             padding: 0 24px;
             position: relative;
             z-index: 1;
+            /* margin:auto centers in the flex body AND keeps the left edge
+               reachable when the window is narrower than the content —
+               plain justify-content:center would clip it (see search bar) */
+            margin: auto;
         }
 
         /* Local animated glow behind search and widgets */
@@ -153,7 +242,7 @@
             background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
             z-index: -1;
             pointer-events: none;
-            animation: pulse-glow 6s ease-in-out infinite;
+            animation: pulse-glow 6s steps(37, end) infinite;
             border-radius: 50%;
             filter: blur(20px);
         }
@@ -210,15 +299,27 @@
             gap: 6px;
             padding: 8px 12px;
             background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 14px;
             cursor: pointer;
+            overflow: hidden;
             transition: width 0.42s cubic-bezier(0.33, 0, 0.15, 1),
                         background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
                         border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 100;
+        }
+
+        /* The blur lives on an oversized static layer that never resizes —
+           the browser doesn't re-compute the backdrop while the pill animates,
+           so the frost stays on continuously instead of popping in late */
+        .weather-widget::before {
+            content: '';
+            position: absolute;
+            inset: -60px;
+            z-index: -1;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .weather-widget:hover {
@@ -260,7 +361,7 @@
             left: 1px;
             width: 24px;
             height: 24px;
-            animation: wi-drift 3.6s ease-in-out infinite;
+            animation: wi-drift 3.6s steps(22, end) infinite;
         }
         .wi-sun {
             position: absolute;
@@ -272,12 +373,12 @@
         .wi-sun circle {
             transform-box: fill-box;
             transform-origin: center;
-            animation: wi-pulse 3.2s ease-in-out infinite;
+            animation: wi-pulse 3.2s steps(20, end) infinite;
         }
         .wi-rays {
             transform-box: fill-box;
             transform-origin: center;
-            animation: wi-spin 16s linear infinite;
+            animation: wi-spin 16s steps(200, end) infinite;
         }
         /* combined sun-behind-cloud icon: one SVG, cloud overlaps sun cleanly */
         .wi-daysun {
@@ -290,7 +391,7 @@
         .wi-daysun .wi-cloud-g {
             transform-box: fill-box;
             transform-origin: center;
-            animation: wi-drift 3.6s ease-in-out infinite;
+            animation: wi-drift 3.6s steps(22, end) infinite;
         }
         .wi-drop {
             position: absolute;
@@ -299,7 +400,7 @@
             height: 5.5px;
             border-radius: 1px;
             background: #60a5fa;
-            animation: wi-fall 1.4s linear infinite;
+            animation: wi-fall 1.4s steps(12, end) infinite;
         }
         .wi-drop.d1 { left: 8px; }
         .wi-drop.d2 { left: 12.5px; animation-delay: .46s; }
@@ -311,7 +412,7 @@
             height: 2.5px;
             border-radius: 50%;
             background: #e2e8f0;
-            animation: wi-snow 3.4s linear infinite;
+            animation: wi-snow 3.4s steps(21, end) infinite;
         }
         .wi-flake.s1 { left: 8px; }
         .wi-flake.s2 { left: 12.5px; animation-delay: 1.1s; }
@@ -322,7 +423,7 @@
             left: 9px;
             width: 9px;
             height: 13px;
-            animation: wi-flash 1.7s ease-in-out infinite;
+            animation: wi-flash 1.7s steps(7, end) infinite;
         }
         .wi-fogline {
             position: absolute;
@@ -331,7 +432,7 @@
             height: 1.6px;
             border-radius: 1px;
             background: #9ca3af;
-            animation: wi-fog 3s ease-in-out infinite;
+            animation: wi-fog 3s steps(19, end) infinite;
         }
         .wi-fogline.f1 { top: 20px; }
         .wi-fogline.f2 { top: 24px; animation-delay: 1.5s; }
@@ -669,7 +770,7 @@
         body.suggestions-open .suggestions {
             border-color: rgba(255, 255, 255, 0.18);
             box-shadow: 0 12px 48px rgba(0,0,0,0.45), 0 0 24px rgba(255,255,255,0.05);
-            animation: suggest-glow 3s ease-in-out infinite;
+            animation: suggest-glow 3s steps(19, end) infinite;
         }
 
         @keyframes suggest-glow {
@@ -736,7 +837,7 @@
             mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             mask-composite: exclude;
             padding: 2px;
-            animation: neon-sweep 2.8s linear infinite;
+            animation: neon-sweep 5.6s steps(70, end) infinite;
         }
 
         @keyframes neon-sweep {
@@ -760,10 +861,18 @@
         /* === QUICK LINKS === */
         .quick-links {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 20px;
             width: 100%;
             max-width: 700px;
+        }
+
+        /* Narrow windows: two columns instead of clipping */
+        @media (max-width: 540px) {
+            .quick-links {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 16px;
+            }
         }
 
         .quick-link {
@@ -772,10 +881,13 @@
             flex-direction: column;
             align-items: center;
             gap: 10px;
-            padding: 24px 12px 20px;
-            border-radius: 16px;
+            padding: 22px 12px 18px;
+            border-radius: 22px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
             cursor: pointer;
             text-decoration: none;
             transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -859,7 +971,7 @@
         .quick-link-icon {
             width: 56px;
             height: 56px;
-            border-radius: 14px;
+            border-radius: 18px;
             background: rgba(255, 255, 255, 0.06);
             display: flex;
             align-items: center;
@@ -1168,6 +1280,33 @@
             color: rgba(0, 0, 0, 0.8);
         }
     </style>
+    <script>
+        // Low-power tier: decided ONCE before first paint so weak machines
+        // never see (then lose) the expensive layers. Old dual-core / 2 GB
+        // boxes get the same scene with fewer layers to composite.
+        (function () {
+            try {
+                const cores = navigator.hardwareConcurrency || 4;
+                const mem = navigator.deviceMemory || 4;
+                if (cores <= 2 || mem <= 2) {
+                    document.documentElement.classList.add('low-power');
+                }
+            } catch (e) {}
+            // The sync heuristic above misses old 4-core boxes — main.js knows
+            // better (Win7 always renders on CPU; RAM < 4.5 GB also counts).
+            // Adding the class later is fine: CSS applies instantly, and the
+            // canvas retunes itself via the class MutationObserver.
+            try {
+                if (window.mauzer && window.mauzer.app && window.mauzer.app.getInfo) {
+                    window.mauzer.app.getInfo().then(function (info) {
+                        if (info && (info.isWin7 || info.isLowEnd)) {
+                            document.documentElement.classList.add('low-power');
+                        }
+                    }).catch(function () {});
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 
 <body>
@@ -1257,11 +1396,31 @@
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
             const LINK_DIST = 140;       // max px distance for a connecting line
-            const FRAME_MS = 1000 / 40;  // 40 fps — smooth, still cheap on CPU
-            const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+            // The tier class may arrive AFTER this script (async app:getInfo
+            // for Win7/low-RAM machines), so watch for it and retune live.
+            // 20 fps full / 15 fps low tier: every frame is a full-window
+            // software recomposite, and 20 reads just as smooth as 25 for
+            // slow-drifting particles.
+            let lowPower = document.documentElement.classList.contains('low-power');
+            let FRAME_MS = 1000 / (lowPower ? 15 : 20); // fps cap — same motion, fewer paints
+            let DPR = Math.min(window.devicePixelRatio || 1, lowPower ? 1 : 1.5);
+            new MutationObserver(() => {
+                const lp = document.documentElement.classList.contains('low-power');
+                if (lp !== lowPower) {
+                    lowPower = lp;
+                    FRAME_MS = 1000 / (lp ? 15 : 20);
+                    if (lp) DPR = Math.min(DPR, 1);
+                    resize();
+                }
+            }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
             let W = 0, H = 0, particles = [], rafId = 0, lastFrame = 0;
             let isLight = false;
+            // Auto-degradation: if frames keep arriving late (weak CPU under
+            // load), particle count drops a step — never back up, so a brief
+            // spike can't cause oscillation. The tier adds its own factor.
+            let quality = 1;
+            let slowFrames = 0;
 
             function spawn() {
                 const vx = (Math.random() - 0.5) * 48; // px per second
@@ -1299,7 +1458,8 @@
                     }
                 }
                 // Density scales with area, hard-capped so big screens stay cheap
-                const target = Math.min(100, Math.max(40, Math.round((W * H) / 14000)));
+                const base = Math.min(100, Math.max(40, Math.round((W * H) / 14000)));
+                const target = Math.max(24, Math.round(base * quality * (lowPower ? 0.6 : 1)));
                 while (particles.length < target) particles.push(spawn());
                 particles.length = Math.min(particles.length, target);
             }
@@ -1312,19 +1472,26 @@
 
                 ctx.clearRect(0, 0, W, H);
 
+                // All dots share one style — batch them into a single path
+                // and one fill call (moveTo before each arc keeps them
+                // unconnected); same picture, ~100x fewer draw calls
+                ctx.beginPath();
                 for (let i = 0; i < particles.length; i++) {
                     const p = particles[i];
                     p.x += p.vx * dt;
                     p.y += p.vy * dt;
                     if (p.x < -10) p.x = W + 10; else if (p.x > W + 10) p.x = -10;
                     if (p.y < -10) p.y = H + 10; else if (p.y > H + 10) p.y = -10;
-                    ctx.beginPath();
+                    ctx.moveTo(p.x + p.r, p.y);
                     ctx.arc(p.x, p.y, p.r, 0, 6.2832);
-                    ctx.fillStyle = 'rgba(' + rgb + ',' + dotA + ')';
-                    ctx.fill();
                 }
+                ctx.fillStyle = 'rgba(' + rgb + ',' + dotA + ')';
+                ctx.fill();
 
+                // Threads too: one path, one stroke. Every line has the same
+                // color and width, so batching changes nothing visually
                 const d2max = LINK_DIST * LINK_DIST;
+                ctx.beginPath();
                 for (let i = 0; i < particles.length; i++) {
                     const a = particles[i];
                     for (let j = i + 1; j < particles.length; j++) {
@@ -1345,14 +1512,13 @@
                         const ex = anchor.x + (other.x - anchor.x) * g;
                         const ey = anchor.y + (other.y - anchor.y) * g;
                         // Full opacity the whole time — the line retracts, not fades
-                        ctx.strokeStyle = 'rgba(' + rgb + ',' + lineMax + ')';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
                         ctx.moveTo(anchor.x, anchor.y);
                         ctx.lineTo(ex, ey);
-                        ctx.stroke();
                     }
                 }
+                ctx.strokeStyle = 'rgba(' + rgb + ',' + lineMax + ')';
+                ctx.lineWidth = 1;
+                ctx.stroke();
             }
 
             let frameCount = 0;
@@ -1361,6 +1527,17 @@
                 if (!lastFrame) { lastFrame = ts; return; }
                 const elapsed = ts - lastFrame;
                 if (elapsed < FRAME_MS) return;
+                // Auto-degrade: sustained late frames (real slowness, not
+                // occlusion throttling) shrink the particle count one step
+                if (elapsed > FRAME_MS * 1.8 && elapsed < 500) {
+                    if (++slowFrames > 15 && quality > 0.4) {
+                        quality -= 0.25;
+                        slowFrames = 0;
+                        resize();
+                    }
+                } else {
+                    slowFrames = 0;
+                }
                 // Cheap safety net (~once a second): if the viewport changed
                 // without a resize event firing, catch up
                 if ((++frameCount & 31) === 0 &&
@@ -1401,8 +1578,46 @@
 
             // No work at all while the page is hidden
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) stop(); else applyMode();
+                if (document.hidden) stop(); else if (!isIdle) applyMode();
             });
+
+            // === Idle freeze ===
+            // The scene keeps animating even when nobody is looking. After
+            // IDLE_MS without any input the canvas stops and .idle on <html>
+            // pauses the aurora/glow/neon/weather-icon CSS animations; any
+            // input (mouse, keys, scroll) wakes everything instantly.
+            const IDLE_MS = 20000;
+            let idleTimer = 0;
+            let isIdle = false;
+            // Not 0: the first wake() call must ARM the idle timer. With 0 the
+            // throttle (now - lastWake < 2000) swallowed it, so on a machine
+            // with no input after launch the freeze never armed and every
+            // scene animation ran forever (constant compositor burn).
+            let lastWake = -IDLE_MS;
+
+            function enterIdle() {
+                isIdle = true;
+                document.documentElement.classList.add('idle');
+                stop();
+            }
+
+            function wake() {
+                const now = performance.now();
+                // Input storms (mousemove etc.) reset the timer at most every 2s
+                if (!isIdle && now - lastWake < 2000) return;
+                lastWake = now;
+                if (isIdle) {
+                    isIdle = false;
+                    document.documentElement.classList.remove('idle');
+                    applyMode();
+                }
+                clearTimeout(idleTimer);
+                idleTimer = setTimeout(enterIdle, IDLE_MS);
+            }
+
+            ['mousemove', 'mousedown', 'wheel', 'keydown', 'touchstart']
+                .forEach(ev => window.addEventListener(ev, wake, { passive: true }));
+            wake();
 
             let resizeTimer;
             window.addEventListener('resize', () => {
@@ -1858,6 +2073,25 @@
             const windEl = document.getElementById('weather-wind');
             const forecastEl = document.getElementById('weather-forecast');
 
+            // Privacy: weather resolves the user's location via IP geolocation
+            // services. When the setting is off — hide the widget and make zero
+            // network requests. Toggling the setting reloads this page.
+            let weatherShown = true;
+            try {
+                const s = await window.mauzer.settings.load();
+                if (s && s.weatherEnabled === false) {
+                    weatherShown = false;
+                    widget.style.display = 'none';
+                    return;
+                }
+                if (window.mauzer.settings.onChanged) {
+                    window.mauzer.settings.onChanged((ns) => {
+                        const on = !ns || ns.weatherEnabled !== false;
+                        if (on !== weatherShown) location.reload();
+                    });
+                }
+            } catch (e) { }
+
             // Click widget -> toggle expanded.
             // Width is pinned to explicit px before toggling, because CSS cannot
             // animate between a fixed width and `auto` — without this the
@@ -1877,6 +2111,8 @@
                 widget.style.width = '';
             }
 
+            // The blur layer is static (see .weather-widget::before), so the
+            // animation no longer needs to disable it
             widget.addEventListener('click', () => {
                 const isExpanded = widget.classList.contains('expanded');
                 const current = widget.getBoundingClientRect().width;
@@ -1889,7 +2125,9 @@
                 widget._widthTimer = setTimeout(() => { widget.style.width = ''; }, 700);
             });
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') widget.classList.remove('expanded');
+                if (e.key === 'Escape' && widget.classList.contains('expanded')) {
+                    widget.classList.remove('expanded');
+                }
             });
 
             const wmoToKey = (c) => {
@@ -1958,16 +2196,25 @@
                 }, 350);
             };
 
-            async function loadWeather() {
-            try {
-                let lat, lon, city;
-                // Last successfully resolved place — reused when all geo
-                // providers fail, so the widget keeps showing the user's town
-                let cached = null;
-                try { cached = JSON.parse(localStorage.getItem('mauzer-weather-loc') || 'null'); } catch (e) {}
+            const isPlaceName = (n) => !!n && !/район|district|область|oblast|region|обл\./i.test(n);
+
+            // Location resolution. Privacy: the cached place is checked FIRST,
+            // so the IP geo providers are contacted roughly once per 14 days —
+            // not on every new tab and not on every 30-minute refresh.
+            async function resolveLocation() {
+                // Last successfully resolved place (expires after 14 days —
+                // this also drops old pre-timestamp caches on first read)
+                try {
+                    const cached = JSON.parse(localStorage.getItem('mauzer-weather-loc') || 'null');
+                    if (cached && cached.ts && Date.now() - cached.ts <= 14 * 24 * 3600 * 1000 &&
+                        isFinite(cached.lat) && isFinite(cached.lon) && cached.city) {
+                        return { lat: cached.lat, lon: cached.lon, city: cached.city };
+                    }
+                } catch (e) { }
 
                 // IP geo providers, first working wins. Coordinates matter —
                 // the display name comes from reverse geocoding below.
+                let lat, lon, city;
                 try {
                     const geoRes = await fetch('https://ipapi.co/json/');
                     if (!geoRes.ok) throw new Error('Primary geo failed');
@@ -1992,32 +2239,50 @@
                             lat = parseFloat(geo2.latitude); lon = parseFloat(geo2.longitude);
                             city = geo2.city || geo2.region || 'Unknown';
                         } catch (err3) {
-                            // All providers failed: last known place, else
-                            // Krasnokutsk (user's home town) — not Moscow
-                            if (cached) { lat = cached.lat; lon = cached.lon; city = cached.city; }
-                            else { lat = 49.987; lon = 35.562; city = 'Краснокутск'; }
+                            // All providers failed: the hardcoded fallback.
+                            // ~10 km precision is plenty for weather and keeps the
+                            // exact home coordinates out of the shipped source.
+                            // Not cached, so providers are retried on next load.
+                            return { lat: 50.0, lon: 35.6, city: 'Краснокутск' };
                         }
                     }
                 }
 
                 // IP geo often reports the regional center (e.g. Kharkiv) —
                 // reverse-geocode the coordinates to get the exact locality
-                // (e.g. Krasnokutsk) and remember it for next time
+                // (e.g. Krasnokutsk) and remember it for next time.
+                // District names ("Шевченковский район" etc.) are rejected:
+                // IP coords drift between the town and the regional center, so
+                // a district name means the resolution keeps the geoip city.
                 try {
                     const revRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`);
                     if (revRes.ok) {
                         const rev = await revRes.json();
-                        const place = rev.locality || rev.city;
+                        const candidates = [rev.locality, rev.city, ...(Array.isArray(rev.localityInfo?.informative) ? rev.localityInfo.informative.map(i => i.name) : [])];
+                        const place = candidates.find(isPlaceName);
                         if (place) {
                             city = place;
-                            if (lat && lon) {
-                                try { localStorage.setItem('mauzer-weather-loc', JSON.stringify({ lat, lon, city: place })); } catch (e) {}
-                            }
+                            try {
+                                // ~1 km precision + timestamp for the 14-day expiry
+                                localStorage.setItem('mauzer-weather-loc', JSON.stringify({
+                                    lat: Math.round(lat * 100) / 100,
+                                    lon: Math.round(lon * 100) / 100,
+                                    city: place,
+                                    ts: Date.now()
+                                }));
+                            } catch (e) { }
                         }
                     }
                 } catch (e) { /* keep the geoip city */ }
 
-                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
+                return { lat, lon, city };
+            }
+
+            async function loadWeather() {
+            try {
+                const loc = await resolveLocation();
+
+                const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode,relative_humidity_2m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
                 if (!weatherRes.ok) throw new Error('Weather failed');
                 const weather = await weatherRes.json();
 
@@ -2031,7 +2296,7 @@
                 // Update widget (icon crossfades if the kind changed)
                 setWeatherIcon(icon);
                 tempEl.textContent = `${temp > 0 ? '+' : ''}${temp}°`;
-                locEl.textContent = city;
+                locEl.textContent = loc.city;
                 humidityEl.textContent = `${humidity}%`;
                 windEl.textContent = `${wind} м/с`;
 
