@@ -1237,40 +1237,51 @@
         }
 
         .quick-link-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.06);
+            width: 58px;
+            height: 58px;
+            border-radius: 17px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.035) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+            transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .quick-link:hover .quick-link-icon {
+            transform: scale(1.06);
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
         }
 
         .quick-link-icon img {
-            width: 30px;
-            height: 30px;
+            width: 38px;
+            height: 38px;
             object-fit: contain;
-            border-radius: 6px;
+            border-radius: 9px;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.28));
         }
 
         .quick-link-icon svg {
-            width: 28px;
-            height: 28px;
+            width: 38px;
+            height: 38px;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.28));
         }
 
         .quick-link-letter {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 21px;
             font-weight: 700;
             color: #ffffff;
             user-select: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
         .quick-link-title {
@@ -1372,25 +1383,25 @@
             }
 
             .quick-link-icon {
-                width: 42px;
-                height: 42px;
-                border-radius: 12px;
+                width: 52px;
+                height: 52px;
+                border-radius: 15px;
             }
 
             .quick-link-icon img {
-                width: 24px;
-                height: 24px;
+                width: 34px;
+                height: 34px;
             }
 
             .quick-link-icon svg {
-                width: 22px;
-                height: 22px;
+                width: 34px;
+                height: 34px;
             }
 
             .quick-link-letter {
-                width: 24px;
-                height: 24px;
-                font-size: 13px;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
             }
 
             .quick-link-title {
@@ -1461,25 +1472,25 @@
             }
 
             .quick-link-icon {
-                width: 36px;
-                height: 36px;
-                border-radius: 10px;
+                width: 46px;
+                height: 46px;
+                border-radius: 13px;
             }
 
             .quick-link-icon img {
-                width: 20px;
-                height: 20px;
+                width: 30px;
+                height: 30px;
             }
 
             .quick-link-icon svg {
-                width: 18px;
-                height: 18px;
+                width: 30px;
+                height: 30px;
             }
 
             .quick-link-letter {
-                width: 20px;
-                height: 20px;
-                font-size: 11px;
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
             }
 
             .quick-link-title {
@@ -1614,7 +1625,7 @@
         .modal-backdrop {
             position: absolute;
             inset: 0;
-            background: rgba(0, 0, 0, 0.64);
+            background: rgba(0, 0, 0, 0.72);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             opacity: 0;
@@ -1624,15 +1635,19 @@
         .modal-card {
             position: relative;
             width: min(94vw, 440px);
-            background: linear-gradient(165deg, rgba(22, 26, 35, 0.96) 0%, rgba(14, 16, 22, 0.98) 100%);
+            background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 60%), #141722;
             border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 20px;
-            padding: 22px 24px 20px;
-            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            border-radius: 22px;
+            padding: 24px 26px 22px;
+            box-shadow: 0 28px 75px -10px rgba(0, 0, 0, 0.8),
+                        0 0 0 1px rgba(255, 255, 255, 0.06),
+                        0 0 45px -10px var(--accent-glow, rgba(99, 102, 241, 0.2));
             opacity: 0;
-            transform: translateY(12px) scale(0.96);
-            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(14px) scale(0.96);
+            transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
             z-index: 1;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
 
         .modal.show .modal-card {
@@ -1648,22 +1663,22 @@
         .modal-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
+            gap: 13px;
+            margin-bottom: 18px;
         }
 
         .modal-header-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            background: var(--accent-hover, rgba(255, 255, 255, 0.08));
-            border: 1px solid var(--accent-glow, rgba(255, 255, 255, 0.15));
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(139, 92, 246, 0.18) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.35);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--accent, #ffffff);
+            color: #a5b4fc;
             flex-shrink: 0;
-            box-shadow: 0 2px 8px var(--accent-glow, rgba(0, 0, 0, 0.2));
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
         }
 
         .modal-header-text {
@@ -1672,75 +1687,105 @@
         }
 
         .modal-title {
-            font-size: 16px;
+            font-size: 16.5px;
             font-weight: 700;
-            color: rgba(255, 255, 255, 0.95);
-            letter-spacing: -0.2px;
+            color: #f8fafc;
+            letter-spacing: -0.3px;
             margin: 0;
         }
 
         .modal-subtitle {
             font-size: 11.5px;
-            color: rgba(255, 255, 255, 0.45);
-            margin-top: 1px;
+            color: rgba(255, 255, 255, 0.48);
+            margin-top: 2px;
         }
 
         .modal-close-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.55);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             font-size: 13px;
-            transition: all 0.15s ease;
+            transition: all 0.16s ease;
         }
 
         .modal-close-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
             transform: scale(1.05);
         }
 
         /* Live Preview Box */
         .modal-preview-box {
-            background: rgba(0, 0, 0, 0.28);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 12px;
-            padding: 10px 14px;
-            margin-bottom: 16px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.015) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.2);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .modal-preview-box:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 18px rgba(0, 0, 0, 0.28);
         }
 
         .preview-tile {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 13px;
         }
 
         .preview-tile-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        .preview-tile-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #818cf8;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, transparent 75%);
+        }
+
+        .preview-tile-icon img {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            object-fit: contain;
+        }
+
+        .preview-tile-icon .quick-link-letter {
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 18px;
-            flex-shrink: 0;
-            overflow: hidden;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        }
-
-        .preview-tile-icon img {
-            width: 22px;
-            height: 22px;
-            border-radius: 4px;
-            object-fit: contain;
+            font-weight: 700;
+            color: #ffffff;
+            border-radius: 11px;
+            text-transform: uppercase;
         }
 
         .preview-tile-details {
@@ -1749,33 +1794,54 @@
         }
 
         .preview-tile-title {
-            font-size: 13.5px;
+            font-size: 14px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.95);
+            color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            letter-spacing: -0.1px;
         }
 
         .preview-tile-url {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
+            font-size: 11.5px;
+            color: rgba(255, 255, 255, 0.45);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-top: 1px;
+            margin-top: 2px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .preview-tile-badge {
-            font-size: 10px;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 9.5px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.06);
-            color: rgba(255, 255, 255, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            letter-spacing: 0.6px;
+            padding: 4px 9px;
+            border-radius: 20px;
+            background: rgba(99, 102, 241, 0.14);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.28);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            flex-shrink: 0;
+        }
+
+        .preview-badge-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #818cf8;
+            box-shadow: 0 0 6px #818cf8;
+            animation: badgePulse 2s infinite ease-in-out;
+        }
+
+        @keyframes badgePulse {
+            0%, 100% { opacity: 0.5; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.2); }
         }
 
         /* Fields */
@@ -1783,7 +1849,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            margin-bottom: 14px;
+            margin-bottom: 15px;
         }
 
         .modal-label-row {
@@ -1795,12 +1861,13 @@
         .modal-label {
             font-size: 12px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.75);
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 0.1px;
         }
 
         .modal-label-hint {
             font-size: 10.5px;
-            color: rgba(255, 255, 255, 0.35);
+            color: rgba(255, 255, 255, 0.38);
         }
 
         .modal-input-wrap {
@@ -1814,40 +1881,40 @@
             left: 12px;
             stroke: rgba(255, 255, 255, 0.4);
             pointer-events: none;
-            transition: stroke 0.18s;
+            transition: stroke 0.2s ease;
         }
 
         .modal-input {
             width: 100%;
-            height: 40px;
-            border-radius: 11px;
+            height: 42px;
+            border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.04);
-            color: rgba(255, 255, 255, 0.95);
-            padding: 0 34px 0 36px;
+            background: rgba(255, 255, 255, 0.045);
+            color: #ffffff;
+            padding: 0 36px 0 38px;
             outline: none;
-            font-size: 13px;
+            font-size: 13.5px;
             font-family: inherit;
-            transition: all 0.18s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .modal-input:focus {
-            border-color: var(--accent, #ffffff) !important;
-            background: rgba(255, 255, 255, 0.07);
-            box-shadow: 0 0 0 3px var(--accent-glow, rgba(255, 255, 255, 0.15)) !important;
+            border-color: #6366f1 !important;
+            background: rgba(255, 255, 255, 0.075);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 4px 14px rgba(0, 0, 0, 0.2) !important;
         }
 
         .modal-input:focus ~ .modal-input-icon {
-            stroke: var(--accent, #ffffff);
+            stroke: #818cf8;
         }
 
         .modal-clear-btn {
             position: absolute;
-            right: 8px;
+            right: 10px;
             width: 22px;
             height: 22px;
             border-radius: 6px;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.07);
             border: none;
             color: rgba(255, 255, 255, 0.5);
             font-size: 11px;
@@ -1855,76 +1922,101 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.15s;
+            transition: all 0.15s ease;
         }
 
         .modal-clear-btn:hover {
-            background: rgba(255, 255, 255, 0.14);
-            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
         }
 
         /* Quick chips */
         .modal-presets {
-            margin-bottom: 16px;
+            margin-bottom: 18px;
         }
 
         .modal-presets-label {
             font-size: 11px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.4);
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.45);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 7px;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
         }
 
         .modal-chips {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
+            gap: 7px;
         }
 
         .modal-chip {
-            padding: 4px 10px;
-            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 9px;
             background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: rgba(255, 255, 255, 0.75);
-            font-size: 11.5px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
         }
 
         .modal-chip:hover {
-            background: var(--accent-hover, rgba(255, 255, 255, 0.12));
-            border-color: var(--accent-glow, rgba(255, 255, 255, 0.2));
-            color: var(--accent, #ffffff);
-            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            transform: translateY(-1.5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
+
+        .modal-chip:active {
+            transform: translateY(0);
+        }
+
+        .chip-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+        .chip-dot.youtube { background: #ff0000; box-shadow: 0 0 6px rgba(255, 0, 0, 0.5); }
+        .chip-dot.github { background: #f0f6fc; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
+        .chip-dot.telegram { background: #2AABEE; box-shadow: 0 0 6px rgba(42, 171, 238, 0.5); }
+        .chip-dot.twitch { background: #9146FF; box-shadow: 0 0 6px rgba(145, 70, 255, 0.5); }
+        .chip-dot.chatgpt { background: #10a37f; box-shadow: 0 0 6px rgba(16, 163, 127, 0.5); }
+        .chip-dot.vk { background: #0077FF; box-shadow: 0 0 6px rgba(0, 119, 255, 0.5); }
+        .chip-dot.reddit { background: #FF4500; box-shadow: 0 0 6px rgba(255, 69, 0, 0.5); }
 
         /* Actions */
         .modal-actions {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
-            margin-top: 10px;
+            margin-top: 12px;
         }
 
         .modal-btn {
-            height: 38px;
-            border-radius: 10px;
+            height: 40px;
+            border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.07);
             color: rgba(255, 255, 255, 0.85);
-            padding: 0 16px;
+            padding: 0 18px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 13.5px;
             font-weight: 500;
             font-family: inherit;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            transition: all 0.18s ease;
+            gap: 8px;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
         }
 
         .modal-btn:hover {
@@ -1935,26 +2027,26 @@
         .modal-btn.ghost {
             background: transparent;
             border-color: transparent;
-            color: rgba(255, 255, 255, 0.55);
+            color: rgba(255, 255, 255, 0.6);
         }
 
         .modal-btn.ghost:hover {
             background: rgba(255, 255, 255, 0.06);
-            color: rgba(255, 255, 255, 0.9);
+            color: #ffffff;
         }
 
         .modal-btn.primary {
-            background: var(--accent, #ffffff) !important;
-            border-color: var(--accent, #ffffff) !important;
-            color: #0b0d13 !important;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+            color: #ffffff !important;
             font-weight: 600;
-            box-shadow: 0 4px 14px var(--accent-glow, rgba(255, 255, 255, 0.2));
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
         }
 
         .modal-btn.primary:hover {
-            filter: brightness(1.08);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 18px var(--accent-glow, rgba(255, 255, 255, 0.3));
+            filter: brightness(1.1);
+            transform: translateY(-1.5px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
         }
 
         .modal-btn.primary:active {
@@ -1963,23 +2055,33 @@
 
         .modal-kbd {
             font-size: 10px;
-            padding: 1px 4px;
-            border-radius: 4px;
-            background: rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: inherit;
             font-family: inherit;
         }
 
         /* Light mode */
         [data-theme="light"] .modal-backdrop {
-            background: rgba(0, 0, 0, 0.38);
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(12px);
         }
 
         [data-theme="light"] .modal-card {
-            background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 248, 252, 0.98) 100%);
+            background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+                        linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(246, 248, 252, 0.98) 100%);
             border-color: rgba(0, 0, 0, 0.1);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 24px 70px -10px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="light"] .modal-header-icon {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-color: rgba(99, 102, 241, 0.25);
+            color: #6366f1;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
         }
 
         [data-theme="light"] .modal-title {
@@ -2002,8 +2104,24 @@
         }
 
         [data-theme="light"] .modal-preview-box {
-            background: rgba(0, 0, 0, 0.03);
-            border-color: rgba(0, 0, 0, 0.06);
+            background: rgba(0, 0, 0, 0.025);
+            border-color: rgba(0, 0, 0, 0.07);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        [data-theme="light"] .modal-preview-box:hover {
+            border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        [data-theme="light"] .preview-tile-icon {
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="light"] .preview-tile-placeholder {
+            color: #6366f1;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 75%);
         }
 
         [data-theme="light"] .preview-tile-title {
@@ -2015,9 +2133,15 @@
         }
 
         [data-theme="light"] .preview-tile-badge {
-            background: rgba(0, 0, 0, 0.05);
-            color: #64748b;
-            border-color: rgba(0, 0, 0, 0.06);
+            background: rgba(99, 102, 241, 0.08);
+            color: #6366f1;
+            border-color: rgba(99, 102, 241, 0.2);
+            box-shadow: none;
+        }
+
+        [data-theme="light"] .preview-badge-dot {
+            background: #6366f1;
+            box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
         }
 
         [data-theme="light"] .modal-label {
@@ -2033,9 +2157,15 @@
         }
 
         [data-theme="light"] .modal-input {
-            background: rgba(0, 0, 0, 0.03);
-            border-color: rgba(0, 0, 0, 0.1);
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.12);
             color: #0f172a;
+        }
+
+        [data-theme="light"] .modal-input:focus {
+            background: #ffffff;
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18), 0 2px 8px rgba(0, 0, 0, 0.05) !important;
         }
 
         [data-theme="light"] .modal-clear-btn {
@@ -2053,14 +2183,17 @@
         }
 
         [data-theme="light"] .modal-chip {
-            background: rgba(0, 0, 0, 0.04);
-            border-color: rgba(0, 0, 0, 0.08);
+            background: #ffffff;
+            border-color: rgba(0, 0, 0, 0.1);
             color: #334155;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
         }
 
         [data-theme="light"] .modal-chip:hover {
-            background: rgba(0, 0, 0, 0.08);
+            background: #f8fafc;
+            border-color: rgba(99, 102, 241, 0.35);
             color: #0f172a;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
         }
 
         [data-theme="light"] .modal-btn.ghost {
@@ -2073,7 +2206,20 @@
         }
 
         [data-theme="light"] .modal-btn.primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
             color: #ffffff !important;
+            border-color: rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35) !important;
+        }
+
+        [data-theme="light"] .modal-btn.primary:hover {
+            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45) !important;
+        }
+
+        [data-theme="light"] .modal-kbd {
+            background: rgba(0, 0, 0, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #ffffff;
         }
     </style>
     <script>
@@ -2193,14 +2339,21 @@
             <div class="modal-preview-box">
                 <div class="preview-tile">
                     <div class="preview-tile-icon" id="preview-favicon-box">
-                        <img id="preview-favicon-img" src="" alt="" style="display:none;">
-                        <span id="preview-favicon-fallback">🌐</span>
+                        <div class="preview-tile-placeholder">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                        </div>
                     </div>
                     <div class="preview-tile-details">
                         <div class="preview-tile-title" id="preview-tile-title">Новый сайт</div>
                         <div class="preview-tile-url" id="preview-tile-url">https://example.com</div>
                     </div>
-                    <div class="preview-tile-badge">Предпросмотр</div>
+                    <div class="preview-tile-badge">
+                        <span class="preview-badge-dot"></span>
+                        <span>Предпросмотр</span>
+                    </div>
                 </div>
             </div>
 
@@ -2212,9 +2365,8 @@
                 </div>
                 <div class="modal-input-wrap">
                     <svg class="modal-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="2" y1="12" x2="22" y2="12"></line>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                     </svg>
                     <input id="add-url" class="modal-input" type="text" placeholder="https://youtube.com или github.com" spellcheck="false" autocomplete="off">
                     <button type="button" class="modal-clear-btn" id="add-url-clear" title="Очистить" style="display:none;">✕</button>
@@ -2240,13 +2392,27 @@
             <div class="modal-presets">
                 <div class="modal-presets-label">Популярные сайты:</div>
                 <div class="modal-chips">
-                    <button type="button" class="modal-chip" data-url="https://youtube.com" data-title="YouTube">YouTube</button>
-                    <button type="button" class="modal-chip" data-url="https://github.com" data-title="GitHub">GitHub</button>
-                    <button type="button" class="modal-chip" data-url="https://web.telegram.org" data-title="Telegram">Telegram</button>
-                    <button type="button" class="modal-chip" data-url="https://twitch.tv" data-title="Twitch">Twitch</button>
-                    <button type="button" class="modal-chip" data-url="https://chatgpt.com" data-title="ChatGPT">ChatGPT</button>
-                    <button type="button" class="modal-chip" data-url="https://vk.com" data-title="VK">VK</button>
-                    <button type="button" class="modal-chip" data-url="https://reddit.com" data-title="Reddit">Reddit</button>
+                    <button type="button" class="modal-chip" data-url="https://youtube.com" data-title="YouTube">
+                        <span class="chip-dot youtube"></span>YouTube
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://github.com" data-title="GitHub">
+                        <span class="chip-dot github"></span>GitHub
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://web.telegram.org" data-title="Telegram">
+                        <span class="chip-dot telegram"></span>Telegram
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://twitch.tv" data-title="Twitch">
+                        <span class="chip-dot twitch"></span>Twitch
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://chatgpt.com" data-title="ChatGPT">
+                        <span class="chip-dot chatgpt"></span>ChatGPT
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://vk.com" data-title="VK">
+                        <span class="chip-dot vk"></span>VK
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://reddit.com" data-title="Reddit">
+                        <span class="chip-dot reddit"></span>Reddit
+                    </button>
                 </div>
             </div>
 
@@ -2855,22 +3021,28 @@
             try { hostname = new URL(url).hostname.toLowerCase(); } catch(e) {}
             
             if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-                return `<svg viewBox="0 0 24 24" width="34" height="34"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#FFFFFF" d="m9.545 15.568 6.273-3.568-6.273-3.568z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="38" height="38"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#FFFFFF" d="m9.545 15.568 6.273-3.568-6.273-3.568z"/></svg>`;
             }
             if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {
-                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#10a37f"><path d="M22.28 9.87a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.96 4.19a5.98 5.98 0 0 0-3.93 4.14 6.05 6.05 0 0 0 .88 7.1 5.98 5.98 0 0 0 .51 4.92 6.05 6.05 0 0 0 6.52 2.9 6.03 6.03 0 0 0 10.29-2.13 5.98 5.98 0 0 0 3.93-4.14 6.05 6.05 0 0 0-.88-7.11zm-8.8 11.2a4.54 4.54 0 0 1-2.88-.72l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.75l2.03 1.17a.08.08 0 0 1 .04.06v5.38a4.56 4.56 0 0 1-4.5 4.38zm-8.62-4.1a4.5 4.5 0 0 1-.54-2.93l.14.08 4.79 2.76a.8.8 0 0 0 .79 0l5.85-3.37v2.35a.08.08 0 0 1-.03.07l-4.66 2.69a4.55 4.55 0 0 1-6.34-1.65zm-1.12-9.67A4.54 4.54 0 0 1 6.08 5.4l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.75L-1.2 14.5a.08.08 0 0 1-.04-.06V9.06a4.56 4.56 0 0 1 4.98-1.76zm13.12 3.8l-5.85 3.38-2.03-1.17a.08.08 0 0 1-.04-.07V7.07l5.85-3.37a.8.8 0 0 0 .4-.68V.67a4.55 4.55 0 0 1 1.67 8.45zm2.84 5.75l-4.78-2.76a.8.8 0 0 0-.79 0l-5.85 3.37v-2.35a.08.08 0 0 1 .03-.07l4.66-2.69a4.55 4.55 0 0 1 6.73 4.5zm-8.15-4.7l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#10a37f"><path d="M22.28 9.87a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.96 4.19a5.98 5.98 0 0 0-3.93 4.14 6.05 6.05 0 0 0 .88 7.1 5.98 5.98 0 0 0 .51 4.92 6.05 6.05 0 0 0 6.52 2.9 6.03 6.03 0 0 0 10.29-2.13 5.98 5.98 0 0 0 3.93-4.14 6.05 6.05 0 0 0-.88-7.11zm-8.8 11.2a4.54 4.54 0 0 1-2.88-.72l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.75l2.03 1.17a.08.08 0 0 1 .04.06v5.38a4.56 4.56 0 0 1-4.5 4.38zm-8.62-4.1a4.5 4.5 0 0 1-.54-2.93l.14.08 4.79 2.76a.8.8 0 0 0 .79 0l5.85-3.37v2.35a.08.08 0 0 1-.03.07l-4.66 2.69a4.55 4.55 0 0 1-6.34-1.65zm-1.12-9.67A4.54 4.54 0 0 1 6.08 5.4l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.75L-1.2 14.5a.08.08 0 0 1-.04-.06V9.06a4.56 4.56 0 0 1 4.98-1.76zm13.12 3.8l-5.85 3.38-2.03-1.17a.08.08 0 0 1-.04-.07V7.07l5.85-3.37a.8.8 0 0 0 .4-.68V.67a4.55 4.55 0 0 1 1.67 8.45zm2.84 5.75l-4.78-2.76a.8.8 0 0 0-.79 0l-5.85 3.37v-2.35a.08.08 0 0 1 .03-.07l4.66-2.69a4.55 4.55 0 0 1 6.73 4.5zm-8.15-4.7l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
             }
             if (hostname.includes('github.com')) {
-                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="white"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="white"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
             }
             if (hostname.includes('telegram.org') || hostname.includes('t.me')) {
-                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#2AABEE"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.56 8.16l-1.97 9.28c-.15.65-.53.81-1.08.51l-3-2.21-1.45 1.39c-.16.16-.3.3-.61.3l.22-3.05 5.56-5.02c.24-.22-.05-.34-.38-.13l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.13-.95l11.58-4.46c.54-.19 1.01.13.83.92z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#2AABEE"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.56 8.16l-1.97 9.28c-.15.65-.53.81-1.08.51l-3-2.21-1.45 1.39c-.16.16-.3.3-.61.3l.22-3.05 5.56-5.02c.24-.22-.05-.34-.38-.13l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.13-.95l11.58-4.46c.54-.19 1.01.13.83.92z"/></svg>`;
             }
             if (hostname.includes('vk.com')) {
-                return `<svg viewBox="0 0 24 24" width="30" height="30" fill="#0077FF"><path d="M12.78 17.5c-6.19 0-9.73-4.24-9.87-11.3h3.09c.1 5.18 2.38 7.37 4.2 7.82V6.2h2.91v4.46c1.78-.19 3.65-2.23 4.29-4.46h2.91c-.5 2.76-2.54 4.8-3.98 5.64 1.44.68 3.76 2.45 4.67 5.66h-3.21c-.72-2.23-2.5-3.96-4.88-4.2v4.2z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#0077FF"><path d="M12.78 17.5c-6.19 0-9.73-4.24-9.87-11.3h3.09c.1 5.18 2.38 7.37 4.2 7.82V6.2h2.91v4.46c1.78-.19 3.65-2.23 4.29-4.46h2.91c-.5 2.76-2.54 4.8-3.98 5.64 1.44.68 3.76 2.45 4.67 5.66h-3.21c-.72-2.23-2.5-3.96-4.88-4.2v4.2z"/></svg>`;
+            }
+            if (hostname.includes('twitch.tv')) {
+                return `<svg viewBox="0 0 24 24" width="34" height="34" fill="#9146FF"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>`;
+            }
+            if (hostname.includes('reddit.com')) {
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#FF4500"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.703zM9.25 12C8.56 12 8 12.56 8 13.25c0 .688.56 1.25 1.25 1.25.688 0 1.25-.562 1.25-1.25 0-.69-.562-1.25-1.25-1.25zm5.5 0c-.69 0-1.25.56-1.25 1.25 0 .688.56 1.25 1.25 1.25.688 0 1.25-.562 1.25-1.25 0-.69-.562-1.25-1.25-1.25zm-5.465 4.19a.465.465 0 0 0-.328.795c1.066 1.066 3.033 1.164 3.043 1.164.004 0 .008 0 .01 0 .01 0 1.977-.098 3.043-1.164a.465.465 0 0 0-.658-.658c-.732.732-2.164.896-2.395.918-.231-.022-1.663-.186-2.395-.918a.46.46 0 0 0-.32-.137z"/></svg>`;
             }
             if (hostname.includes('google.')) {
-                return `<svg viewBox="0 0 24 24" width="30" height="30"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.27V6.58H1.25A11.97 11.97 0 0 0 0 12c0 1.92.45 3.74 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>`;
+                return `<svg viewBox="0 0 24 24" width="36" height="36"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.27V6.58H1.25A11.97 11.97 0 0 0 0 12c0 1.92.45 3.74 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>`;
             }
 
             const letter = (title || hostname || '?').charAt(0).toUpperCase();
@@ -2931,7 +3103,12 @@
             add.className = 'quick-link quick-link-add';
             add.setAttribute('draggable', 'false');
             add.innerHTML = `
-          <div class="quick-link-icon">+</div>
+          <div class="quick-link-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </div>
           <span class="quick-link-title">Добавить</span>
         `;
             add.addEventListener('click', () => {
@@ -3086,7 +3263,13 @@
                 if (normUrl) {
                     previewFaviconBox.innerHTML = getQuickLinkIcon(normUrl, displayTitle);
                 } else {
-                    previewFaviconBox.innerHTML = '<span id="preview-favicon-fallback">🌐</span>';
+                    previewFaviconBox.innerHTML = `
+                        <div class="preview-tile-placeholder">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                        </div>`;
                 }
             }
         }
