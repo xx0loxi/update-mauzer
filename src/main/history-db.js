@@ -22,6 +22,8 @@ function ensureDb() {
   const Database = require('better-sqlite3');
   db = new Database(path.join(dir, 'history.db'));
   db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('temp_store = MEMORY');
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
       id TEXT PRIMARY KEY,
@@ -61,7 +63,10 @@ function migrateFromJson() {
 }
 
 function prune() {
-  db.prepare(`DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY timestamp DESC LIMIT ${MAX_ENTRIES})`).run();
+  if (!db) return;
+  try {
+    db.prepare(`DELETE FROM history WHERE timestamp < (SELECT timestamp FROM history ORDER BY timestamp DESC LIMIT 1 OFFSET ${MAX_ENTRIES})`).run();
+  } catch (e) { }
 }
 
 function get(limit = MAX_ENTRIES) {
@@ -122,4 +127,11 @@ function clear() {
   db.exec('DELETE FROM history');
 }
 
-module.exports = { get, search, add, addMany, remove, removeMany, clear };
+function close() {
+  if (db) {
+    try { db.close(); } catch (e) { }
+    db = null;
+  }
+}
+
+module.exports = { get, search, add, addMany, remove, removeMany, clear, close };

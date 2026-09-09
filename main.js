@@ -2,6 +2,14 @@
 // MAUZER BROWSER — Main Process (v2.0 — 103 Features)
 // ============================================================
 
+// --- Security Hardening: Environment Sanitization ---
+// Disarm attack vectors targeting Electron runtime execution (CVE-2023-39956, ASAR tampering)
+delete process.env.ELECTRON_RUN_AS_NODE;
+delete process.env.ELECTRON_NO_ASAR;
+if (process.env.NODE_OPTIONS) {
+  delete process.env.NODE_OPTIONS;
+}
+
 const { app, BrowserWindow, ipcMain, session, shell, Menu, dialog, nativeImage, screen, nativeTheme, net, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -11,23 +19,37 @@ const { autoUpdater } = require('electron-updater');
 const { isGoogleLoginUrl, readJSON, writeJSON, flushPendingWrites, normalizeVersion, compareVersions } = require('./src/main/utils');
 const importer = require('./src/main/importer');
 const historyDb = require('./src/main/history-db');
+const BloomFilter = require('./src/main/bloom-filter');
 
 // --- Windows 7 & Old PC Compatibility & Optimization ---
 const isWin7 = os.release().startsWith('6.1');
 const isLowEnd = process.env.SIMULATE_LOW_END === '1' || os.totalmem() < 4.5 * 1024 * 1024 * 1024 || os.cpus().length <= 2; // < 4.5GB RAM or <= 2 cores
 
+// ОПТИМИЗАЦИЯ: Более агрессивные лимиты на основе реальных ресурсов
+const cpuCores = os.cpus().length;
+const ramGB = os.totalmem() / (1024 ** 3);
+
+let processLimit = 8;
+if (ramGB < 2.5) processLimit = 1;        // < 2.5GB RAM
+else if (ramGB < 4) processLimit = 2;     // 2.5-4GB RAM
+else if (cpuCores <= 2) processLimit = 3; // Dual-core
+else if (isLowEnd) processLimit = 4;      // 4-4.5GB RAM
+
+console.log(`[Mauzer] System: ${ramGB.toFixed(1)}GB RAM, ${cpuCores} cores → renderer limit: ${processLimit}`);
+
 // Global Heavy-Tab Optimizations (Applies to ALL PCs)
 // 1. Process sharing: Groups same sites into single processes
 app.commandLine.appendSwitch('enable-features', 'ProcessPerSite,IntensiveWakeUpThrottling');
-// 2. Disable strict site isolation (Massive RAM savings for heavy tabs)
-app.commandLine.appendSwitch('disable-site-isolation-trials');
-// 3. Limit renderer processes based on system power — 8 instead of the old
-//    15: Frost Mode unloads inactive tabs anyway, and every renderer process
-//    costs 40-80 MB, so this cap is the biggest RAM lever with many tabs open
-app.commandLine.appendSwitch('renderer-process-limit', isLowEnd ? '2' : '8');
-// disable-features may be appended only ONCE — Chromium keeps the LAST value,
-// so the second appendSwitch below silently dropped this whole list. Merged.
-app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees,WebAuthentication,WebAuth,WebAuthn');
+// 2. Limit renderer processes based on system power (bounds RAM usage efficiently)
+app.commandLine.appendSwitch('renderer-process-limit', processLimit.toString());
+// 3. Security hardening: disable dangerous / vulnerable hardware & internal APIs in Chromium 108
+// (disable-features may be appended only ONCE — Chromium keeps the LAST value, so merged here)
+app.commandLine.appendSwitch('disable-features', 'TranslateUI,BlinkGenPropertyTrees,WebAuthentication,WebAuth,WebAuthn,WebUSB,WebBluetooth,WebHID,WebSerial,WebMIDI,WebMIDISysex,FileSystemAccessAPI,DirectSockets');
+// 4. Privacy & telemetry mitigations
+app.commandLine.appendSwitch('disable-domain-reliability');
+app.commandLine.appendSwitch('no-pings');
+app.commandLine.appendSwitch('disable-breakpad');
+app.commandLine.appendSwitch('ssl-version-min', 'tls1.2');
 
 if (isWin7 || isLowEnd) {
   // Old PCs often lack proper GPU drivers or RAM.
@@ -37,8 +59,10 @@ if (isWin7 || isLowEnd) {
       app.commandLine.appendSwitch('disable-gpu-compositing');
   }
   app.commandLine.appendSwitch('enable-low-end-device-mode');
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+  app.commandLine.appendSwitch('js-flags', '--expose-gc --max-old-space-size=512');
   console.log('[Mauzer] Windows 7 or Low-End PC detected. Extra optimization limits applied.');
+} else {
+  app.commandLine.appendSwitch('js-flags', '--expose-gc');
 }
 
 // Hidden benchmark/test runs (MAUZER_HIDDEN_TEST=1 or --security-selftest):
@@ -82,10 +106,10 @@ const SPOOFED_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 // This is critical for Google login — Google checks the UA and blocks Electron apps
 app.userAgentFallback = SPOOFED_UA;
 
-// --- CRITICAL: Disable Automation Control ---
-// This flag is the #1 reason Google blocks Electron logins.
-// It tells websites that the browser is being controlled by automation (like Selenium).
-app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+// --- CRITICAL: Disable Automation Control & Sandbox Escape Vectors ---
+// AutomationControlled blocks Google logins. MojoJS/MojoJSTest are internal Chromium IPC bridges
+// frequently abused in Chromium 108 for renderer-to-browser sandbox escape.
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled,MojoJS,MojoJSTest');
 // Other helpful flags for stealth
 // WebAuthentication,WebAuth,WebAuthn - kills "Windows Security" popup
 // (merged into the single disable-features switch above — a duplicate
@@ -109,22 +133,38 @@ let pulseStats = {
 };
 
 let pulseUpdateTimer = null;
+// ОПТИМИЗАЦИЯ: Отправляем только активному окну вместо всех
 function broadcastPulseStats(immediate = false) {
+  const activeWindow = BrowserWindow.getFocusedWindow();
+  if (!activeWindow || activeWindow.isDestroyed()) return;
+  
   if (immediate) {
     if (pulseUpdateTimer) { clearTimeout(pulseUpdateTimer); pulseUpdateTimer = null; }
-    windows.forEach(w => {
-      if (w && !w.isDestroyed()) w.webContents.send('pulse-stats-update', { ...pulseStats });
-    });
+    activeWindow.webContents.send('pulse-stats-update', { ...pulseStats });
     return;
   }
   if (!pulseUpdateTimer) {
     pulseUpdateTimer = setTimeout(() => {
       pulseUpdateTimer = null;
-      windows.forEach(w => {
-        if (w && !w.isDestroyed()) w.webContents.send('pulse-stats-update', { ...pulseStats });
-      });
-    }, 500); // 500ms throttle to prevent IPC flooding
+      if (!activeWindow.isDestroyed()) {
+        activeWindow.webContents.send('pulse-stats-update', { ...pulseStats });
+      }
+    }, 1000); // Увеличили до 1 сек — меньше нагрузка на IPC
   }
+}
+
+// При переключении окна — отправляем свежую статистику
+app.on('browser-window-focus', (event, window) => {
+  if (window && !window.isDestroyed()) {
+    window.webContents.send('pulse-stats-update', { ...pulseStats });
+  }
+});
+
+// RAM optimization: trim V8 heap and compact memory on minimize / idle
+function trimMemory() {
+  try {
+    if (global.gc) global.gc();
+  } catch (e) { }
 }
 
 // --- Filter sources (large, external) ---
@@ -162,6 +202,9 @@ const WHITELIST = new Set([
 ]);
 
 let dynamicBlockedDomains = new Set();
+let bloomFilter = null; // ОПТИМИЗАЦИЯ: Bloom filter для быстрой предварительной проверки
+const blockCache = new Map(); // ОПТИМИЗАЦИЯ: LRU кэш для частых доменов
+const CACHE_SIZE = 500;
 
 function parseHostsList(raw) {
   const set = new Set();
@@ -186,13 +229,24 @@ function parseHostsList(raw) {
   return set;
 }
 
-function loadLocalFilters() {
+// ОПТИМИЗАЦИЯ: Асинхронная загрузка с Bloom Filter
+async function loadLocalFilters() {
   try {
     const filtersPath = path.join(__dirname, 'src', 'main', 'adblock-filters.json');
     if (fs.existsSync(filtersPath)) {
-      const data = JSON.parse(fs.readFileSync(filtersPath, 'utf8'));
-      dynamicBlockedDomains = new Set(data);
+      // Асинхронное чтение вместо синхронного
+      const data = await fs.promises.readFile(filtersPath, 'utf8');
+      const list = JSON.parse(data);
+      
+      // Создаем Bloom Filter для быстрой проверки
+      const bloom = new BloomFilter(list.length * 10, 4);
+      list.forEach(domain => bloom.add(domain));
+      
+      dynamicBlockedDomains = new Set(list);
+      bloomFilter = bloom;
+      
       console.log('[Pulse] Pre-built filters loaded, unique domains:', dynamicBlockedDomains.size);
+      console.log('[Pulse] Bloom filter initialized:', bloom.size, 'bits');
     } else {
       console.log('[Pulse] No pre-built filters found at', filtersPath);
       dynamicBlockedDomains = new Set();
@@ -324,7 +378,7 @@ const DEFAULT_SETTINGS = {
   searchEngine: 'google',
   newtabBackground: 'default',
   fontSize: 'medium',
-  density: 'comfortable',
+  density: 'auto',
   showBookmarksBar: false,
   restoreSession: false,
   smoothScroll: true,
@@ -646,10 +700,13 @@ const BLOCKED_DOMAINS = [
   'ads.yahoo.com', 'advertising.com', 'ad.doubleclick.net',
   'adtech.de', 'adtech.com', 'adtechus.com',
   'teads.tv', 'zedo.com', 'gumgum.com', 'sovrn.com',
-  's.youtube.com', 'redirector.googlevideo.com', 'youtubei.googleapis.com',
+  // ИСПРАВЛЕНО: НЕ блокируем эти домены — они нужны для работы YouTube
+  // 's.youtube.com', 'redirector.googlevideo.com', 'youtubei.googleapis.com',
   'm.doubleclick.net', 'static.doubleclick.net', 'stats.g.doubleclick.net', 'cm.g.doubleclick.net', 'mediavisor.doubleclick.net', 'securepubads.g.doubleclick.net', 'pubads.g.doubleclick.net',
   'pagead2.googleadservices.com', 'www.googleadservices.com', 'afs.googlesyndication.com', 'fundingchoicesmessages.google.com',
-  'pagead2.googlesyndication.com', 'adservice.google.com', 'tpc.googlesyndication.com', 'pagead2.googlevideo.com',
+  'pagead2.googlesyndication.com', 'adservice.google.com', 'tpc.googlesyndication.com',
+  // ИСПРАВЛЕНО: pagead2.googlevideo.com убран — нужен для работы видео
+  // 'pagead2.googlevideo.com',
   'bingads.microsoft.com', 'ads.microsoft.com',
   // New domains from user list
   'cdn.ravenjs.com', 'app.getsentry.com', 'api.rollbar.com', 'cdn.rollbar.com', 'rollbar.com', 'd2wy8f7a9ursnm.cloudfront.net',
@@ -799,14 +856,70 @@ const TRACKER_EXTRA_DOMAINS = [
 ];
 const TRACKER_DOMAINS_SET = new Set([...BLOCKED_DOMAINS_SET, ...TRACKER_EXTRA_DOMAINS]);
 
+// ОПТИМИЗАЦИЯ: Кэшированная проверка домена с Bloom Filter
 function checkDomainInSet(hostname, set) {
-  if (set.has(hostname)) return true;
-  const parts = hostname.split('.');
-  for (let i = 1; i < parts.length - 1; i++) {
-    const sub = parts.slice(i).join('.');
-    if (set.has(sub)) return true;
+  if (!hostname) return false;
+  
+  const lower = hostname.toLowerCase();
+  
+  // Создаем уникальный ключ кэша для каждого set
+  const setId = set === BLOCKED_DOMAINS_SET ? 'blocked' :
+                set === WHITELIST ? 'whitelist' :
+                set === dynamicBlockedDomains ? 'dynamic' :
+                set === TRACKER_DOMAINS_SET ? 'tracker' : 'other';
+  const cacheKey = `${setId}:${lower}`;
+  
+  // Проверяем LRU кэш
+  if (blockCache.has(cacheKey)) {
+    return blockCache.get(cacheKey);
   }
-  return false;
+  
+  // Bloom filter: отсекаем только если НИ сам домен, НИ один из его родительских доменов не присутствуют в Bloom
+  if (set === dynamicBlockedDomains && bloomFilter) {
+    let mightMatch = bloomFilter.has(lower);
+    if (!mightMatch) {
+      const parts = lower.split('.');
+      for (let i = 1; i < parts.length - 1; i++) {
+        if (bloomFilter.has(parts.slice(i).join('.'))) {
+          mightMatch = true;
+          break;
+        }
+      }
+    }
+    if (!mightMatch) {
+      // Bloom гарантирует "точно нет" для хоста и всех его родительских доменов
+      if (blockCache.size >= CACHE_SIZE) {
+        const firstKey = blockCache.keys().next().value;
+        blockCache.delete(firstKey);
+      }
+      blockCache.set(cacheKey, false);
+      return false;
+    }
+  }
+  
+  // Точная проверка: hostname или родительский домен
+  let result = false;
+  if (set.has(lower)) {
+    result = true;
+  } else {
+    const parts = lower.split('.');
+    for (let i = 1; i < parts.length - 1; i++) {
+      const sub = parts.slice(i).join('.');
+      if (set.has(sub)) {
+        result = true;
+        break;
+      }
+    }
+  }
+  
+  // Кэшируем результат (LRU)
+  if (blockCache.size >= CACHE_SIZE) {
+    const firstKey = blockCache.keys().next().value;
+    blockCache.delete(firstKey);
+  }
+  blockCache.set(cacheKey, result);
+  
+  return result;
 }
 
 function isBlockedDomain(hostname) {
@@ -868,6 +981,13 @@ function httpsOnlyRedirect(details) {
   }
 }
 
+// Security: Fast regex for detecting private network addresses (localhost, LAN, link-local, loopback)
+const IS_PRIVATE_IP_RE = /^(?:localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|169\.254\.\d+\.\d+|\[?::1\]?)$/i;
+function isPrivateHost(host) {
+  if (!host) return false;
+  return IS_PRIVATE_IP_RE.test(host) || host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.internal');
+}
+
 function attachAdBlockerToSession(ses) {
   if (!ses || !ses.webRequest) return;
   try {
@@ -910,6 +1030,7 @@ function attachAdBlockerToSession(ses) {
     if (!pulseEnabled) { callback({}); return; }
 
     // Stealth Network: fake 200 OK for YouTube ads and telemetry to completely eliminate ads
+    // ИСПРАВЛЕНО: Более точная фильтрация для YouTube
     if (
       /\/log_event/.test(details.url) ||
       /\/api\/stats\/ads/.test(details.url) ||
@@ -918,13 +1039,33 @@ function attachAdBlockerToSession(ses) {
       /youtube\.com\/ptracking/.test(details.url) ||
       /youtube\.com\/get_midroll_info/.test(details.url) ||
       /googleads\.g\.doubleclick\.net/.test(details.url) ||
-      /static\.doubleclick\.net\/instream/.test(details.url) ||
-      /googlevideo\.com\/videoplayback.*[?&](adformat|ad_type|ctier)/.test(details.url)
+      /static\.doubleclick\.net\/instream/.test(details.url)
+      // ИСПРАВЛЕНО: Убрал блокировку googlevideo.com — она ломала видео
+      // Проблема была: /googlevideo\.com\/videoplayback.*[?&](adformat|ad_type|ctier)/
+      // YouTube использует эти параметры и для обычных видео!
     ) {
       pulseStats.adsBlocked++;
       broadcastPulseStats();
       callback({ redirectURL: 'data:,' });
       return;
+    }
+    
+    // НОВОЕ: Более умная блокировка видеорекламы YouTube
+    // Блокируем только если это ТОЧНО реклама (несколько маркеров одновременно)
+    if (/googlevideo\.com\/videoplayback/.test(details.url)) {
+      const url = details.url;
+      // Блокируем только если есть явные признаки рекламы
+      const hasAdMarkers = (
+        (url.includes('adformat') || url.includes('ad_type')) &&
+        (url.includes('&ad=1') || url.includes('&ctype=ad') || url.includes('&clen=') && parseInt(url.match(/clen=(\d+)/)?.[1] || 0) < 300000) // короткие видео < 300KB
+      );
+      
+      if (hasAdMarkers) {
+        pulseStats.adsBlocked++;
+        broadcastPulseStats();
+        callback({ redirectURL: 'data:,' });
+        return;
+      }
     }
 
     let url;
@@ -934,6 +1075,28 @@ function attachAdBlockerToSession(ses) {
       pulseStats.requestsTotal++;
       callback({});
       return;
+    }
+
+    // Security: Private Network Access (PNA) / SSRF Guard
+    // Blocks external websites from scanning or attacking local/internal network services (localhost, routers, printers)
+    if (isPrivateHost(url.hostname)) {
+      let isExternalCaller = false;
+      if (details.initiator) {
+        try {
+          const initHost = new URL(details.initiator).hostname;
+          if (initHost && !isPrivateHost(initHost)) isExternalCaller = true;
+        } catch (e) { }
+      } else if (details.referrer) {
+        try {
+          const refHost = new URL(details.referrer).hostname;
+          if (refHost && !isPrivateHost(refHost)) isExternalCaller = true;
+        } catch (e) { }
+      }
+      if (isExternalCaller) {
+        console.warn('[Security] Blocked external request to private network:', url.hostname, 'from:', details.initiator || details.referrer);
+        callback({ cancel: true });
+        return;
+      }
     }
     const thirdParty = isThirdPartyRequest(details, url);
 
@@ -1583,16 +1746,20 @@ function setupDownloads() {
       broadcastDownload('download-progress', { ...dlItem });
     });
 
-    item.once('done', (event, state) => {
+    item.once('done', async (event, state) => {
       dlItem.state = state;
       dlItem.receivedBytes = dlItem.totalBytes;
       if (!recordHistory) return; // incognito: file is saved, but nothing is persisted
+      try {
+        if (state === 'completed' && downloadPath && fs.existsSync(downloadPath)) {
+          const icon = await app.getFileIcon(downloadPath, { size: 'normal' });
+          if (icon && !icon.isEmpty()) {
+            dlItem.iconUrl = icon.toDataURL();
+          }
+        }
+      } catch (_) {}
       addDownload(dlItem);
       broadcastDownload('download-complete', { ...dlItem });
-      broadcastDownload('toast', {
-        message: `Загружено: ${fileName}`,
-        type: 'success'
-      });
     });
     });
   };
@@ -1688,6 +1855,9 @@ function createWindow(isIncognito = false) {
   win.on('unmaximize', () => {
     win.webContents.send('window-state-changed', { maximized: false });
   });
+  win.on('minimize', () => {
+    trimMemory();
+  });
 
   win.on('enter-full-screen', () => {
     win.webContents.send('fullscreen-changed', true);
@@ -1723,9 +1893,22 @@ function createWindow(isIncognito = false) {
 // Local pages that may carry the full IPC preload into a webview — only the
 // app's own UI pages, never an arbitrary file:// document (e.g. an HTML file
 // from Downloads)
-const APP_LOCAL_PAGE_RE = /\/(newtab|settings|incognito)\.html($|[?#])/i;
+const APP_LOCAL_PAGE_RE = /\/(newtab|settings|incognito|import|index)\.html($|[?#])/i;
+const APP_SRC_DIR = path.normalize(path.resolve(path.join(__dirname, 'src'))).toLowerCase();
 function isAppLocalPageUrl(url) {
-  try { return APP_LOCAL_PAGE_RE.test(decodeURIComponent(url)); } catch (e) { return APP_LOCAL_PAGE_RE.test(url); }
+  if (!url || typeof url !== 'string') return false;
+  if (!url.startsWith('file:')) return false;
+  if (!APP_LOCAL_PAGE_RE.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'file:') return false;
+    let p = decodeURIComponent(parsed.pathname);
+    if (/^\/[A-Za-z]:[\/]/.test(p)) p = p.slice(1);
+    const norm = path.normalize(path.resolve(p)).toLowerCase();
+    return norm.startsWith(APP_SRC_DIR);
+  } catch (e) {
+    return false;
+  }
 }
 
 // Permission handlers must exist on EVERY session: without one Electron
@@ -1733,12 +1916,25 @@ function isAppLocalPageUrl(url) {
 // — a site there would get the mic/camera silently, with no dialog at all.
 function attachPermissionHandlers(ses) {
   if (!ses || typeof ses.setPermissionRequestHandler !== 'function') return;
+  try {
+    if (typeof ses.setWebRTCIPHandlingPolicy === 'function') {
+      ses.setWebRTCIPHandlingPolicy('default_public_interface_only');
+    }
+  } catch (e) { }
   // clipboard-read is deliberately NOT auto-granted: a silent read is a
   // silent data leak, it goes through the same per-site dialog as the mic.
   // clipboard-write only pushes data OUT, so it stays automatic.
   const alwaysAllowed = ['clipboard-write', 'fullscreen', 'pointerLock', 'mediaKeySystem', 'audio'];
+  const blockedPermissions = [
+    'usb', 'serial', 'hid', 'bluetooth', 'midi', 'midi-sysex',
+    'sensors', 'ambient-light-sensor', 'accelerometer', 'gyroscope', 'magnetometer',
+    'idle-detection', 'screen-wake-lock', 'system-wake-lock', 'nfc',
+    'payment-handler', 'background-sync', 'background-fetch', 'periodic-background-sync',
+    'accessibility-events', 'clipboard-sanitized-write'
+  ];
 
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (blockedPermissions.includes(permission)) return callback(false);
     if (alwaysAllowed.includes(permission)) return callback(true);
 
     // Camera/microphone/clipboard: per-site decision, remembered in permissions.json
@@ -1784,6 +1980,7 @@ function attachPermissionHandlers(ses) {
 
   // Also handle permission checks (not just requests)
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    if (blockedPermissions.includes(permission)) return false;
     if (alwaysAllowed.includes(permission)) return true;
     if (permission === 'media' || permission === 'microphone' || permission === 'clipboard-read') {
       try {
@@ -1809,6 +2006,9 @@ app.on('web-contents-created', (event, contents) => {
       webPreferences.contextIsolation = true;
       webPreferences.enableRemoteModule = false;
       webPreferences.sandbox = true;
+      webPreferences.allowRunningInsecureContent = false;
+      webPreferences.experimentalFeatures = false;
+      delete webPreferences.commandLineSwitches;
 
       // The preload may only ride along to the app's own UI pages. This is
       // the real file:// gate — the initial webview src never fires
@@ -1845,33 +2045,44 @@ app.on('web-contents-created', (event, contents) => {
       return { action: 'deny' };
     });
 
-    // Security: Prevent arbitrary navigation to local file:// or dangerous schemes from webviews
-    contents.on('will-navigate', (navEvent, navigationUrl) => {
+    // Security: Prevent arbitrary navigation to local file:// or dangerous schemes from webviews (gates both will-navigate and will-redirect)
+    const handleNavigationGate = (navEvent, navigationUrl) => {
       try {
+        if (!navigationUrl || typeof navigationUrl !== 'string') {
+          navEvent.preventDefault();
+          return;
+        }
+        // Fast paths for standard web protocols
+        if (navigationUrl.startsWith('https://') || navigationUrl.startsWith('http://') || navigationUrl.startsWith('about:') || navigationUrl.startsWith('mauzer:')) {
+          return;
+        }
         const parsed = new URL(navigationUrl);
         if (parsed.protocol === 'file:') {
-          const appDir = path.resolve(__dirname);
-          let targetPath = '';
-          try { targetPath = decodeURIComponent(parsed.pathname); } catch (e) { targetPath = parsed.pathname; }
-          // Windows file URLs look like file:///C:/... — strip the leading slash before resolving
-          if (/^\/[A-Za-z]:[\/]/.test(targetPath)) targetPath = targetPath.slice(1);
-          const rel = path.relative(appDir, path.resolve(targetPath));
-          if (rel.startsWith('..') || path.isAbsolute(rel)) {
-            navEvent.preventDefault();
-            console.warn('[Security] Blocked unauthorized file navigation to:', navigationUrl);
+          // Webviews may ONLY navigate to valid local app pages if already on an internal page
+          if (isAppLocalPageUrl(navigationUrl)) {
+            const currentUrl = (contents && !contents.isDestroyed()) ? contents.getURL() : '';
+            if (!currentUrl || currentUrl.startsWith('file:') || currentUrl.startsWith('about:') || currentUrl.startsWith('mauzer:')) {
+              return;
+            }
           }
-        } else if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'mauzer:' && parsed.protocol !== 'about:') {
           navEvent.preventDefault();
-          console.warn('[Security] Blocked non-standard protocol navigation to:', navigationUrl);
+          console.warn('[Security] Blocked unauthorized file navigation to:', navigationUrl);
+          return;
         }
+        navEvent.preventDefault();
+        console.warn('[Security] Blocked non-standard protocol navigation to:', navigationUrl);
       } catch (e) {
         navEvent.preventDefault();
       }
-    });
+    };
+
+    contents.on('will-navigate', handleNavigationGate);
+    contents.on('will-redirect', handleNavigationGate);
 
     // Right-click context menu
     contents.on('context-menu', (e, params) => {
       if (contents.getType() !== 'webview') return;
+      const hostWin = (contents && !contents.isDestroyed() && BrowserWindow.fromWebContents(contents)) || mainWindow;
       const menuItems = [];
 
       // Navigation
@@ -1900,7 +2111,9 @@ app.on('web-contents-created', (event, contents) => {
         if (linkSafe) {
           menuItems.push({
             label: 'Открыть ссылку в новой вкладке',
-            click: () => mainWindow.webContents.send('open-url-in-new-tab', params.linkURL)
+            click: () => {
+              if (hostWin && !hostWin.isDestroyed()) hostWin.webContents.send('open-url-in-new-tab', params.linkURL);
+            }
           });
         }
         menuItems.push({
@@ -1923,7 +2136,7 @@ app.on('web-contents-created', (event, contents) => {
         menuItems.push({
           label: 'Сохранить изображение как...',
           click: () => {
-            mainWindow.webContents.downloadURL(params.srcURL);
+            if (hostWin && !hostWin.isDestroyed()) hostWin.webContents.downloadURL(params.srcURL);
           }
         });
         menuItems.push({ type: 'separator' });
@@ -1939,7 +2152,7 @@ app.on('web-contents-created', (event, contents) => {
       });
 
       const menu = Menu.buildFromTemplate(menuItems);
-      menu.popup({ window: mainWindow });
+      if (hostWin && !hostWin.isDestroyed()) menu.popup({ window: hostWin });
     });
 });
 
@@ -2165,6 +2378,23 @@ ipcMain.handle('downloads:showInFolder', (_, filepath) => {
   }
 });
 ipcMain.handle('downloads:openFolder', () => { shell.openPath(app.getPath('downloads')); });
+ipcMain.handle('downloads:getFileIcon', async (_, filepath) => {
+  if (!filepath || typeof filepath !== 'string') return null;
+  try {
+    const resolved = path.resolve(filepath);
+    const downloadsDir = path.resolve(app.getPath('downloads'));
+    const rel = path.relative(downloadsDir.toLowerCase(), resolved.toLowerCase());
+    const isInsideDownloads = rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    if (!isInsideDownloads) {
+      return null;
+    }
+    const icon = await app.getFileIcon(resolved, { size: 'normal' });
+    if (!icon || icon.isEmpty()) return null;
+    return icon.toDataURL();
+  } catch (e) {
+    return null;
+  }
+});
 
 // --- Bookmarks ---
 ipcMain.handle('bookmarks:get', () => getBookmarks());
@@ -2333,11 +2563,16 @@ function getBrowserPaths() {
 // Import credentials may only ever be requested by the import wizard — the
 // shared preload exposes mauzer.import.* to every local page, so any other
 // caller (e.g. a compromised local page) is rejected at the IPC boundary
+const IMPORT_HTML_PATH = path.normalize(path.resolve(path.join(__dirname, 'src', 'import.html'))).toLowerCase();
 function isImportSender(e) {
   try {
-    let url = (e && e.sender && !e.sender.isDestroyed()) ? e.sender.getURL() : '';
-    try { url = decodeURIComponent(url); } catch (err) { }
-    return /^file:/i.test(url) && /\/import\.html$/i.test(url);
+    if (!e || !e.sender || e.sender.isDestroyed()) return false;
+    let url = e.sender.getURL();
+    if (!url || !url.startsWith('file:') || !url.includes('import.html')) return false;
+    const parsed = new URL(url);
+    let p = decodeURIComponent(parsed.pathname);
+    if (/^\/[A-Za-z]:[\/]/.test(p)) p = p.slice(1);
+    return path.normalize(path.resolve(p)).toLowerCase() === IMPORT_HTML_PATH;
   } catch (err) { return false; }
 }
 
@@ -2610,6 +2845,9 @@ async function runSecuritySelfTest() {
     evilFile = path.join(app.getPath('temp'), `mauzer-selftest-evil-${Date.now()}.html`);
     fs.writeFileSync(evilFile, '<!doctype html><title>evil</title>');
     const evilUrl = 'file:///' + evilFile.replace(/\\/g, '/');
+    const fakeNewtabFile = path.join(app.getPath('temp'), `mauzer-fake-newtab-${Date.now()}-newtab.html`);
+    fs.writeFileSync(fakeNewtabFile, '<!doctype html><title>fake newtab</title>');
+    const fakeNewtabUrl = 'file:///' + fakeNewtabFile.replace(/\\/g, '/');
     const newtabUrl = 'file:///' + path.join(__dirname, 'src', 'newtab.html').replace(/\\/g, '/') + '?theme=dark';
 
     const out = await wc.executeJavaScript(`(async () => {
@@ -2617,14 +2855,43 @@ async function runSecuritySelfTest() {
       out.mauzerApi = typeof window.mauzer;
       out.nodeRequire = typeof window.require;
       out.processGlobal = typeof window.process;
+      out.nodeBuffer = typeof window.Buffer;
       out.openOutsideDownloads = await window.mauzer.downloads.open(${JSON.stringify(calcPath)});
       out.showInFolderOutside = await window.mauzer.downloads.showInFolder(${JSON.stringify(calcPath)});
       out.openExternalFile = await window.mauzer.shell.openExternal('file:///C:/Windows');
       out.openExternalJs = await window.mauzer.shell.openExternal('javascript:alert(1)');
+      out.openExternalMsdt = await window.mauzer.shell.openExternal('ms-msdt:/id PCWDiagnostic');
+      out.openExternalSearch = await window.mauzer.shell.openExternal('search-ms:query=test');
+      out.openExternalAppInstaller = await window.mauzer.shell.openExternal('ms-appinstaller:?source=evil');
+      out.openExternalVbscript = await window.mauzer.shell.openExternal('vbscript:msgbox("test")');
       out.getPathExe = await window.mauzer.app.getPath('exe');
       out.getPathSessionData = await window.mauzer.app.getPath('sessionData');
+      out.getPathDesktop = await window.mauzer.app.getPath('desktop');
+      out.getPathAppData = await window.mauzer.app.getPath('appData');
       out.importDetect = await window.mauzer.import.detect();
       out.importPasswordsCount = (await window.mauzer.import.passwords('chrome')).count;
+      out.importBookmarksCount = (await window.mauzer.import.bookmarks('chrome')).count;
+      out.importHistoryCount = (await window.mauzer.import.history('chrome')).count;
+      let evalBlocked = false;
+      try {
+        eval('1+1');
+      } catch (e) {
+        evalBlocked = true;
+      }
+      out.evalBlocked = evalBlocked;
+      out.rawIpcRenderer = typeof window.ipcRenderer;
+      out.openExternalCmd = await window.mauzer.shell.openExternal('cmd:/c dir');
+      out.openExternalPowershell = await window.mauzer.shell.openExternal('powershell:-enc test');
+      out.openExternalData = await window.mauzer.shell.openExternal('data:text/html,evil');
+      let protoPollutionBlocked = false;
+      try {
+        const payload = JSON.parse('{"__proto__":{"polluted":true},"theme":"dark"}');
+        await window.mauzer.settings.save(payload);
+        protoPollutionBlocked = (Object.prototype.polluted === undefined);
+      } catch (e) {
+        protoPollutionBlocked = true;
+      }
+      out.protoPollutionBlocked = protoPollutionBlocked;
       let historyLen = -1;
       try {
         const hist = await window.mauzer.history.get();
@@ -2650,6 +2917,7 @@ async function runSecuritySelfTest() {
         document.body.appendChild(wv);
       });
       out.webviewEvilApi = await probeWebview(${JSON.stringify(evilUrl)});
+      out.webviewFakeNewtabApi = await probeWebview(${JSON.stringify(fakeNewtabUrl)});
       out.webviewNewtabApi = await probeWebview(${JSON.stringify(newtabUrl)});
       return out;
     })()`, true);
@@ -2657,22 +2925,39 @@ async function runSecuritySelfTest() {
     expect('contextBridge API present in shell', out.mauzerApi === 'object', out.mauzerApi);
     expect('no require() in renderer', out.nodeRequire === 'undefined', out.nodeRequire);
     expect('no process global in renderer', out.processGlobal === 'undefined', out.processGlobal);
+    expect('no Buffer global in renderer', out.nodeBuffer === 'undefined', out.nodeBuffer);
+    expect('no raw ipcRenderer leaked in renderer', out.rawIpcRenderer === 'undefined', out.rawIpcRenderer);
+    expect('prototype pollution on exposed API blocked [GHSA-ff2p-hmqr-hxm4]', out.protoPollutionBlocked === true, out.protoPollutionBlocked);
     expect('downloads:open refuses paths outside Downloads', out.openOutsideDownloads === false, out.openOutsideDownloads);
     expect('downloads:showInFolder refuses paths outside Downloads', out.showInFolderOutside === false, out.showInFolderOutside);
     expect('shell:openExternal refuses file://', out.openExternalFile === false, out.openExternalFile);
     expect('shell:openExternal refuses javascript:', out.openExternalJs === false, out.openExternalJs);
+    expect('shell:openExternal refuses ms-msdt: [CVE-2022-30190]', out.openExternalMsdt === false, out.openExternalMsdt);
+    expect('shell:openExternal refuses search-ms: [CVE-2024-27997]', out.openExternalSearch === false, out.openExternalSearch);
+    expect('shell:openExternal refuses ms-appinstaller: protocol', out.openExternalAppInstaller === false, out.openExternalAppInstaller);
+    expect('shell:openExternal refuses vbscript: protocol', out.openExternalVbscript === false, out.openExternalVbscript);
+    expect('shell:openExternal refuses cmd: command execution', out.openExternalCmd === false, out.openExternalCmd);
+    expect('shell:openExternal refuses powershell: command execution', out.openExternalPowershell === false, out.openExternalPowershell);
+    expect('shell:openExternal refuses data: URI scheme', out.openExternalData === false, out.openExternalData);
     expect('app:getPath allowlist refuses "exe"', out.getPathExe === null, out.getPathExe);
     expect('app:getPath allowlist refuses "sessionData"', out.getPathSessionData === null, out.getPathSessionData);
+    expect('app:getPath allowlist refuses "desktop"', out.getPathDesktop === null, out.getPathDesktop);
+    expect('app:getPath allowlist refuses "appData"', out.getPathAppData === null, out.getPathAppData);
     expect('import:detect gated to import.html only', out.importDetect === null, out.importDetect);
     expect('import:passwords gated to import.html only', out.importPasswordsCount === 0, out.importPasswordsCount);
+    expect('import:bookmarks gated to import.html only', out.importBookmarksCount === 0, out.importBookmarksCount);
+    expect('import:history gated to import.html only', out.importHistoryCount === 0, out.importHistoryCount);
     expect('history list capped at 200 rows', out.historyLen >= 0 && out.historyLen <= 200, out.historyLen);
+    expect('shell CSP strictly blocks eval() [CVE-2023-23623]', out.evalBlocked === true, out.evalBlocked);
     expect('webview preload stripped for non-app file:// page', out.webviewEvilApi === 'undefined', out.webviewEvilApi);
+    expect('webview preload stripped for outside fake newtab.html', out.webviewFakeNewtabApi === 'undefined', out.webviewFakeNewtabApi);
     expect('webview preload kept for app page (newtab)', out.webviewNewtabApi === 'object', out.webviewNewtabApi);
   } catch (e) {
     console.log('[SelfTest] FAIL harness (' + ((e && e.message) || e) + ')');
     results.push(false);
   }
   try { if (evilFile && fs.existsSync(evilFile)) fs.unlinkSync(evilFile); } catch (e) { }
+  try { if (fakeNewtabFile && fs.existsSync(fakeNewtabFile)) fs.unlinkSync(fakeNewtabFile); } catch (e) { }
   const passed = results.filter(Boolean).length;
   console.log(`[SelfTest] RESULT: ${passed}/${results.length} passed`);
   await wait(300);
@@ -2805,6 +3090,11 @@ app.whenReady().then(async () => {
 // otherwise session/settings changes made in the last second are lost.
 app.on('before-quit', () => {
   flushPendingWrites();
+  try { historyDb.close(); } catch (e) { }
+});
+
+app.on('will-quit', () => {
+  try { historyDb.close(); } catch (e) { }
 });
 
 app.on('window-all-closed', async () => {

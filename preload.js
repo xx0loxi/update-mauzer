@@ -7,10 +7,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Self-gate: this preload carries the full IPC API, so it must only ever
 // speak to the app's own pages. If it somehow ends up in any other document
 // (a webview preload attribute that bypassed main-process gating, a stray
-// BrowserWindow, …), it exposes NOTHING at all.
+// BrowserWindow, an external web page ending in newtab.html, …), it exposes NOTHING at all.
 const APP_PAGE_RE = /\/(index|newtab|settings|incognito|import)\.html($|[?#])/i;
 let isAppPage = false;
-try { isAppPage = APP_PAGE_RE.test(decodeURIComponent(location.href)); } catch (e) { }
+try {
+  const isFile = location.protocol === 'file:';
+  isAppPage = isFile && APP_PAGE_RE.test(decodeURIComponent(location.href));
+} catch (e) {
+  isAppPage = false;
+}
 
 if (isAppPage) {
 contextBridge.exposeInMainWorld('mauzer', {
@@ -52,6 +57,7 @@ contextBridge.exposeInMainWorld('mauzer', {
         clear: () => ipcRenderer.invoke('downloads:clear'),
         open: (filepath) => ipcRenderer.invoke('downloads:open', filepath),
         showInFolder: (filepath) => ipcRenderer.invoke('downloads:showInFolder', filepath),
+        getFileIcon: (filepath) => ipcRenderer.invoke('downloads:getFileIcon', filepath),
         onProgress: (cb) => ipcRenderer.on('download-progress', (_, d) => cb(d)),
         onComplete: (cb) => ipcRenderer.on('download-complete', (_, d) => cb(d)),
     },

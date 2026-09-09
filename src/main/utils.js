@@ -68,9 +68,25 @@ function writeJSON(file, data) {
     try {
       const dir = path.join(app.getPath('userData'), 'mauzer-data');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      // Use async write to avoid blocking the main thread
-      fs.writeFile(path.join(dir, file), serialize(file, data), 'utf8', (err) => {
-        if (err) console.error(`Async write ${file} error:`, err);
+      const targetPath = path.join(dir, file);
+      const tmpPath = targetPath + '.tmp';
+      // Atomic write: write to temp file first, then rename, ensuring 0-byte corruption never occurs
+      fs.writeFile(tmpPath, serialize(file, data), 'utf8', (err) => {
+        if (err) {
+          console.error(`Async write ${file} error:`, err);
+          return;
+        }
+        try {
+          fs.rename(tmpPath, targetPath, (renErr) => {
+            if (renErr) {
+              // Fallback for Windows file locks
+              try {
+                fs.copyFileSync(tmpPath, targetPath);
+                fs.unlinkSync(tmpPath);
+              } catch (_) { }
+            }
+          });
+        } catch (e) { }
       });
     } catch (e) { console.error(`Write setup ${file} error:`, e); }
   }, 1000); // 1 second debounce
@@ -87,7 +103,15 @@ function flushPendingWrites() {
     try {
       const dir = path.join(app.getPath('userData'), 'mauzer-data');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, file), serialize(file, data), 'utf8');
+      const targetPath = path.join(dir, file);
+      const tmpPath = targetPath + '.tmp';
+      fs.writeFileSync(tmpPath, serialize(file, data), 'utf8');
+      try {
+        fs.renameSync(tmpPath, targetPath);
+      } catch (e) {
+        fs.copyFileSync(tmpPath, targetPath);
+        try { fs.unlinkSync(tmpPath); } catch (_) { }
+      }
     } catch (e) { console.error(`Flush write ${file} error:`, e); }
   });
   writeTimeouts.clear();

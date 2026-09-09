@@ -21,6 +21,13 @@
     <div id="toast-container" class="toast-container"></div>
 
     <div id="update-banner" class="update-banner">
+        <div class="update-banner-badge-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        </div>
         <div class="update-banner-text">
             <div id="update-banner-title" class="update-banner-title"></div>
             <div id="update-banner-subtitle" class="update-banner-subtitle"></div>
@@ -28,9 +35,17 @@
         <div class="update-banner-actions">
             <button id="update-banner-btn" class="update-banner-btn" type="button"></button>
             <button id="update-banner-hide" class="update-banner-hide" type="button"></button>
+            <button id="update-banner-close" class="update-banner-close" type="button" title="Скрыть в значок">✕</button>
         </div>
     </div>
-    <button id="update-mini" class="update-mini" type="button"></button>
+    <button id="update-mini" class="update-mini" type="button" title="Доступно обновление Mauzer. Нажмите, чтобы открыть">
+        <svg class="update-mini-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span class="update-mini-dot"></span>
+    </button>
 
     <!-- ============ BROWSER SHELL ============ -->
     <div id="browser-shell" class="browser-shell">
@@ -233,6 +248,7 @@
                         <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="1.5"
                             stroke-linecap="round" />
                     </svg>
+                    <span class="downloads-badge" id="downloads-badge" style="display:none">0</span>
                 </button>
 
                 <button id="btn-menu" class="feature-btn" title="Меню (Ctrl+K)">
@@ -274,42 +290,27 @@
             <!-- === SIDEBAR === -->
             <div id="sidebar" class="sidebar" style="display:none">
                 <div class="sidebar-tabs">
-                    <button class="sidebar-tab active" data-panel="bookmarks" title="Закладки">
+                    <button class="sidebar-tab active" data-panel="history" title="История">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M3 2h10v12l-5-3-5 3V2z" stroke="currentColor" stroke-width="1.2" fill="none" />
+                            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.3" fill="none" />
+                            <path d="M8 4.5v3.8l2.5 1.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </button>
-                    <button class="sidebar-tab" data-panel="history" title="История">
+                    <button class="sidebar-tab" data-panel="bookmarks" title="Закладки">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" fill="none" />
-                            <path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                            <path d="M3.5 2.5h9v11.5l-4.5-3-4.5 3V2.5z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
                         </svg>
                     </button>
                     <button class="sidebar-tab" data-panel="downloads" title="Загрузки">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="currentColor" stroke-width="1.2"
+                            <path d="M8 2.5v7.5M5 7l3 3 3-3M3.5 13h9" stroke="currentColor" stroke-width="1.3"
                                 stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </button>
-                    <button class="sidebar-tab" data-panel="notes" title="Заметки">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"
-                                fill="none" />
-                            <path d="M6 5h4M6 7.5h4M6 10h2" stroke="currentColor" stroke-width="1"
-                                stroke-linecap="round" />
                         </svg>
                     </button>
                     <button class="sidebar-tab" data-panel="readinglist" title="Отложенное">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M2 3h12M2 6.5h12M2 10h8M2 13h5" stroke="currentColor" stroke-width="1.2"
+                            <path d="M2.5 3.5h11M2.5 7h11M2.5 10.5h7.5M2.5 13.5h5" stroke="currentColor" stroke-width="1.3"
                                 stroke-linecap="round" />
-                        </svg>
-                    </button>
-                    <button class="sidebar-tab" data-panel="settings" title="Настройки">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2" fill="none" />
-                            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M13 3l-1.5 1.5M4.5 11.5L3 13"
-                                stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
                         </svg>
                     </button>
                 </div>
@@ -328,12 +329,48 @@
         <!-- === STATUS BAR === -->
         <div id="status-bar" class="status-bar">
             <div class="status-left">
-                <span id="status-version" class="status-version"></span>
-                <span id="status-text" class="status-text"></span>
+                <button id="status-brand-btn" class="status-badge status-brand-badge" title="Mauzer Browser — Настройки">
+                    <span class="status-brand-dot"></span>
+                    <span class="status-brand-name">Mauzer</span>
+                    <span id="status-version" class="status-version-num"></span>
+                </button>
+                <div id="status-url-preview" class="status-url-preview" style="display:none;">
+                    <svg class="status-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    <span id="status-text" class="status-text"></span>
+                </div>
             </div>
+
+            <div class="status-center">
+                <button id="status-ram-btn" class="status-badge status-ram-badge" title="Использование памяти RAM. Нажмите для быстрой очистки памяти">
+                    <svg class="status-icon status-ram-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                        <rect x="9" y="9" width="6" height="6"/>
+                        <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
+                    </svg>
+                    <span id="status-ram" class="status-metric-val">RAM: --</span>
+                </button>
+                <button id="status-zoom-btn" class="status-badge status-zoom-badge" title="Масштаб страницы. Нажмите для сброса на 100%">
+                    <svg class="status-icon status-zoom-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        <line x1="11" y1="8" x2="11" y2="14"/>
+                        <line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                    <span id="status-zoom" class="status-metric-val">100%</span>
+                </button>
+            </div>
+
             <div class="status-right">
-                <span id="status-ram" class="status-badge" title="Использование RAM">RAM: --</span>
-                <span id="status-zoom" class="status-badge" title="Масштаб">100%</span>
+                <div id="status-shield-chip" class="status-badge status-shield-badge" title="Защита Mauzer: AdBlock (230k+ правил), HTTPS-Only и изоляция">
+                    <svg class="status-icon status-shield-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                    <span class="status-shield-text">Shield ON</span>
+                </div>
             </div>
         </div>
 
@@ -439,16 +476,44 @@
     <!-- ============ DOWNLOADS PANEL ============ -->
     <div id="downloads-panel" class="downloads-panel" style="display:none">
         <div class="downloads-panel-header">
-            <h3>Загрузки</h3>
-            <span id="downloads-open-folder" class="downloads-link">Открыть папку</span>
+            <div class="downloads-panel-title-wrap">
+                <div class="downloads-panel-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </div>
+                <h3>Загрузки</h3>
+            </div>
+            <button id="downloads-open-folder" class="downloads-chip-btn" title="Открыть папку загрузок">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>Открыть папку</span>
+            </button>
         </div>
         <div id="downloads-panel-list" class="downloads-panel-list">
             <!-- Items injected by JS -->
-            <div class="downloads-empty">Нет загрузок</div>
+            <div class="downloads-empty">
+                <div class="downloads-empty-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                </div>
+                <div class="downloads-empty-title">Нет активных загрузок</div>
+                <div class="downloads-empty-desc">Файлы, скачанные в браузере, появятся здесь</div>
+            </div>
         </div>
         <div class="downloads-panel-footer">
-            <span id="downloads-show-all" class="downloads-link">Все загрузки</span>
-            <span id="downloads-clear" class="downloads-link">Очистить</span>
+            <button id="downloads-show-all" class="downloads-footer-btn" title="Все загрузки">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                <span>Все загрузки</span>
+            </button>
+            <button id="downloads-clear" class="downloads-footer-btn clear" title="Очистить список">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span>Очистить</span>
+            </button>
         </div>
     </div>
 

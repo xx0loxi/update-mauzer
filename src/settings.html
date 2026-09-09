@@ -15,176 +15,434 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --accent: #808080;
+            --accent-rgb: 128, 128, 128;
+            --accent-hover: rgba(128, 128, 128, 0.15);
+            --accent-glow: rgba(128, 128, 128, 0.3);
+            --bg-page: #0a0c10;
+            --bg-sidebar: rgba(14, 17, 24, 0.92);
+            --bg-card: rgba(22, 26, 36, 0.65);
+            --bg-card-hover: rgba(28, 33, 46, 0.85);
+            --border-card: rgba(255, 255, 255, 0.07);
+            --border-hover: rgba(255, 255, 255, 0.14);
+            --text-primary: rgba(255, 255, 255, 0.94);
+            --text-secondary: rgba(255, 255, 255, 0.52);
+            --text-muted: rgba(255, 255, 255, 0.32);
+            --icon-bg: rgba(255, 255, 255, 0.05);
+            --input-bg: rgba(255, 255, 255, 0.06);
+        }
+
+        [data-theme="light"] {
+            --bg-page: #f6f8fb;
+            --bg-sidebar: rgba(255, 255, 255, 0.92);
+            --bg-card: #ffffff;
+            --bg-card-hover: #f9fbfd;
+            --border-card: rgba(0, 0, 0, 0.07);
+            --border-hover: rgba(0, 0, 0, 0.14);
+            --text-primary: rgba(15, 23, 42, 0.95);
+            --text-secondary: rgba(15, 23, 42, 0.6);
+            --text-muted: rgba(15, 23, 42, 0.4);
+            --icon-bg: rgba(0, 0, 0, 0.04);
+            --input-bg: rgba(0, 0, 0, 0.04);
+        }
+
         html,
         body {
             min-height: 100vh;
-            font-family: 'Inter', sans-serif;
-            background: #0a0a0a;
-            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            display: flex;
             transition: background 0.3s, color 0.3s;
         }
 
-        [data-theme="light"],
-        [data-theme="light"] body {
-            background: #f5f5f3;
-            color: rgba(0, 0, 0, 0.86);
+        /* Ambient background glow */
+        .bg-glow {
+            position: fixed;
+            top: -120px;
+            right: 8%;
+            width: 460px;
+            height: 460px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            opacity: 0.32;
+            filter: blur(60px);
+            z-index: 0;
+            transition: all 0.5s ease;
         }
 
-        [data-theme="light"] .section-title {
-            color: rgba(0, 0, 0, 0.4);
-            border-bottom-color: rgba(0, 0, 0, 0.08);
+        /* Sidebar Navigation */
+        .settings-sidebar {
+            width: 270px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-card);
+            backdrop-filter: blur(24px);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex-shrink: 0;
+            z-index: 100;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
-        [data-theme="light"] .setting-label {
-            color: rgba(0, 0, 0, 0.85);
+        .settings-sidebar::-webkit-scrollbar {
+            width: 4px;
         }
 
-        [data-theme="light"] .setting-desc {
-            color: rgba(0, 0, 0, 0.4);
+        .settings-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
         }
 
-        [data-theme="light"] .setting-row {
-            background: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-        }
-        [data-theme="light"] .setting-row:hover {
-            background: #fafafa;
-            border-color: rgba(0, 0, 0, 0.1);
+        [data-theme="light"] .settings-sidebar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.12);
         }
 
-        [data-theme="light"] select {
-            background: rgba(0, 0, 0, 0.04);
-            border-color: rgba(0, 0, 0, 0.12);
-            color: #222;
-        }
-
-        [data-theme="light"] option {
-            background: #fff;
-            color: #222;
-        }
-
-        [data-theme="light"] .toggle {
-            background: rgba(0, 0, 0, 0.08);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        [data-theme="light"] .toggle.active {
-            background: var(--accent, #2f2f2f);
-            border-color: var(--accent, #2f2f2f);
-        }
-
-        [data-theme="light"] .color-dot.active {
-            box-shadow: 0 0 0 2px #f5f5f5;
-            border-color: #333;
-        }
-
-        [data-theme="light"] .btn-danger {
-            background: rgba(248, 113, 113, 0.12);
-            border-color: rgba(248, 113, 113, 0.25);
-        }
-        [data-theme="light"] .btn-secondary {
-            background: #ffffff;
-            border-color: rgba(0, 0, 0, 0.1);
-            color: rgba(0, 0, 0, 0.7);
-        }
-        [data-theme="light"] .btn-secondary:hover {
-            background: rgba(0, 0, 0, 0.04);
-        }
-
-        [data-theme="light"] .toast {
-            background: #ffffff;
-            color: rgba(0, 0, 0, 0.8);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-        }
-
-        .settings-page {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 48px 24px 80px;
-        }
-
-        .settings-header {
+        .brand-header {
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin-bottom: 40px;
+            gap: 12px;
+            padding: 0 6px;
         }
 
-        .settings-header img {
-            width: 40px;
-            height: 40px;
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px var(--accent-glow));
         }
 
-        .settings-header h1 {
+        .brand-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .brand-badge {
+            font-size: 10px;
+            font-weight: 600;
+            background: var(--accent-hover);
+            color: var(--accent);
+            border: 1px solid var(--accent-glow);
+            padding: 2px 7px;
+            border-radius: 20px;
+            margin-left: auto;
+        }
+
+        /* Search input in sidebar */
+        .search-box {
+            position: relative;
+            margin: 0 4px;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            stroke: var(--text-muted);
+            pointer-events: none;
+            transition: stroke 0.2s;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 34px 10px 38px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-card);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
+            background: rgba(var(--accent-rgb), 0.05);
+            box-shadow: 0 0 0 3px var(--accent-hover);
+        }
+
+        .search-box input:focus + svg {
+            stroke: var(--accent);
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: none;
+            font-size: 14px;
+            line-height: 1;
+            padding: 4px;
+        }
+
+        .nav-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            list-style: none;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            border-left: 3.5px solid transparent;
+        }
+
+        .nav-item svg {
+            stroke: var(--text-muted);
+            transition: stroke 0.18s ease, transform 0.18s ease;
+            flex-shrink: 0;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            transform: translateX(2px);
+        }
+
+        [data-theme="light"] .nav-item:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .nav-item:hover svg {
+            stroke: var(--text-primary);
+            transform: scale(1.08);
+        }
+
+        .nav-item.active {
+            background: var(--accent-hover);
+            color: var(--accent);
+            font-weight: 600;
+            border-left-color: var(--accent);
+            box-shadow: 0 2px 10px var(--accent-glow);
+        }
+
+        .nav-item.active svg {
+            stroke: var(--accent);
+            transform: scale(1.08);
+        }
+
+        /* Main Content Container */
+        .settings-main {
+            flex: 1;
+            margin-left: 270px;
+            padding: 36px 44px 120px;
+            max-width: 880px;
+            position: relative;
+            z-index: 1;
+            min-width: 0;
+        }
+
+        .main-header {
+            margin-bottom: 32px;
+        }
+
+        .main-title {
             font-size: 28px;
             font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
         }
 
-        .section {
+        .main-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Section styling */
+        .section-block {
             margin-bottom: 36px;
+            scroll-margin-top: 24px;
         }
 
-        .section-title {
-            font-size: 13px;
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .section-header-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--accent-hover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .section-header h2 {
+            font-size: 16px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: rgba(255, 255, 255, 0.35);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        [data-theme="light"] .section-title {
-            color: rgba(0, 0, 0, 0.45);
-            border-bottom-color: rgba(0, 0, 0, 0.08);
+            letter-spacing: -0.2px;
         }
 
+        .section-badge {
+            margin-left: auto;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--icon-bg);
+            padding: 3px 8px;
+            border-radius: 12px;
+            border: 1px solid var(--border-card);
+        }
+
+        /* Card container */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            backdrop-filter: blur(16px);
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            transition: border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+        }
+
+        /* Setting row */
         .setting-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 16px;
-            border-radius: 10px;
+            padding: 16px 20px;
+            gap: 16px;
             transition: background 0.15s;
-            margin-bottom: 2px;
+            position: relative;
+        }
+
+        .setting-row:not(:last-child) {
+            border-bottom: 1px solid var(--border-card);
         }
 
         .setting-row:hover {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        [data-theme="light"] .setting-row:hover {
+            background: rgba(0, 0, 0, 0.015);
+        }
+
+        .row-icon-wrap {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--icon-bg);
+            border: 1px solid var(--border-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .setting-row:hover .row-icon-wrap {
+            color: var(--accent);
+            border-color: var(--accent-glow);
+            background: var(--accent-hover);
         }
 
         .setting-info {
             flex: 1;
+            min-width: 0;
+        }
+
+        .setting-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .setting-label {
             font-size: 14px;
             font-weight: 500;
-            color: rgba(255, 255, 255, 0.9);
+            color: var(--text-primary);
+        }
+
+        .tag-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(var(--accent-rgb), 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(var(--accent-rgb), 0.25);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .tag-badge.green {
+            background: rgba(34, 197, 94, 0.12);
+            color: #22c55e;
+            border-color: rgba(34, 197, 94, 0.25);
         }
 
         .setting-desc {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.35);
-            margin-top: 2px;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            margin-top: 3px;
+            line-height: 1.4;
         }
 
-        /* Toggle */
+        /* Controls */
         .toggle {
-            width: 42px;
+            width: 44px;
             height: 24px;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
             position: relative;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             flex-shrink: 0;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        [data-theme="light"] .toggle {
+            background: rgba(0, 0, 0, 0.12);
+            border-color: rgba(0, 0, 0, 0.08);
         }
 
         .toggle.active {
-            background: var(--accent, #808080);
-            border-color: var(--accent, #808080);
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
         }
 
         .toggle::after {
@@ -194,50 +452,61 @@
             left: 2px;
             width: 18px;
             height: 18px;
-            background: white;
+            background: #ffffff;
             border-radius: 50%;
-            transition: transform 0.2s;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         .toggle.active::after {
-            transform: translateX(18px);
+            transform: translateX(20px);
         }
 
-        /* Select */
+        /* Select styling */
         select {
-            padding: 6px 12px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            color: white;
+            padding: 8px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-card);
+            border-radius: 9px;
+            color: var(--text-primary);
             font-size: 13px;
             font-family: inherit;
             outline: none;
             cursor: pointer;
+            transition: all 0.2s;
+            min-width: 150px;
         }
 
         select:focus {
-            border-color: var(--accent, #808080);
-            box-shadow: 0 0 0 3px var(--accent-hover, rgba(128, 128, 128, 0.15));
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-hover);
         }
 
         option {
-            background: #1a1a1a;
+            background: #141720;
+            color: #fff;
         }
 
-        /* Accent colors */
+        [data-theme="light"] option {
+            background: #fff;
+            color: #111;
+        }
+
+        /* Color Picker Row */
         .color-row {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
+            padding: 6px 0;
         }
 
         .color-dot {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
             border: 2px solid transparent;
         }
 
@@ -246,105 +515,183 @@
         }
 
         .color-dot.active {
-            border-color: white;
-            box-shadow: 0 0 0 2px #0a0a0a;
+            border-color: #fff;
+            box-shadow: 0 0 0 2px var(--bg-card), 0 0 10px var(--accent-glow);
         }
 
-        /* Buttons */
-        .btn-danger {
-            padding: 10px 20px;
-            background: rgba(248, 113, 113, 0.1);
-            border: 1px solid rgba(248, 113, 113, 0.2);
-            border-radius: 8px;
-            color: #f87171;
+        [data-theme="light"] .color-dot.active {
+            border-color: #111;
+        }
+
+        /* Action Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            border-radius: 9px;
             font-size: 13px;
             font-family: inherit;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
-            margin-top: 8px;
-        }
-
-        .btn-danger:hover {
-            background: rgba(248, 113, 113, 0.2);
+            border: 1px solid transparent;
+            text-decoration: none;
+            white-space: nowrap;
         }
 
         .btn-secondary {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 13px;
-            font-family: inherit;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-right: 8px;
+            background: var(--input-bg);
+            border-color: var(--border-card);
+            color: var(--text-primary);
         }
 
         .btn-secondary:hover {
-            background: var(--accent-hover, rgba(255, 255, 255, 0.1));
-            border-color: var(--accent, #808080);
-            color: var(--accent, #808080);
+            background: var(--accent-hover);
+            border-color: var(--accent);
+            color: var(--accent);
         }
 
-        .about-section {
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.25);
+            color: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+        }
+
+        /* Info highlight box */
+        .info-box {
+            padding: 14px 18px;
             border-radius: 12px;
+            background: rgba(var(--accent-rgb), 0.06);
+            border: 1px solid var(--accent-glow);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .info-box svg {
+            color: var(--accent);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .info-box-content {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .info-box-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        /* About card */
+        .about-card {
+            padding: 28px 24px;
             text-align: center;
-        }
-        [data-theme="light"] .about-section {
-            background: #ffffff;
-            border-color: rgba(0, 0, 0, 0.08);
-        }
-
-        .about-section img {
-            width: 48px;
-            height: 48px;
-            margin-bottom: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
 
-        .about-version {
-            font-size: 20px;
-            font-weight: 700;
+        .about-card img {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 16px var(--accent-glow));
             margin-bottom: 4px;
         }
 
-        .about-meta {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.3);
-        }
-        [data-theme="light"] .about-meta {
-            color: rgba(0, 0, 0, 0.4);
+        .about-version {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
         }
 
+        .about-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .about-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Empty search */
+        .empty-search {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-search svg {
+            stroke: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .empty-search h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .empty-search p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 32px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            border-radius: 20px;
-            background: rgba(30, 30, 30, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            font-size: 14px;
+            right: 32px;
+            padding: 12px 22px;
+            border-radius: 12px;
+            background: rgba(22, 26, 36, 0.95);
+            border: 1px solid var(--border-card);
+            color: #fff;
+            font-size: 13.5px;
             font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-            animation: toastSlideUp 0.3s ease-out, toastFadeOut 0.3s ease 2s forwards;
-            z-index: 1000;
-            pointer-events: none;
-            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 999;
+            backdrop-filter: blur(12px);
+            animation: toastIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        @keyframes toastSlideUp {
-            from { opacity: 0; transform: translate(-50%, 20px); }
-            to { opacity: 1; transform: translate(-50%, 0); }
+        [data-theme="light"] .toast {
+            background: #ffffff;
+            color: #111;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
         }
 
-        @keyframes toastFadeOut {
-            to { opacity: 0; transform: translate(-50%, -10px); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* Scrollbar */
@@ -362,7 +709,6 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.25);
         }
-        
         [data-theme="light"] ::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.15);
         }
@@ -373,265 +719,778 @@
 </head>
 
 <body>
-    <div class="settings-page" id="settings-page">
-        <div class="settings-header">
-            <img src="../MAUZER LOGO/7.png" alt="M">
-            <h1 data-i18n="title">Настройки</h1>
+    <div class="bg-glow"></div>
+
+    <!-- SIDEBAR -->
+    <aside class="settings-sidebar">
+        <div class="brand-header">
+            <img src="../MAUZER LOGO/7.png" alt="Mauzer" class="brand-logo">
+            <span class="brand-title" data-i18n="title">Настройки</span>
+            <span class="brand-badge">v1.1.19</span>
         </div>
 
-        <!-- GENERAL -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionGeneral">Основные</div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="language">Язык</div>
-                    <div class="setting-desc" data-i18n="languageDesc">Язык интерфейса</div>
-                </div>
-                <select data-key="language">
-                    <option value="ru">Русский</option>
-                    <option value="en">English</option>
-                </select>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="searchEngine">Поисковик</div>
-                    <div class="setting-desc" data-i18n="searchEngineDesc">Поиск по умолчанию</div>
-                </div>
-                <select data-key="searchEngine">
-                    <option value="google">Google</option>
-                    <option value="duckduckgo">DuckDuckGo</option>
-                </select>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="restoreSession">Восстанавливать сессию</div>
-                    <div class="setting-desc" data-i18n="restoreSessionDesc">Открывать вкладки прошлой сессии</div>
-                </div>
-                <div class="toggle" data-key="restoreSession"></div>
-            </div>
+        <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="settings-search" placeholder="Поиск настроек..." data-i18n-ph="searchPlaceholder">
+            <button class="search-clear" id="search-clear" title="Очистить">✕</button>
         </div>
 
-        <!-- APPEARANCE -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionAppearance">Оформление</div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="theme">Тема</div>
-                </div>
-                <select data-key="theme">
-                    <option value="dark" data-i18n-val="themeDark">Тёмная</option>
-                    <option value="light" data-i18n-val="themeLight">Светлая</option>
-                </select>
-            </div>
-            <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:12px">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="accentColor">Акцентный цвет</div>
-                </div>
-                <div class="color-row" id="color-row"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="bookmarksBar">Панель закладок</div>
-                    <div class="setting-desc" data-i18n="bookmarksBarDesc">Показывать под адресной строкой</div>
-                </div>
-                <div class="toggle" data-key="showBookmarksBar"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="density">Плотность интерфейса</div>
-                </div>
-                <select data-key="density">
-                    <option value="comfortable" data-i18n-val="densityComfortable">Удобная</option>
-                    <option value="compact" data-i18n-val="densityCompact">Компактная</option>
-                </select>
-            </div>
+        <nav class="nav-list" id="sidebar-nav">
+            <a class="nav-item active" href="#sec-general" data-target="sec-general">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span data-i18n="sectionGeneral">Основные</span>
+            </a>
+            <a class="nav-item" href="#sec-appearance" data-target="sec-appearance">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                <span data-i18n="sectionAppearance">Внешний вид</span>
+            </a>
+            <a class="nav-item" href="#sec-privacy" data-target="sec-privacy">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span data-i18n="sectionPrivacy">Приватность</span>
+            </a>
+            <a class="nav-item" href="#sec-performance" data-target="sec-performance">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span data-i18n="sectionPerformance">Производительность</span>
+            </a>
+            <a class="nav-item" href="#sec-downloads" data-target="sec-downloads">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span data-i18n="sectionDownloads">Загрузки</span>
+            </a>
+            <a class="nav-item" href="#sec-data" data-target="sec-data">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                <span data-i18n="sectionData">Данные</span>
+            </a>
+            <a class="nav-item" href="#sec-about" data-target="sec-about">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span data-i18n="sectionAbout">О браузере</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="settings-main">
+        <div class="main-header">
+            <h1 class="main-title" data-i18n="mainHeader">Настройки Mauzer</h1>
+            <p class="main-subtitle" data-i18n="mainSubHeader">Управление параметрами, персонализацией и безопасностью браузера</p>
         </div>
 
-        <!-- PRIVACY -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionPrivacy">Приватность и безопасность</div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblSmoothScroll">Smooth Scroll</div>
-                    <div class="setting-desc" data-i18n="smoothScrollDesc">Плавная прокрутка на сайтах</div>
-                </div>
-                <div class="toggle" data-key="smoothScroll"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblHttpsOnly">HTTPS Only</div>
-                    <div class="setting-desc" data-i18n="httpsDesc">Принудительное HTTPS</div>
-                </div>
-                <div class="toggle" data-key="httpsOnly"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblDnt">Do Not Track</div>
-                    <div class="setting-desc" data-i18n="dntDesc">Отправлять заголовок DNT</div>
-                </div>
-                <div class="toggle" data-key="doNotTrack"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblSuggest">Search Suggestions</div>
-                    <div class="setting-desc" data-i18n="suggestDesc">Отправлять запросы в поисковик для подсказок</div>
-                </div>
-                <div class="toggle" data-key="searchSuggest"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblWeather">Weather Widget</div>
-                    <div class="setting-desc" data-i18n="weatherDesc">Погода и определение города по IP на новой вкладке</div>
-                </div>
-                <div class="toggle" data-key="weatherEnabled"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblFingerprint">Fingerprint Protection</div>
-                    <div class="setting-desc" data-i18n="fpDesc">Скрытие данных об устройстве</div>
-                </div>
-                <div class="toggle" data-key="fingerprintProtection"></div>
-            </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="clearOnExit">Очищать при выходе</div>
-                    <div class="setting-desc" data-i18n="clearOnExitDesc">Удалять данные при закрытии браузера</div>
-                </div>
-                <div class="toggle" data-key="clearOnExit"></div>
-            </div>
+        <!-- EMPTY SEARCH STATE -->
+        <div class="empty-search" id="empty-search">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <h3 data-i18n="searchNotFound">Ничего не найдено</h3>
+            <p data-i18n="searchNotFoundDesc">Попробуйте изменить поисковый запрос</p>
         </div>
 
-        <!-- PERFORMANCE -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionPerformance">Производительность</div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="lblFrost">Frost Mode</div>
-                    <div class="setting-desc" data-i18n="frostDesc">Автозаморозка неактивных вкладок</div>
+        <!-- 1. GENERAL -->
+        <section class="section-block" id="sec-general">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </div>
-                <div class="toggle" data-key="frostEnabled"></div>
+                <h2 data-i18n="sectionGeneral">Основные параметры</h2>
+                <span class="section-badge">4 <span data-i18n="optionsCount">опции</span></span>
             </div>
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label" data-i18n="tabWarning">Предупреждение о вкладках</div>
-                    <div class="setting-desc" data-i18n="tabWarningDesc">Показывать при открытии N+ вкладок</div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="language">Язык интерфейса</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="languageDesc">Язык меню, кнопок и системных диалогов</div>
+                    </div>
+                    <select data-key="language">
+                        <option value="ru">Русский</option>
+                        <option value="en">English</option>
+                    </select>
                 </div>
-                <select data-key="tabCountWarning">
-                    <option value="20">20</option>
-                    <option value="30">30</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-            </div>
-        </div>
 
-        <!-- DATA -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionData">Данные</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0">
-                <button class="btn-secondary" id="btn-clear-history">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        style="margin-right:6px;vertical-align:text-bottom">
-                        <path
-                            d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                    <span data-i18n="clearHistory">Очистить историю</span>
-                </button>
-                <button class="btn-secondary" id="btn-clear-cache">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        style="margin-right:6px;vertical-align:text-bottom">
-                        <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
-                    </svg>
-                    <span data-i18n="clearCache">Очистить кэш</span>
-                </button>
-                <button class="btn-danger" id="btn-clear-all">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        style="margin-right:6px;vertical-align:text-bottom">
-                        <path
-                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01" />
-                    </svg>
-                    <span data-i18n="clearAll">Очистить всё</span>
-                </button>
-            </div>
-        </div>
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="searchEngine">Поисковая система</span>
+                            <span class="tag-badge" data-i18n="tagDefault">По умолчанию</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="searchEngineDesc">Поиск по умолчанию в адресной строке и на новой вкладке</div>
+                    </div>
+                    <select data-key="searchEngine">
+                        <option value="google">Google</option>
+                        <option value="duckduckgo">DuckDuckGo</option>
+                        <option value="brave">Brave Search</option>
+                        <option value="bing">Microsoft Bing</option>
+                    </select>
+                </div>
 
-        <!-- ABOUT -->
-        <div class="section">
-            <div class="section-title" data-i18n="sectionAbout">О браузере</div>
-            <div class="about-section">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="restoreSession">Восстанавливать сессию</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="restoreSessionDesc">Открывать вкладки прошлой сессии при запуске браузера</div>
+                    </div>
+                    <div class="toggle" data-key="restoreSession"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="alwaysOnTop">Окно поверх всех окон</span>
+                            <span class="tag-badge green" data-i18n="tagConvenient">Удобно</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="alwaysOnTopDesc">Закреплять браузер на переднем плане поверх остальных программ</div>
+                    </div>
+                    <div class="toggle" data-key="alwaysOnTop"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. APPEARANCE -->
+        <section class="section-block" id="sec-appearance">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                </div>
+                <h2 data-i18n="sectionAppearance">Внешний вид и стиль</h2>
+                <span class="section-badge">5 <span data-i18n="optionsCount">опций</span></span>
+            </div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="theme">Тема оформления</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="themeDesc">Стилизация панелей интерфейса и стартовой страницы</div>
+                    </div>
+                    <select data-key="theme">
+                        <option value="dark" data-i18n-val="themeDark">Тёмная (Dark)</option>
+                        <option value="light" data-i18n-val="themeLight">Светлая (Light)</option>
+                    </select>
+                </div>
+
+                <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="row-icon-wrap">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>
+                        </div>
+                        <div class="setting-info">
+                            <div class="setting-title-wrap">
+                                <span class="setting-label" data-i18n="accentColor">Акцентный цвет</span>
+                                <span class="tag-badge" data-i18n="tagGlow">Свечение поиска</span>
+                            </div>
+                            <div class="setting-desc" data-i18n="accentColorDesc">Цвет активных элементов, индикаторов и контура поиска на новой вкладке</div>
+                        </div>
+                    </div>
+                    <div class="color-row" id="color-row" style="margin-left: 54px;">
+                        <!-- dynamic color dots -->
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="bookmarksBar">Панель закладок</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="bookmarksBarDesc">Показывать панель избранных сайтов под адресной строкой</div>
+                    </div>
+                    <div class="toggle" data-key="showBookmarksBar"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="density">Плотность интерфейса</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="densityDesc">Масштаб вкладок и панелей под размер вашего дисплея</div>
+                    </div>
+                    <select data-key="density">
+                        <option value="auto" data-i18n-val="densityAuto">Авто (для старых мониторов)</option>
+                        <option value="comfortable" data-i18n-val="densityComfortable">Удобная (стандарт)</option>
+                        <option value="compact" data-i18n-val="densityCompact">Компактная (максимум места)</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="fontSize">Масштаб страниц</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="fontSizeDesc">Масштабирование текста и контента веб-страниц по умолчанию</div>
+                    </div>
+                    <select data-key="fontSize">
+                        <option value="small" data-i18n-val="fontSmall">Мелкий (90%)</option>
+                        <option value="medium" data-i18n-val="fontMedium">Стандартный (100%)</option>
+                        <option value="large" data-i18n-val="fontLarge">Крупный (110%)</option>
+                        <option value="xlarge" data-i18n-val="fontXLarge">Очень крупный (125%)</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. PRIVACY & SECURITY -->
+        <section class="section-block" id="sec-privacy">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <h2 data-i18n="sectionPrivacy">Приватность и безопасность</h2>
+                <span class="section-badge">Pulse Shield • 7 <span data-i18n="optionsCount">опций</span></span>
+            </div>
+
+            <!-- AdBlock Status info box -->
+            <div class="info-box">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                <div class="info-box-content">
+                    <div class="info-box-title" data-i18n="pulseShieldTitle">Pulse AdBlock активен</div>
+                    <span data-i18n="pulseShieldDesc">В браузер встроено свыше 230 000 правил фильтрации для блокировки рекламы, трекеров и аналитики слежки.</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblHttpsOnly">Только HTTPS (HTTPS Only)</span>
+                            <span class="tag-badge green" data-i18n="tagRecommended">Рекомендуется</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="httpsDesc">Автоматически перенаправлять все запросы на защищённый протокол HTTPS</div>
+                    </div>
+                    <div class="toggle" data-key="httpsOnly"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblFingerprint">Защита от фингерпринта</span>
+                            <span class="tag-badge" data-i18n="tagProShield">Pro Shield</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="fpDesc">Рандомизация Canvas/WebGL/Audio и сокрытие реальных характеристик устройства</div>
+                    </div>
+                    <div class="toggle" data-key="fingerprintProtection"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblDnt">Do Not Track</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="dntDesc">Отправлять веб-сайтам заголовок DNT с запретом отслеживания действий</div>
+                    </div>
+                    <div class="toggle" data-key="doNotTrack"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblSuggest">Поисковые подсказки</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="suggestDesc">Отправлять запросы в поисковик для подсказок при вводе в строке</div>
+                    </div>
+                    <div class="toggle" data-key="searchSuggest"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblWeather">Виджет погоды</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="weatherDesc">Погода и определение города по IP на новой вкладке</div>
+                    </div>
+                    <div class="toggle" data-key="weatherEnabled"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="clearOnExit">Очищать при выходе</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="clearOnExitDesc">Автоматически удалять данные сессии при закрытии браузера</div>
+                    </div>
+                    <div class="toggle" data-key="clearOnExit"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. PERFORMANCE -->
+        <section class="section-block" id="sec-performance">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </div>
+                <h2 data-i18n="sectionPerformance">Производительность</h2>
+                <span class="section-badge" data-i18n="badgeOpt">Оптимизация ОЗУ</span>
+            </div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M12 2v20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblFrost">Режим заморозки (Frost Mode)</span>
+                            <span class="tag-badge green" data-i18n="tagRamSavings">-70% RAM</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="frostDesc">Автоматическая выгрузка неактивных вкладок из ОЗУ для экономии памяти</div>
+                    </div>
+                    <div class="toggle" data-key="frostEnabled"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="frostTimeout">Таймаут заморозки вкладок</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="frostTimeoutDesc">Время бездействия, после которого фоновая вкладка замораживается</div>
+                    </div>
+                    <select data-key="frostTimeout">
+                        <option value="30000" data-i18n-val="timeout30s">30 секунд (Агрессивно)</option>
+                        <option value="60000" data-i18n-val="timeout1m">1 минута</option>
+                        <option value="180000" data-i18n-val="timeout3m">3 минуты (Рекомендуется)</option>
+                        <option value="300000" data-i18n-val="timeout5m">5 минут</option>
+                        <option value="900000" data-i18n-val="timeout15m">15 минут</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="lblSmoothScroll">Плавная прокрутка (Smooth Scroll)</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="smoothScrollDesc">Плавная прокрутка веб-страниц при использовании мыши</div>
+                    </div>
+                    <div class="toggle" data-key="smoothScroll"></div>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="tabWarning">Предупреждение о вкладках</span>
+                        </div>
+                        <div class="setting-desc" data-i18n="tabWarningDesc">Показывать предупреждение при открытии N+ вкладок</div>
+                    </div>
+                    <select data-key="tabCountWarning">
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. DOWNLOADS -->
+        <section class="section-block" id="sec-downloads">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </div>
+                <h2 data-i18n="sectionDownloads">Загрузки</h2>
+                <span class="section-badge" data-i18n="badgeFiles">Файлы</span>
+            </div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-title-wrap">
+                            <span class="setting-label" data-i18n="downloadsFolder">Папка для загрузок</span>
+                        </div>
+                        <div class="setting-desc" id="downloads-path-preview" style="font-family:monospace;word-break:break-all;">Загрузка пути...</div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-open-downloads-dir">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <span data-i18n="openDownloadsFolder">Открыть в Проводнике</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. DATA & STORAGE -->
+        <section class="section-block" id="sec-data">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                </div>
+                <h2 data-i18n="sectionData">Данные и хранилище</h2>
+                <span class="section-badge" data-i18n="badgeClean">Очистка</span>
+            </div>
+
+            <div class="card">
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-label" data-i18n="historyTitle">История посещений</div>
+                        <div class="setting-desc" data-i18n="historyDesc">Очистить журнал просмотренных веб-страниц и поисковых запросов</div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-clear-history">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <span data-i18n="clearHistory">Очистить историю</span>
+                    </button>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-label" data-i18n="cacheTitle">Временные файлы и кэш</div>
+                        <div class="setting-desc" data-i18n="cacheDesc">Освободить дисковое пространство от сохранённых изображений и скриптов</div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-clear-cache">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+                        <span data-i18n="clearCache">Очистить кэш</span>
+                    </button>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="8" cy="9" r="1"></circle><circle cx="15" cy="10" r="1.5"></circle><circle cx="10" cy="14" r="1"></circle><circle cx="14" cy="15" r="1"></circle></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-label" data-i18n="cookiesTitle">Файлы cookie сайтов</div>
+                        <div class="setting-desc" data-i18n="cookiesDesc">Удалить сохранённые сессии сайтов и авторизации</div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-clear-cookies">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <span data-i18n="clearCookies">Очистить cookie</span>
+                    </button>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-label" data-i18n="clearAllTitle">Полная очистка данных</div>
+                        <div class="setting-desc" data-i18n="clearAllDesc">Удалить все данные браузера: историю, куки и кэш</div>
+                    </div>
+                    <button class="btn btn-danger" id="btn-clear-all">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+                        <span data-i18n="clearAll">Очистить всё</span>
+                    </button>
+                </div>
+
+                <div class="setting-row">
+                    <div class="row-icon-wrap">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
+                    </div>
+                    <div class="setting-info">
+                        <div class="setting-label" data-i18n="resetDefaultsTitle">Сброс настроек</div>
+                        <div class="setting-desc" data-i18n="resetDefaultsDesc">Вернуть все параметры браузера к заводским значениям по умолчанию</div>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-reset-defaults">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        <span data-i18n="resetDefaults">Сбросить</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. ABOUT -->
+        <section class="section-block" id="sec-about">
+            <div class="section-header">
+                <div class="section-header-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                </div>
+                <h2 data-i18n="sectionAbout">О браузере Mauzer</h2>
+            </div>
+
+            <div class="about-card">
                 <img src="../MAUZER LOGO/7.png" alt="Mauzer">
-                <div class="about-version">Mauzer <span id="app-version">1.1.18</span></div>
-                <div class="about-meta" id="about-meta"></div>
+                <div class="about-version">Mauzer Browser <span id="app-version">1.1.19</span></div>
+                <div class="about-badge">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span data-i18n="aboutUpdatedBadge">Установлена актуальная версия</span>
+                </div>
+                <div class="about-meta" id="about-meta">
+                    Electron 22.3.27 • Chromium 108.0.5359.215 • Node.js 16.17.1 • Windows x64
+                </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <script>
-        // ============ i18n ============
+        // ============ i18n Dictionary ============
         const i18n = {
             ru: {
                 title: 'Настройки',
-                sectionGeneral: 'Основные', language: 'Язык', languageDesc: 'Язык интерфейса',
-                searchEngine: 'Поисковик', searchEngineDesc: 'Поиск по умолчанию',
-                restoreSession: 'Восстанавливать сессию', restoreSessionDesc: 'Открывать вкладки прошлой сессии',
-                sectionAppearance: 'Оформление', theme: 'Тема', themeDark: 'Тёмная', themeLight: 'Светлая',
-                accentColor: 'Акцентный цвет', bookmarksBar: 'Панель закладок',
-                bookmarksBarDesc: 'Показывать под адресной строкой',
-                density: 'Плотность интерфейса', densityComfortable: 'Удобная', densityCompact: 'Компактная',
+                mainHeader: 'Настройки Mauzer',
+                mainSubHeader: 'Управление параметрами, персонализацией и безопасностью браузера',
+                searchPlaceholder: 'Поиск настроек...',
+                searchNotFound: 'Ничего не найдено',
+                searchNotFoundDesc: 'Попробуйте изменить поисковый запрос',
+                optionsCount: 'опций',
+                sectionGeneral: 'Основные',
+                language: 'Язык интерфейса',
+                languageDesc: 'Язык меню, кнопок и системных диалогов',
+                searchEngine: 'Поисковая система',
+                searchEngineDesc: 'Поиск по умолчанию в адресной строке и на новой вкладке',
+                restoreSession: 'Восстанавливать сессию',
+                restoreSessionDesc: 'Открывать вкладки прошлой сессии при запуске браузера',
+                alwaysOnTop: 'Окно поверх всех окон',
+                alwaysOnTopDesc: 'Закреплять браузер на переднем плане поверх остальных программ',
+                tagDefault: 'По умолчанию',
+                tagConvenient: 'Удобно',
+                tagRecommended: 'Рекомендуется',
+                tagProShield: 'Pro Shield',
+                tagGlow: 'Свечение поиска',
+                tagRamSavings: '-70% RAM',
+                badgeOpt: 'Оптимизация ОЗУ',
+                badgeFiles: 'Файлы',
+                badgeClean: 'Очистка',
+                sectionAppearance: 'Внешний вид',
+                theme: 'Тема оформления',
+                themeDesc: 'Стилизация панелей интерфейса и стартовой страницы',
+                themeDark: 'Тёмная (Dark)',
+                themeLight: 'Светлая (Light)',
+                accentColor: 'Акцентный цвет',
+                accentColorDesc: 'Цвет активных элементов, индикаторов и контура поиска на новой вкладке',
+                bookmarksBar: 'Панель закладок',
+                bookmarksBarDesc: 'Показывать панель избранных сайтов под адресной строкой',
+                density: 'Плотность интерфейса',
+                densityDesc: 'Масштаб вкладок и панелей под размер вашего дисплея',
+                densityAuto: 'Авто (для старых мониторов)',
+                densityComfortable: 'Удобная (стандарт)',
+                densityCompact: 'Компактная (максимум места)',
+                fontSize: 'Масштаб страниц',
+                fontSizeDesc: 'Масштабирование текста и контента веб-страниц по умолчанию',
+                fontSmall: 'Мелкий (90%)',
+                fontMedium: 'Стандартный (100%)',
+                fontLarge: 'Крупный (110%)',
+                fontXLarge: 'Очень крупный (125%)',
                 sectionPrivacy: 'Приватность и безопасность',
-                smoothScrollDesc: 'Плавная прокрутка на сайтах',
-                httpsDesc: 'Принудительное HTTPS', dntDesc: 'Отправлять заголовок DNT',
-                suggestDesc: 'Отправлять запросы в поисковик для подсказок',
+                pulseShieldTitle: 'Pulse AdBlock активен',
+                pulseShieldDesc: 'В браузер встроено свыше 230 000 правил фильтрации для блокировки рекламы, трекеров и аналитики слежки.',
+                lblHttpsOnly: 'Только HTTPS (HTTPS Only)',
+                httpsDesc: 'Автоматически перенаправлять все запросы на защищённый протокол HTTPS',
+                lblFingerprint: 'Защита от фингерпринта',
+                fpDesc: 'Рандомизация Canvas/WebGL/Audio и сокрытие реальных характеристик устройства',
+                lblDnt: 'Do Not Track',
+                dntDesc: 'Отправлять веб-сайтам заголовок DNT с запретом отслеживания действий',
+                lblSuggest: 'Поисковые подсказки',
+                suggestDesc: 'Отправлять запросы в поисковик для подсказок при вводе в строке',
+                lblWeather: 'Виджет погоды',
                 weatherDesc: 'Погода и определение города по IP на новой вкладке',
-                lblSmoothScroll: 'Плавная прокрутка', lblHttpsOnly: 'Только HTTPS',
-                lblDnt: 'Do Not Track', lblSuggest: 'Поисковые подсказки',
-                lblWeather: 'Виджет погоды', lblFingerprint: 'Защита от фингерпринта',
-                lblFrost: 'Режим заморозки',
-                fpDesc: 'Скрытие данных об устройстве',
-                clearOnExit: 'Очищать при выходе', clearOnExitDesc: 'Удалять данные при закрытии браузера',
+                clearOnExit: 'Очищать при выходе',
+                clearOnExitDesc: 'Автоматически удалять данные сессии при закрытии браузера',
                 sectionPerformance: 'Производительность',
-                frostDesc: 'Автозаморозка неактивных вкладок', lowRamDesc: 'Агрессивная экономия памяти',
-                tabWarning: 'Предупреждение о вкладках', tabWarningDesc: 'Показывать при открытии N+ вкладок',
-                sectionData: 'Данные', clearHistory: 'Очистить историю', clearCache: 'Очистить кэш',
-                clearAll: 'Очистить всё', sectionAbout: 'О браузере',
-                saved: 'Сохранено', colorUpdated: 'Цвет обновлён',
-                historyCleared: 'История очищена', cacheCleared: 'Кэш очищен', allCleared: 'Все данные очищены',
+                lblFrost: 'Режим заморозки (Frost Mode)',
+                frostDesc: 'Автоматическая выгрузка неактивных вкладок из ОЗУ для экономии памяти',
+                frostTimeout: 'Таймаут заморозки вкладок',
+                frostTimeoutDesc: 'Время бездействия, после которого фоновая вкладка замораживается',
+                timeout30s: '30 секунд (Агрессивно)',
+                timeout1m: '1 минута',
+                timeout3m: '3 минуты (Рекомендуется)',
+                timeout5m: '5 минут',
+                timeout15m: '15 минут',
+                lblSmoothScroll: 'Плавная прокрутка (Smooth Scroll)',
+                smoothScrollDesc: 'Плавная прокрутка веб-страниц при использовании мыши',
+                tabWarning: 'Предупреждение о вкладках',
+                tabWarningDesc: 'Показывать предупреждение при открытии N+ вкладок',
+                sectionDownloads: 'Загрузки',
+                downloadsFolder: 'Папка для загрузок',
+                openDownloadsFolder: 'Открыть в Проводнике',
+                sectionData: 'Данные и хранилище',
+                historyTitle: 'История посещений',
+                historyDesc: 'Очистить журнал просмотренных веб-страниц и поисковых запросов',
+                clearHistory: 'Очистить историю',
+                cacheTitle: 'Временные файлы и кэш',
+                cacheDesc: 'Освободить дисковое пространство от сохранённых изображений и скриптов',
+                clearCache: 'Очистить кэш',
+                cookiesTitle: 'Файлы cookie сайтов',
+                cookiesDesc: 'Удалить сохранённые сессии сайтов и авторизации',
+                clearCookies: 'Очистить cookie',
+                clearAllTitle: 'Полная очистка данных',
+                clearAllDesc: 'Удалить все данные браузера: историю, куки и кэш',
+                clearAll: 'Очистить всё',
+                resetDefaultsTitle: 'Сброс настроек',
+                resetDefaultsDesc: 'Вернуть все параметры браузера к заводским значениям по умолчанию',
+                resetDefaults: 'Сбросить',
+                sectionAbout: 'О браузере',
+                aboutUpdatedBadge: 'Установлена актуальная версия',
+                saved: 'Сохранено',
+                colorUpdated: 'Цвет обновлён',
+                historyCleared: 'История очищена',
+                cacheCleared: 'Кэш очищен',
+                cookiesCleared: 'Cookie очищены',
+                allCleared: 'Все данные очищены',
+                resetDone: 'Настройки сброшены к значениям по умолчанию'
             },
             en: {
                 title: 'Settings',
-                sectionGeneral: 'General', language: 'Language', languageDesc: 'Interface language',
-                searchEngine: 'Search engine', searchEngineDesc: 'Default search',
-                restoreSession: 'Restore session', restoreSessionDesc: 'Open tabs from last session',
-                sectionAppearance: 'Appearance', theme: 'Theme', themeDark: 'Dark', themeLight: 'Light',
-                accentColor: 'Accent color', bookmarksBar: 'Bookmarks bar',
-                bookmarksBarDesc: 'Show below address bar',
-                density: 'Interface density', densityComfortable: 'Comfortable', densityCompact: 'Compact',
+                mainHeader: 'Mauzer Settings',
+                mainSubHeader: 'Manage browser parameters, personalization and security',
+                searchPlaceholder: 'Search settings...',
+                searchNotFound: 'No results found',
+                searchNotFoundDesc: 'Try adjusting your search keywords',
+                optionsCount: 'options',
+                sectionGeneral: 'General',
+                language: 'Interface Language',
+                languageDesc: 'Language of menus, buttons and dialogs',
+                searchEngine: 'Search Engine',
+                searchEngineDesc: 'Default search in address bar and on new tab',
+                restoreSession: 'Restore Session',
+                restoreSessionDesc: 'Open previous session tabs on browser startup',
+                alwaysOnTop: 'Always on Top',
+                alwaysOnTopDesc: 'Keep browser window pinned on top of other windows',
+                tagDefault: 'Default',
+                tagConvenient: 'Convenient',
+                tagRecommended: 'Recommended',
+                tagProShield: 'Pro Shield',
+                tagGlow: 'Search Glow',
+                tagRamSavings: '-70% RAM',
+                badgeOpt: 'RAM Optimization',
+                badgeFiles: 'Files',
+                badgeClean: 'Cleanup',
+                sectionAppearance: 'Appearance',
+                theme: 'Theme',
+                themeDesc: 'Interface styling and start page theme',
+                themeDark: 'Dark',
+                themeLight: 'Light',
+                accentColor: 'Accent Color',
+                accentColorDesc: 'Color for active buttons, badges and new tab search glow',
+                bookmarksBar: 'Bookmarks Bar',
+                bookmarksBarDesc: 'Show bookmarks bar under the address bar',
+                density: 'Interface Density',
+                densityDesc: 'Tab and panel size scale for your display',
+                densityAuto: 'Auto (for older screens)',
+                densityComfortable: 'Comfortable (standard)',
+                densityCompact: 'Compact (maximum space)',
+                fontSize: 'Page Zoom',
+                fontSizeDesc: 'Default text and page scaling factor for web pages',
+                fontSmall: 'Small (90%)',
+                fontMedium: 'Standard (100%)',
+                fontLarge: 'Large (110%)',
+                fontXLarge: 'Extra Large (125%)',
                 sectionPrivacy: 'Privacy & Security',
-                smoothScrollDesc: 'Smooth scrolling on websites',
-                httpsDesc: 'Force HTTPS', dntDesc: 'Send DNT header',
-                suggestDesc: 'Send queries to the search engine for suggestions',
-                weatherDesc: 'Weather and IP-based city detection on the new tab',
-                lblSmoothScroll: 'Smooth Scroll', lblHttpsOnly: 'HTTPS Only',
-                lblDnt: 'Do Not Track', lblSuggest: 'Search Suggestions',
-                lblWeather: 'Weather Widget', lblFingerprint: 'Fingerprint Protection',
-                lblFrost: 'Frost Mode',
-                fpDesc: 'Hide device information',
-                clearOnExit: 'Clear on exit', clearOnExitDesc: 'Delete data when browser closes',
+                pulseShieldTitle: 'Pulse AdBlock Active',
+                pulseShieldDesc: 'Over 230,000 built-in filtering rules blocking ads, trackers and telemetry scripts.',
+                lblHttpsOnly: 'HTTPS Only',
+                httpsDesc: 'Automatically upgrade all web requests to encrypted HTTPS',
+                lblFingerprint: 'Fingerprint Protection',
+                fpDesc: 'Randomize Canvas/WebGL/Audio and mask actual hardware parameters',
+                lblDnt: 'Do Not Track',
+                dntDesc: 'Send DNT header forbidding websites from tracking user actions',
+                lblSuggest: 'Search Suggestions',
+                suggestDesc: 'Send queries to search engine for suggestions while typing',
+                lblWeather: 'Weather Widget',
+                weatherDesc: 'Show weather forecast and IP-based location on new tab',
+                clearOnExit: 'Clear on Exit',
+                clearOnExitDesc: 'Automatically delete session data when browser closes',
                 sectionPerformance: 'Performance',
-                frostDesc: 'Auto-freeze inactive tabs', lowRamDesc: 'Aggressive memory saving',
-                tabWarning: 'Tab warning', tabWarningDesc: 'Show when N+ tabs are open',
-                sectionData: 'Data', clearHistory: 'Clear history', clearCache: 'Clear cache',
-                clearAll: 'Clear all', sectionAbout: 'About',
-                saved: 'Saved', colorUpdated: 'Color updated',
-                historyCleared: 'History cleared', cacheCleared: 'Cache cleared', allCleared: 'All data cleared',
+                lblFrost: 'Frost Mode',
+                frostDesc: 'Automatically discard background tabs from RAM to save memory',
+                frostTimeout: 'Tab Discard Timeout',
+                frostTimeoutDesc: 'Inactivity duration before a background tab is frozen',
+                timeout30s: '30 seconds (Aggressive)',
+                timeout1m: '1 minute',
+                timeout3m: '3 minutes (Recommended)',
+                timeout5m: '5 minutes',
+                timeout15m: '15 minutes',
+                lblSmoothScroll: 'Smooth Scroll',
+                smoothScrollDesc: 'Smooth wheel scrolling on web pages',
+                tabWarning: 'Tab Count Warning',
+                tabWarningDesc: 'Warn when opening N+ tabs at the same time',
+                sectionDownloads: 'Downloads',
+                downloadsFolder: 'Downloads Folder',
+                openDownloadsFolder: 'Open in Explorer',
+                sectionData: 'Data & Storage',
+                historyTitle: 'Browsing History',
+                historyDesc: 'Clear browsing records and search history',
+                clearHistory: 'Clear History',
+                cacheTitle: 'Temporary Files & Cache',
+                cacheDesc: 'Free disk space from cached images and scripts',
+                clearCache: 'Clear Cache',
+                cookiesTitle: 'Cookies & Site Data',
+                cookiesDesc: 'Delete saved logins, site cookies and sessions',
+                clearCookies: 'Clear Cookies',
+                clearAllTitle: 'Clear All Data',
+                clearAllDesc: 'Remove all history, cookies and cache',
+                clearAll: 'Clear All',
+                resetDefaultsTitle: 'Reset Settings',
+                resetDefaultsDesc: 'Reset all browser parameters back to factory defaults',
+                resetDefaults: 'Reset',
+                sectionAbout: 'About',
+                aboutUpdatedBadge: 'Up to date',
+                saved: 'Saved',
+                colorUpdated: 'Color updated',
+                historyCleared: 'History cleared',
+                cacheCleared: 'Cache cleared',
+                cookiesCleared: 'Cookies cleared',
+                allCleared: 'All data cleared',
+                resetDone: 'Settings reset to factory defaults'
             }
         };
 
-        function t(key) { return (i18n[settings.language] || i18n.ru)[key] || key; }
+        function t(key) {
+            const lang = (settings.language === 'en') ? 'en' : 'ru';
+            return i18n[lang][key] || key;
+        }
 
         function applyLanguage() {
-            const dict = i18n[settings.language] || i18n.ru;
+            const lang = (settings.language === 'en') ? 'en' : 'ru';
+            const dict = i18n[lang];
+
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.dataset.i18n;
                 if (dict[key]) el.textContent = dict[key];
@@ -640,9 +1499,13 @@
                 const key = el.dataset.i18nVal;
                 if (dict[key]) el.textContent = dict[key];
             });
+            document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+                const key = el.dataset.i18nPh;
+                if (dict[key]) el.placeholder = dict[key];
+            });
         }
 
-        // ============ Settings logic ============
+        // ============ Accent Colors ============
         const accentColors = [
             { name: 'gray', val: '#808080' },
             { name: 'blue', val: '#3b82f6' },
@@ -656,7 +1519,6 @@
 
         let settings = {};
 
-        // Set accent + derived translucent variants (hover/glow) from one hex
         function setAccentVars(hex) {
             const root = document.documentElement.style;
             root.setProperty('--accent', hex);
@@ -664,8 +1526,9 @@
                 const h = hex.replace('#', '');
                 const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
                 const R = (bigint >> 16) & 255, G = (bigint >> 8) & 255, B = bigint & 255;
+                root.setProperty('--accent-rgb', `${R}, ${G}, ${B}`);
                 root.setProperty('--accent-hover', `rgba(${R}, ${G}, ${B}, 0.15)`);
-                root.setProperty('--accent-glow', `rgba(${R}, ${G}, ${B}, 0.25)`);
+                root.setProperty('--accent-glow', `rgba(${R}, ${G}, ${B}, 0.3)`);
             } catch (e) { }
         }
 
@@ -676,16 +1539,38 @@
             el.className = 'toast';
             el.textContent = msg;
             document.body.appendChild(el);
-            setTimeout(() => el.remove(), 2000);
+            setTimeout(() => el.remove(), 2400);
         }
 
         async function loadSettings() {
-            settings = await window.mauzer.settings.load();
-            if (settings.searchEngine === 'yandex') {
-                settings.searchEngine = 'google';
-                await window.mauzer.settings.save(settings);
+            try {
+                settings = await window.mauzer.settings.load();
+                if (settings && settings.searchEngine === 'yandex') {
+                    settings.searchEngine = 'google';
+                    await window.mauzer.settings.save(settings);
+                }
+            } catch (e) {
+                settings = {
+                    language: 'ru', theme: 'dark', accentColor: '#808080', searchEngine: 'google',
+                    density: 'comfortable', fontSize: 'medium', restoreSession: false, alwaysOnTop: false,
+                    showBookmarksBar: false, httpsOnly: false, fingerprintProtection: true, doNotTrack: true,
+                    searchSuggest: true, weatherEnabled: true, clearOnExit: false, frostEnabled: true,
+                    frostTimeout: 30000, tabCountWarning: 50, smoothScroll: true
+                };
             }
             applyToUI();
+            loadDownloadsPath();
+            updateActiveNavOnScroll();
+        }
+
+        async function loadDownloadsPath() {
+            try {
+                if (window.mauzer?.app?.getPath) {
+                    const dlPath = await window.mauzer.app.getPath('downloads');
+                    const preview = document.getElementById('downloads-path-preview');
+                    if (preview && dlPath) preview.textContent = dlPath;
+                }
+            } catch (e) { }
         }
 
         function applyToUI() {
@@ -693,18 +1578,19 @@
             if (settings.accentColor) {
                 setAccentVars(settings.accentColor);
             }
-            // Selects
+
+            // Select elements
             document.querySelectorAll('select[data-key]').forEach(sel => {
-                sel.value = settings[sel.dataset.key] || sel.options[0].value;
+                if (typeof settings[sel.dataset.key] !== 'undefined') {
+                    sel.value = String(settings[sel.dataset.key]);
+                }
             });
+
             // Toggles
             document.querySelectorAll('.toggle[data-key]').forEach(tog => {
                 tog.classList.toggle('active', !!settings[tog.dataset.key]);
             });
-            // Text inputs
-            document.querySelectorAll('input[data-key]').forEach(inp => {
-                inp.value = settings[inp.dataset.key] || '';
-            });
+
             // Color dots
             const cr = document.getElementById('color-row');
             cr.innerHTML = '';
@@ -723,15 +1609,20 @@
                 });
                 cr.appendChild(dot);
             });
-            // Apply language
+
+            // Language
             applyLanguage();
         }
 
-        // Bind select changes
+        // ============ Event Bindings ============
+
+        // Select changes
         document.querySelectorAll('select[data-key]').forEach(sel => {
             sel.addEventListener('change', async () => {
                 let val = sel.value;
-                if (sel.dataset.key === 'tabCountWarning') val = parseInt(val);
+                if (sel.dataset.key === 'tabCountWarning' || sel.dataset.key === 'frostTimeout') {
+                    val = parseInt(val, 10);
+                }
                 settings[sel.dataset.key] = val;
                 if (sel.dataset.key === 'theme') {
                     document.documentElement.setAttribute('data-theme', val);
@@ -744,52 +1635,213 @@
             });
         });
 
-        // Bind toggle clicks
+        // Toggle clicks
         document.querySelectorAll('.toggle[data-key]').forEach(tog => {
             tog.addEventListener('click', async () => {
-                settings[tog.dataset.key] = !settings[tog.dataset.key];
-                tog.classList.toggle('active', settings[tog.dataset.key]);
+                const key = tog.dataset.key;
+                settings[key] = !settings[key];
+                tog.classList.toggle('active', settings[key]);
                 await window.mauzer.settings.save(settings);
                 showToast(t('saved'));
             });
         });
 
-        // Bind input changes (text inputs like API key)
-        document.querySelectorAll('input[data-key]').forEach(inp => {
-            inp.addEventListener('change', async () => {
-                settings[inp.dataset.key] = inp.value.trim();
-                await window.mauzer.settings.save(settings);
-                showToast(t('saved'));
-            });
+        // Open downloads folder
+        document.getElementById('btn-open-downloads-dir')?.addEventListener('click', async () => {
+            if (window.mauzer?.actions?.openDownloadsFolder) {
+                await window.mauzer.actions.openDownloadsFolder();
+            }
         });
 
-        // Data buttons
-        document.getElementById('btn-clear-history').addEventListener('click', async () => {
+        // Clear buttons
+        document.getElementById('btn-clear-history')?.addEventListener('click', async () => {
             await window.mauzer.history.clear();
             showToast(t('historyCleared'));
         });
-        document.getElementById('btn-clear-cache').addEventListener('click', async () => {
+
+        document.getElementById('btn-clear-cache')?.addEventListener('click', async () => {
             await window.mauzer.data.clearCache();
             showToast(t('cacheCleared'));
         });
-        document.getElementById('btn-clear-all').addEventListener('click', async () => {
+
+        document.getElementById('btn-clear-cookies')?.addEventListener('click', async () => {
+            if (window.mauzer?.data?.clearCookies) {
+                await window.mauzer.data.clearCookies();
+            } else {
+                await window.mauzer.data.clearAll();
+            }
+            showToast(t('cookiesCleared'));
+        });
+
+        document.getElementById('btn-clear-all')?.addEventListener('click', async () => {
             const msg = (settings.language === 'en')
                 ? 'Delete ALL browsing data (history, cookies, cache)? This cannot be undone.'
-                : 'Удалить ВСЕ данные браузера (историю, cookie, кэш)? Это необратимо.';
+                : 'Удалить ВСЕ данные браузера (историю, cookie, кэш)? Это действие необратимо.';
             if (!confirm(msg)) return;
             await window.mauzer.data.clearAll();
             showToast(t('allCleared'));
         });
 
-        // About
+        document.getElementById('btn-reset-defaults')?.addEventListener('click', async () => {
+            const msg = (settings.language === 'en')
+                ? 'Reset all settings back to factory defaults?'
+                : 'Сбросить все настройки на заводские значения по умолчанию?';
+            if (!confirm(msg)) return;
+            try {
+                const defaults = await window.mauzer.settings.getDefault();
+                settings = Object.assign({}, defaults);
+                await window.mauzer.settings.save(settings);
+                applyToUI();
+                showToast(t('resetDone'));
+            } catch (e) { }
+        });
+
+        // About info
         async function loadAbout() {
             try {
                 const info = await window.mauzer.app.getInfo();
-                document.getElementById('app-version').textContent = info.version;
-                document.getElementById('about-meta').textContent = `Electron ${info.electron} • Chrome ${info.chrome} • Node ${info.node} • ${info.platform} ${info.arch}`;
+                if (info?.version) document.getElementById('app-version').textContent = info.version;
+                if (info) {
+                    document.getElementById('about-meta').textContent = `Electron ${info.electron} • Chromium ${info.chrome} • Node.js ${info.node} • ${info.platform} ${info.arch}`;
+                }
             } catch (e) { }
         }
 
+        // ============ Search in Settings ============
+        const searchInput = document.getElementById('settings-search');
+        const clearBtn = document.getElementById('search-clear');
+        const sections = document.querySelectorAll('.section-block');
+        const emptyState = document.getElementById('empty-search');
+
+        searchInput.addEventListener('input', () => {
+            const rawQ = searchInput.value.trim().toLowerCase();
+            clearBtn.style.display = rawQ ? 'block' : 'none';
+
+            if (!rawQ) {
+                sections.forEach(sec => {
+                    sec.style.display = 'block';
+                    sec.querySelectorAll('.setting-row').forEach(r => r.style.display = 'flex');
+                });
+                emptyState.style.display = 'none';
+                return;
+            }
+
+            const tokens = rawQ.split(/\s+/).filter(Boolean);
+            const stems = tokens.map(t => (t.length > 4 && /[аеёиоуыэюяь]$/i.test(t)) ? t.slice(0, -1) : t);
+
+            let visibleCount = 0;
+            sections.forEach(sec => {
+                const secTitle = (sec.querySelector('h2')?.textContent || '').toLowerCase();
+                const secMatches = stems.some(s => secTitle.includes(s));
+                const secRows = sec.querySelectorAll('.setting-row');
+                let secVisible = 0;
+                secRows.forEach(row => {
+                    const text = (row.textContent || '').toLowerCase();
+                    const match = secMatches || stems.some(s => text.includes(s));
+                    row.style.display = match ? 'flex' : 'none';
+                    if (match) secVisible++;
+                });
+                sec.style.display = (secVisible > 0) ? 'block' : 'none';
+                visibleCount += secVisible;
+            });
+
+            emptyState.style.display = (visibleCount === 0) ? 'block' : 'none';
+        });
+
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input'));
+            searchInput.focus();
+        });
+
+        // ============ Sidebar Navigation ============
+        const navItems = document.querySelectorAll('.nav-item');
+        let isManualScrolling = false;
+        let manualScrollTimer = null;
+
+        function setActiveNav(id) {
+            navItems.forEach(item => {
+                const isActive = item.dataset.target === id;
+                item.classList.toggle('active', isActive);
+            });
+        }
+
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = item.dataset.target;
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    isManualScrolling = true;
+                    clearTimeout(manualScrollTimer);
+                    
+                    setActiveNav(targetId);
+                    
+                    const rect = targetEl.getBoundingClientRect();
+                    const targetY = rect.top + window.pageYOffset - 28;
+                    window.scrollTo({ top: targetY, behavior: 'smooth' });
+                    
+                    manualScrollTimer = setTimeout(() => {
+                        isManualScrolling = false;
+                    }, 800);
+                }
+            });
+        });
+
+        // Accurate Scrollspy for fixed sidebar
+        function updateActiveNavOnScroll() {
+            if (isManualScrolling) return;
+            
+            const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+            const winHeight = window.innerHeight;
+            const docHeight = document.documentElement.scrollHeight;
+            
+            // If near bottom of the document, activate the last visible section
+            if (scrollY + winHeight >= docHeight - 40) {
+                const visibleSections = Array.from(sections).filter(s => s.style.display !== 'none');
+                if (visibleSections.length > 0) {
+                    setActiveNav(visibleSections[visibleSections.length - 1].id);
+                    return;
+                }
+            }
+            
+            // Check which section is in view
+            let activeId = '';
+            for (const sec of sections) {
+                if (sec.style.display === 'none') continue;
+                const rect = sec.getBoundingClientRect();
+                // Section top is within top 220px and bottom is still visible (> 60px)
+                if (rect.top <= 220 && rect.bottom > 60) {
+                    activeId = sec.id;
+                }
+            }
+            
+            if (!activeId) {
+                const firstVisible = Array.from(sections).find(s => s.style.display !== 'none');
+                if (firstVisible && scrollY < 150) {
+                    activeId = firstVisible.id;
+                }
+            }
+            
+            if (activeId) {
+                setActiveNav(activeId);
+            }
+        }
+
+        let isScrollTicking = false;
+        function throttledScrollHandler() {
+            if (!isScrollTicking) {
+                requestAnimationFrame(() => {
+                    updateActiveNavOnScroll();
+                    isScrollTicking = false;
+                });
+                isScrollTicking = true;
+            }
+        }
+
+        window.addEventListener('scroll', throttledScrollHandler, { passive: true });
+
+        // Init
         loadSettings();
         loadAbout();
     </script>

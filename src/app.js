@@ -11,7 +11,7 @@
         tabIdCounter: 0,
         isIncognito: false,
         sidebarOpen: false,
-        sidebarPanel: 'bookmarks',
+        sidebarPanel: 'history',
         settings: {},
         currentTheme: null,
         zoomLevels: {},
@@ -22,6 +22,7 @@
         commandPaletteOpen: false,
         menuOpen: false,
         downloadsList: [],
+        unseenDownloads: 0,
     };
 
     const $ = (s) => document.querySelector(s);
@@ -49,6 +50,9 @@
             menuHistory: 'История', menuBookmarks: 'Закладки', menuDownloads: 'Загрузки',
             menuSettings: 'Настройки', menuFullscreen: 'Полный экран', menuPrint: 'Печать',
             menuScreenshot: 'Скриншот', menuAlwaysOnTop: 'Поверх всех окон',
+            crashTitle: 'Вкладка аварийно завершила работу',
+            crashDesc: 'Произошел сбой процесса страницы',
+            crashReload: 'Перезагрузить страницу',
         },
         en: {
             newTab: 'New Tab', urlPlaceholder: 'Enter address or search query',
@@ -66,6 +70,9 @@
             menuHistory: 'History', menuBookmarks: 'Bookmarks', menuDownloads: 'Downloads',
             menuSettings: 'Settings', menuFullscreen: 'Fullscreen', menuPrint: 'Print',
             menuScreenshot: 'Screenshot', menuAlwaysOnTop: 'Always on Top',
+            crashTitle: 'Tab crashed',
+            crashDesc: 'The page process unexpectedly terminated',
+            crashReload: 'Reload page',
         }
     };
 
@@ -107,6 +114,7 @@
         updateBannerSubtitle: $('#update-banner-subtitle'),
         updateBannerBtn: $('#update-banner-btn'),
         updateBannerHide: $('#update-banner-hide'),
+        updateBannerClose: $('#update-banner-close'),
         updateMini: $('#update-mini'),
         shell: $('#browser-shell'),
         tabsContainer: $('#tabs-container'),
@@ -146,6 +154,11 @@
         statusText: $('#status-text'),
         statusRam: $('#status-ram'),
         statusZoom: $('#status-zoom'),
+        statusUrlPreview: $('#status-url-preview'),
+        statusBrandBtn: $('#status-brand-btn'),
+        statusRamBtn: $('#status-ram-btn'),
+        statusZoomBtn: $('#status-zoom-btn'),
+        statusShieldChip: $('#status-shield-chip'),
         commandPalette: $('#command-palette'),
         commandInput: $('#command-input'),
         commandResults: $('#command-results'),
@@ -163,6 +176,7 @@
         btnScreenshot: $('#btn-screenshot'),
         btnMenu: $('#btn-menu'),
         btnDownloads: $('#btn-downloads'),
+        downloadsBadge: $('#downloads-badge'),
         downloadsPanel: $('#downloads-panel'),
         downloadsPanelList: $('#downloads-panel-list'),
         downloadsOpenFolder: $('#downloads-open-folder'),
@@ -209,7 +223,13 @@
         return /^(https?:\/\/|file:\/\/|mauzer:\/\/)/.test(s) || /^[\w-]+(\.[\w-]+)+/.test(s) || /^localhost/.test(s);
     }
     function searchUrl(q) {
-        const engines = { google: 'https://www.google.com/search?q=', duckduckgo: 'https://duckduckgo.com/?q=' };
+        const engines = {
+            google: 'https://www.google.com/search?q=',
+            duckduckgo: 'https://duckduckgo.com/?q=',
+            brave: 'https://search.brave.com/search?q=',
+            bing: 'https://www.bing.com/search?q=',
+            yandex: 'https://yandex.com/search/?text='
+        };
         return (engines[state.settings.searchEngine] || engines.google) + encodeURIComponent(q);
     }
     function normalizeUrl(input) {
@@ -293,6 +313,22 @@
         }
     }
 
+    function minimizeUpdateBanner() {
+        if (!dom.updateBanner) return;
+        _updateBannerMinimized = true;
+        dom.updateBanner.classList.add('collapsing');
+        setTimeout(() => {
+            dom.updateBanner.classList.remove('collapsing');
+            applyUpdateBannerVisibility();
+        }, 220);
+    }
+
+    function expandUpdateBanner() {
+        if (!dom.updateBanner) return;
+        _updateBannerMinimized = false;
+        applyUpdateBannerVisibility();
+    }
+
     function showUpdateBanner({ title, subtitle, button, action, disabled }) {
         if (!dom.updateBanner) return;
         const labels = updateLabels();
@@ -301,7 +337,7 @@
         dom.updateBannerBtn.textContent = button || '';
         dom.updateBannerBtn.disabled = !!disabled;
         if (dom.updateBannerHide) dom.updateBannerHide.textContent = labels.hide;
-        if (dom.updateMini) dom.updateMini.textContent = labels.mini;
+        if (dom.updateMini) dom.updateMini.setAttribute('title', `${labels.available}: ${subtitle || ''}`.trim());
         _updateBannerAction = action || null;
         applyUpdateBannerVisibility();
     }
@@ -309,6 +345,7 @@
     function hideUpdateBanner() {
         if (!dom.updateBanner) return;
         dom.updateBanner.classList.remove('show');
+        dom.updateBanner.classList.remove('collapsing');
         dom.updateMini?.classList.remove('show');
         _updateBannerAction = null;
         _updateBannerMinimized = false;
@@ -328,8 +365,7 @@
              else wv.setAttribute('partition', 'incognito-' + tab.id);
         }
         wv.setAttribute('allowpopups', '');
-        wv.setAttribute('plugins', '');
-        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no, plugins=yes');
+        wv.setAttribute('webpreferences', 'contextIsolation=yes, sandbox=yes, nodeIntegration=no, enableRemoteModule=no');
         // The IPC preload rides only on the app's own pages — a random local
         // HTML file opened in a tab must not get window.mauzer
         if (targetUrl.startsWith('file://') && _preloadPath && /\/(newtab|settings|incognito)\.html($|[?#])/i.test(targetUrl)) {
@@ -439,21 +475,46 @@
     }
 
     function switchTab(id) {
+        if (state.activeTabId && state.activeTabId !== id) {
+            const prevId = state.activeTabId;
+            const prevTab = state.tabs.find(t => t.id === prevId);
+            const prevWv = document.getElementById('wv-' + prevId);
+            if (prevTab && prevWv && !prevTab.discarded) {
+                try {
+                    prevWv.executeJavaScript('window.scrollY || window.pageYOffset || 0')
+                        .then(y => { if (typeof y === 'number') prevTab.savedScrollY = y; })
+                        .catch(() => {});
+                } catch (e) {}
+            }
+        }
+
         state.activeTabId = id;
         
         const tab = state.tabs.find(t => t.id === id);
         if (tab && tab.discarded) {
             tab.discarded = false;
-            buildWebview(tab, tab.url);
+            const wv = buildWebview(tab, tab.url);
             const el = document.getElementById('tab-el-' + id);
             if (el) el.classList.remove('discarded-frost');
+            if (tab.savedScrollY && tab.savedScrollY > 0) {
+                const targetY = tab.savedScrollY;
+                const restoreScroll = () => {
+                    try {
+                        wv.executeJavaScript(`window.scrollTo({ top: ${targetY}, behavior: 'instant' });`).catch(() => {});
+                    } catch (e) {}
+                };
+                wv.addEventListener('dom-ready', restoreScroll, { once: true });
+                wv.addEventListener('did-stop-loading', restoreScroll, { once: true });
+            }
         }
 
         state.tabs.forEach(t => {
             const el = document.getElementById('tab-el-' + t.id);
             const wv = document.getElementById('wv-' + t.id);
+            const ov = document.getElementById('crash-overlay-' + t.id);
             if (el) el.classList.toggle('active', t.id === id);
             if (wv) wv.classList.toggle('active', t.id === id);
+            if (ov) ov.classList.toggle('active', t.id === id);
             // Frost: the just-hidden tab must freeze after the timeout, the
             // newly active one must not (its pending timer would fire while
             // it is still active and silently re-arm forever otherwise)
@@ -525,6 +586,7 @@
         state.tabs.splice(idx, 1);
         document.getElementById('tab-el-' + id)?.remove();
         document.getElementById('wv-' + id)?.remove();
+        document.getElementById('crash-overlay-' + id)?.remove();
         clearTimeout(state.frostTimers[id]);
         state.frozenTabs.delete(id);
         delete state.loadTimers[id];
@@ -603,6 +665,7 @@
             const fv = document.getElementById('tab-fav-' + id); if (fv) fv.style.display = 'none';
             if (state.activeTabId === id) dom.loadingBar.classList.add('active');
             state.loadTimers[id] = Date.now();
+            const ov = document.getElementById('crash-overlay-' + id); if (ov) ov.remove();
         });
 
         wv.addEventListener('did-stop-loading', () => {
@@ -621,12 +684,13 @@
 
         wv.addEventListener('did-navigate', (e) => {
             const t = state.tabs.find(x => x.id === id);
-            if (t) { t.url = e.url; }
+            if (t) { t.url = e.url; t.savedScrollY = 0; }
             if (state.activeTabId === id) {
                 dom.urlInput.value = e.url.includes('newtab.html') ? '' : e.url;
                 updateSecurityIcon(e.url);
             }
             updateNav();
+            const ov = document.getElementById('crash-overlay-' + id); if (ov) ov.remove();
             if (!t?.incognito && !e.url.includes('newtab.html') && !e.url.includes('incognito.html'))
                 window.mauzer.history.add({ url: e.url, title: t?.title, favicon: t?.favicon });
             saveSessionState();
@@ -656,7 +720,13 @@
             if (state.activeTabId === id) dom.loadingBar.classList.remove('active');
         });
 
-        wv.addEventListener('update-target-url', (e) => { dom.statusText.textContent = e.url || ''; });
+        wv.addEventListener('update-target-url', (e) => {
+            const u = e.url || '';
+            dom.statusText.textContent = u;
+            if (dom.statusUrlPreview) {
+                dom.statusUrlPreview.style.display = u ? 'inline-flex' : 'none';
+            }
+        });
 
         wv.addEventListener('media-started-playing', () => {
             const t = state.tabs.find(x => x.id === id); if (t) t.audible = true;
@@ -667,6 +737,14 @@
             const t = state.tabs.find(x => x.id === id); if (t) t.audible = false;
             resetFrostTimer(id); // audio ended — eligible for frost again
             const el = document.getElementById('tab-audio-' + id); if (el) el.classList.remove('playing');
+        });
+
+        // HTML5 Video Fullscreen state (YouTube, video players, etc.)
+        wv.addEventListener('enter-html-full-screen', () => {
+            document.body.classList.add('in-html-fullscreen');
+        });
+        wv.addEventListener('leave-html-full-screen', () => {
+            document.body.classList.remove('in-html-fullscreen');
         });
 
         // Only safe schemes — e.url is controlled by the remote page; file://
@@ -696,6 +774,62 @@
                 const dir = e.message.split(':')[1];
                 setZoom(dir === 'in' ? 0.1 : -0.1);
             }
+        });
+
+        // Crash recovery overlay
+        const handleCrash = (details) => {
+            const t = state.tabs.find(x => x.id === id);
+            if (!t) return;
+            t.loading = false;
+            const ld = document.getElementById('tab-load-' + id); if (ld) ld.style.display = 'none';
+            if (state.activeTabId === id) dom.loadingBar.classList.remove('active');
+
+            let overlay = document.getElementById('crash-overlay-' + id);
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'crash-overlay-' + id;
+                overlay.className = 'tab-crash-overlay' + (state.activeTabId === id ? ' active' : '');
+                overlay.innerHTML = `
+                    <div class="tab-crash-card">
+                        <div class="tab-crash-icon">
+                            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
+                        <h3 class="tab-crash-title">${t('crashTitle')}</h3>
+                        <p class="tab-crash-desc">${t('crashDesc')} (${(details && details.reason) || 'crashed'})</p>
+                        <div class="tab-crash-actions">
+                            <button type="button" class="btn-crash-reload" id="btn-crash-reload-${id}">${t('crashReload')}</button>
+                        </div>
+                    </div>
+                `;
+                dom.webviewContainer.appendChild(overlay);
+                const btn = overlay.querySelector('#btn-crash-reload-' + id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        overlay.remove();
+                        const tab = state.tabs.find(x => x.id === id);
+                        if (!tab) return;
+                        const oldWv = document.getElementById('wv-' + id);
+                        if (oldWv) oldWv.remove();
+                        buildWebview(tab, tab.url || 'mauzer://newtab');
+                        if (state.activeTabId === id) switchTab(id);
+                    });
+                }
+            } else {
+                overlay.classList.toggle('active', state.activeTabId === id);
+            }
+        };
+
+        wv.addEventListener('render-process-gone', (e) => {
+            if (e.reason !== 'clean-exit') {
+                handleCrash(e);
+            }
+        });
+        wv.addEventListener('crashed', () => {
+            handleCrash({ reason: 'crashed' });
         });
     }
 
@@ -728,7 +862,24 @@
         if (id === state.activeTabId || tab.audible) { resetFrostTimer(id); return; }
 
         const wv = document.getElementById('wv-' + id);
-        if (wv) wv.remove(); // Completely unload from RAM
+        if (wv) {
+            let removed = false;
+            const doRemove = () => {
+                if (!removed && wv.parentNode) {
+                    removed = true;
+                    wv.remove();
+                }
+            };
+            try {
+                wv.executeJavaScript('window.scrollY || window.pageYOffset || 0')
+                    .then(y => { if (typeof y === 'number') tab.savedScrollY = y; })
+                    .catch(() => {})
+                    .finally(doRemove);
+                setTimeout(doRemove, 500);
+            } catch (e) {
+                doRemove();
+            }
+        }
 
         tab.discarded = true;
         state.frozenTabs.add(id);
@@ -887,28 +1038,29 @@
                 }
             });
         } else if (panel === 'downloads') {
+            clearUnseenDownloads();
             const d = await window.mauzer.downloads.get();
             c.innerHTML = '<div class="sidebar-panel-title">Загрузки</div>';
             if (!d.length) { c.innerHTML += '<div class="sidebar-empty">Пусто</div>'; return; }
             d.forEach(dl => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
-                it.innerHTML = `<span style="font-size:16px">📄</span><span class="sidebar-item-title">${escapeHtml(dl.filename)}</span><span class="sidebar-item-meta">${formatBytes(dl.totalBytes)}</span>`;
-                it.addEventListener('click', () => window.mauzer.downloads.showInFolder(dl.path));
+                it.innerHTML = `
+                    <span class="sidebar-dl-icon">${dl.iconUrl ? `<img class="sidebar-item-native-icon" src="${escapeHtml(dl.iconUrl)}">` : '📁'}</span>
+                    <span class="sidebar-item-title">${escapeHtml(dl.filename)}</span>
+                    <span class="sidebar-item-meta">${formatBytes(dl.totalBytes)}</span>
+                `;
+                if (!dl.iconUrl && dl.path) {
+                    getNativeFileIcon(dl).then(icon => {
+                        if (icon && it.isConnected) {
+                            const iconSpan = it.querySelector('.sidebar-dl-icon');
+                            if (iconSpan) iconSpan.innerHTML = `<img class="sidebar-item-native-icon" src="${escapeHtml(icon)}">`;
+                        }
+                    });
+                }
+                it.addEventListener('click', () => {
+                    if (dl.path) window.mauzer.downloads.showInFolder(dl.path);
+                });
                 c.appendChild(it);
-            });
-        } else if (panel === 'notes') {
-            c.innerHTML = `<div class="sidebar-panel-title">Заметки</div><textarea class="note-input" id="new-note" placeholder="Написать заметку..."></textarea><button class="sidebar-action-btn" id="save-note-btn">💾 Сохранить</button><div id="notes-list" style="margin-top:8px"></div>`;
-            const notes = await window.mauzer.notes.get();
-            const nl = c.querySelector('#notes-list');
-            notes.forEach(n => {
-                const it = document.createElement('div'); it.className = 'sidebar-item';
-                it.innerHTML = `<span class="sidebar-item-title">${escapeHtml(n.text.slice(0, 50))}</span><span class="sidebar-item-delete">✕</span>`;
-                it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.notes.delete(n.id); renderSidebarPanel('notes'); });
-                nl.appendChild(it);
-            });
-            c.querySelector('#save-note-btn').addEventListener('click', async () => {
-                const txt = c.querySelector('#new-note').value.trim();
-                if (txt) { await window.mauzer.notes.save({ text: txt }); renderSidebarPanel('notes'); toast('Заметка сохранена', 'success'); }
             });
         } else if (panel === 'readinglist') {
             const rl = await window.mauzer.readinglist.get();
@@ -922,10 +1074,9 @@
                 it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.readinglist.remove(r.id); renderSidebarPanel('readinglist'); });
                 c.appendChild(it);
             });
-        } else if (panel === 'settings') {
-            // Settings now opens in a new tab
-            createTab(settingsUrl(), { title: 'Настройки' });
-            toggleSidebar();
+        } else {
+            // Default fallback to history
+            renderSidebarPanel('history');
         }
     }
 
@@ -965,10 +1116,9 @@
             { label: t('menuNewWindow'), icon: ICONS.window, kbd: 'Ctrl+N', action: () => window.mauzer.window.newWindow() },
             { label: t('menuIncognito'), icon: ICONS.incognito, kbd: 'Ctrl+Shift+N', action: () => createIncognitoTab() },
             { separator: true },
-            { label: t('menuBookmarks'), icon: ICONS.bookmark, action: () => openSidebar('bookmarks') },
             { label: t('menuHistory'), icon: ICONS.history, kbd: 'Ctrl+H', action: () => openSidebar('history') },
+            { label: t('menuBookmarks'), icon: ICONS.bookmark, action: () => openSidebar('bookmarks') },
             { label: t('menuDownloads'), icon: ICONS.download, kbd: 'Ctrl+J', action: () => openSidebar('downloads') },
-            { label: state.settings.language === 'en' ? 'Notes' : 'Заметки', icon: ICONS.note, action: () => openSidebar('notes') },
             { separator: true },
             { label: state.settings.language === 'en' ? 'Find on Page' : 'Поиск на странице', icon: ICONS.search, kbd: 'Ctrl+F', action: () => toggleFindBar() },
             { label: t('menuScreenshot'), icon: ICONS.screenshot, action: takeScreenshot },
@@ -1239,10 +1389,55 @@
         }
     }
 
-    function renderDownloadsPanel() {
+    const _nativeIconCache = new Map();
+    async function getNativeFileIcon(dl) {
+        if (!dl) return null;
+        if (dl.iconUrl) return dl.iconUrl;
+        if (!dl.path || !window.mauzer?.downloads?.getFileIcon) return null;
+        if (_nativeIconCache.has(dl.path)) return _nativeIconCache.get(dl.path);
+        try {
+            const icon = await window.mauzer.downloads.getFileIcon(dl.path);
+            if (icon) {
+                _nativeIconCache.set(dl.path, icon);
+                dl.iconUrl = icon;
+                return icon;
+            }
+        } catch (_) {}
+        return null;
+    }
+
+    function clearUnseenDownloads() {
+        state.unseenDownloads = 0;
+        if (dom.downloadsBadge) {
+            dom.downloadsBadge.style.display = 'none';
+            dom.downloadsBadge.textContent = '0';
+        }
+    }
+
+    async function renderDownloadsPanel() {
         const list = dom.downloadsPanelList;
+        if (!state.downloadsList.length && window.mauzer?.downloads?.get) {
+            try {
+                const saved = await window.mauzer.downloads.get();
+                if (saved && Array.isArray(saved) && saved.length) {
+                    state.downloadsList = saved.slice(0, 50);
+                }
+            } catch (_) {}
+        }
         if (!state.downloadsList.length) {
-            list.innerHTML = '<div class="downloads-empty">Нет загрузок</div>';
+            list.innerHTML = `
+                <div class="downloads-empty">
+                    <div class="downloads-empty-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </div>
+                    <div class="downloads-empty-title">Нет активных загрузок</div>
+                    <div class="downloads-empty-desc">Файлы, скачанные в браузере, появятся здесь</div>
+                </div>
+            `;
             return;
         }
         list.innerHTML = '';
@@ -1251,19 +1446,60 @@
             const el = document.createElement('div');
             el.className = 'dl-item';
             const isActive = dl.state === 'progressing';
+            const isCompleted = dl.state === 'completed';
+            const isError = dl.state === 'interrupted' || dl.state === 'cancelled';
             el.innerHTML = `
-                <div class="dl-item-icon ${typeClass}">${getFileIcon(typeClass)}</div>
+                <div class="dl-item-icon ${typeClass}">
+                    ${dl.iconUrl ? `<img class="dl-item-native-icon" src="${escapeHtml(dl.iconUrl)}" alt="">` : getFileIcon(typeClass)}
+                </div>
                 <div class="dl-item-info">
-                    <div class="dl-item-name">${escapeHtml(dl.filename)}</div>
-                    <div class="dl-item-meta">${isActive ? formatBytes(dl.receivedBytes) + ' / ' + formatBytes(dl.totalBytes) : formatBytes(dl.totalBytes || dl.receivedBytes)}</div>
+                    <div class="dl-item-name" title="${escapeHtml(dl.filename)}">${escapeHtml(dl.filename)}</div>
+                    <div class="dl-item-meta">
+                        <span>${isActive ? formatBytes(dl.receivedBytes) + ' / ' + formatBytes(dl.totalBytes) : formatBytes(dl.totalBytes || dl.receivedBytes)}</span>
+                        ${isCompleted ? '<span class="dl-item-badge">Готово</span>' : ''}
+                        ${isActive ? '<span class="dl-item-badge progressing">Загрузка</span>' : ''}
+                        ${isError ? '<span class="dl-item-badge error">Ошибка</span>' : ''}
+                    </div>
                     ${isActive ? `<div class="dl-item-progress"><div class="dl-item-progress-fill" style="width:${dl.totalBytes > 0 ? Math.round(dl.receivedBytes / dl.totalBytes * 100) : 0}%"></div></div>` : ''}
                 </div>
+                <div class="dl-item-actions">
+                    <button class="dl-action-btn show-folder" title="Показать в папке">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    </button>
+                    <button class="dl-action-btn open-file" title="Открыть файл">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </button>
+                </div>
             `;
-            el.addEventListener('dblclick', () => {
+
+            if (!dl.iconUrl && dl.path) {
+                getNativeFileIcon(dl).then(icon => {
+                    if (icon && el.isConnected) {
+                        const iconContainer = el.querySelector('.dl-item-icon');
+                        if (iconContainer) {
+                            iconContainer.innerHTML = `<img class="dl-item-native-icon" src="${escapeHtml(icon)}" alt="">`;
+                            iconContainer.style.background = 'rgba(255, 255, 255, 0.04)';
+                            iconContainer.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                        }
+                    }
+                });
+            }
+
+            el.querySelector('.show-folder').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (dl.path) window.mauzer.downloads.showInFolder(dl.path);
+            });
+            el.querySelector('.open-file').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (dl.path) window.mauzer.downloads.open(dl.path);
+            });
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.dl-action-btn')) return;
                 if (!isActive && dl.path) {
                     window.mauzer.downloads.open(dl.path);
                 }
             });
+
             list.appendChild(el);
         });
     }
@@ -1466,20 +1702,20 @@
         // Strict hex validation: this value gets interpolated into JS strings
         // executed inside remote pages — a malformed value must never pass
         const accent = /^#[0-9a-fA-F]{3,8}$/.test(s.accentColor || '') ? s.accentColor : '#808080';
-        const toRgba = (hex, alpha = 1) => {
-            const h = hex.replace('#', '');
-            const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
-            const r = (bigint >> 16) & 255;
-            const g = (bigint >> 8) & 255;
-            const b = bigint & 255;
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        };
+        const h = accent.replace('#', '');
+        const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        const accentRgb = `${r}, ${g}, ${b}`;
+        const toRgba = (hex, alpha = 1) => `rgba(${r}, ${g}, ${b}, ${alpha})`;
         const accentGlow = toRgba(accent, theme === 'light' ? 0.18 : 0.24);
         const accentHover = toRgba(accent, theme === 'light' ? 0.12 : 0.18);
         // Apply to shell
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
         document.documentElement.style.setProperty('--accent', accent);
+        document.documentElement.style.setProperty('--accent-rgb', accentRgb);
         document.documentElement.style.setProperty('--accent-glow', accentGlow);
         document.documentElement.style.setProperty('--accent-hover', accentHover);
         document.documentElement.style.setProperty('--border-accent', accent);
@@ -1490,7 +1726,7 @@
             dyn.id = 'dynamic-theme-vars';
             document.head.appendChild(dyn);
         }
-        dyn.textContent = `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`;
+        dyn.textContent = `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-rgb: ${accentRgb}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`;
 
         // Update theme on ALL open webviews (internal + external) in real time
         state.tabs.forEach(tab => {
@@ -1502,6 +1738,7 @@
                     try {
                         document.documentElement.style.colorScheme = '${theme === 'light' ? 'light' : 'dark'}';
                         document.documentElement.style.setProperty('--accent', '${accent}');
+                        document.documentElement.style.setProperty('--accent-rgb', '${accentRgb}');
                         document.documentElement.style.setProperty('--accent-glow', '${accentGlow}');
                         document.documentElement.style.setProperty('--accent-hover', '${accentHover}');
                         document.documentElement.style.setProperty('--border-accent', '${accent}');
@@ -1511,7 +1748,7 @@
                     } catch (e) {}
                 `).catch(() => {});
                 if (url.startsWith('file://') || url.startsWith('mauzer://')) {
-                    insertThemeCss(wv, `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`);
+                    insertThemeCss(wv, `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; --accent: ${accent}; --accent-rgb: ${accentRgb}; --accent-glow: ${accentGlow}; --accent-hover: ${accentHover}; --border-accent: ${accent}; }`);
                 } else {
                     insertThemeCss(wv, `:root { color-scheme: ${theme === 'light' ? 'light' : 'dark'}; }`);
                 }
@@ -1567,17 +1804,34 @@
         state.currentTheme = theme;
 
         if (s.density === 'compact') {
-            document.documentElement.style.setProperty('--titlebar-h', '34px');
-            document.documentElement.style.setProperty('--navbar-h', '38px');
-            document.documentElement.style.setProperty('--tab-h', '28px');
+            document.documentElement.classList.add('density-compact');
+            document.documentElement.classList.remove('density-comfortable');
+        } else if (s.density === 'comfortable') {
+            document.documentElement.classList.add('density-comfortable');
+            document.documentElement.classList.remove('density-compact');
         } else {
-            document.documentElement.style.setProperty('--titlebar-h', '40px');
-            document.documentElement.style.setProperty('--navbar-h', '44px');
-            document.documentElement.style.setProperty('--tab-h', '34px');
+            // Default / auto: adapt dynamically based on screen resolution media query
+            document.documentElement.classList.remove('density-compact');
+            document.documentElement.classList.remove('density-comfortable');
         }
+        document.documentElement.style.removeProperty('--titlebar-h');
+        document.documentElement.style.removeProperty('--navbar-h');
+        document.documentElement.style.removeProperty('--tab-h');
+        document.documentElement.style.removeProperty('--statusbar-h');
         // Always on top
         if (typeof s.alwaysOnTop !== 'undefined') {
             window.mauzer.window.alwaysOnTop(!!s.alwaysOnTop);
+        }
+        // Font / Page scale
+        if (s.fontSize) {
+            const zoomMap = { small: 0.9, medium: 1.0, large: 1.1, xlarge: 1.25 };
+            const factor = zoomMap[s.fontSize] || 1.0;
+            state.tabs.forEach(tab => {
+                const wv = document.getElementById('wv-' + tab.id);
+                if (wv) {
+                    try { wv.setZoomFactor(factor); } catch (e) { }
+                }
+            });
         }
         // Language
         applyLanguage();
@@ -1883,6 +2137,7 @@
                 dom.pulsePanel.style.display = 'none';
                 hideContextMenu();
                 panel.style.display = '';
+                clearUnseenDownloads();
                 renderDownloadsPanel();
             }
         });
@@ -1891,10 +2146,12 @@
         });
         dom.downloadsClear.addEventListener('click', () => {
             state.downloadsList = [];
+            window.mauzer.downloads.clear?.();
             renderDownloadsPanel();
         });
         dom.downloadsShowAll.addEventListener('click', () => {
             dom.downloadsPanel.style.display = 'none';
+            clearUnseenDownloads();
             renderSidebarPanel('downloads');
             if (!state.sidebarOpen) toggleSidebar();
         });
@@ -1953,12 +2210,13 @@
             if (_updateBannerAction) _updateBannerAction();
         });
         dom.updateBannerHide?.addEventListener('click', () => {
-            _updateBannerMinimized = true;
-            applyUpdateBannerVisibility();
+            minimizeUpdateBanner();
+        });
+        dom.updateBannerClose?.addEventListener('click', () => {
+            minimizeUpdateBanner();
         });
         dom.updateMini?.addEventListener('click', () => {
-            _updateBannerMinimized = false;
-            applyUpdateBannerVisibility();
+            expandUpdateBanner();
         });
 
         // IPC listeners
@@ -2074,16 +2332,38 @@
             dom.downloadBarName.textContent = d.filename;
             dom.downloadBarFill.style.width = '100%';
             dom.downloadBarStats.textContent = 'Готово!';
-            toast(`Загружено: ${d.filename}`, 'success');
             // Auto-hide after 4 seconds
             setTimeout(() => { dom.downloadBar.style.display = 'none'; }, 4000);
+
+            // Update badge counter if panel is not currently open
+            if (dom.downloadsPanel.style.display === 'none') {
+                state.unseenDownloads = (state.unseenDownloads || 0) + 1;
+                if (dom.downloadsBadge) {
+                    dom.downloadsBadge.textContent = state.unseenDownloads > 99 ? '99+' : state.unseenDownloads;
+                    dom.downloadsBadge.style.display = 'flex';
+                    dom.downloadsBadge.classList.remove('badge-pop-anim');
+                    void dom.downloadsBadge.offsetWidth;
+                    dom.downloadsBadge.classList.add('badge-pop-anim');
+                }
+            }
+
             // Update panel list
-            const existing = state.downloadsList.find(x => x.filename === d.filename);
+            const existing = state.downloadsList.find(x => x.filename === d.filename || (d.path && x.path === d.path));
             if (existing) {
                 existing.state = 'completed';
                 existing.totalBytes = d.totalBytes || existing.totalBytes || existing.receivedBytes;
+                if (d.path) existing.path = d.path;
+                if (d.iconUrl) existing.iconUrl = d.iconUrl;
             } else {
-                state.downloadsList.unshift({ filename: d.filename, receivedBytes: d.totalBytes || 0, totalBytes: d.totalBytes || 0, state: 'completed' });
+                state.downloadsList.unshift({
+                    filename: d.filename,
+                    path: d.path,
+                    iconUrl: d.iconUrl,
+                    receivedBytes: d.totalBytes || 0,
+                    totalBytes: d.totalBytes || 0,
+                    state: 'completed',
+                    timestamp: d.timestamp || Date.now()
+                });
                 if (state.downloadsList.length > 50) state.downloadsList.length = 50;
             }
             if (dom.downloadsPanel.style.display !== 'none') renderDownloadsPanel();
@@ -2091,8 +2371,81 @@
         });
     }
 
-    // RAM monitor
-    setInterval(() => { if (performance.memory) dom.statusRam.textContent = 'RAM: ' + formatBytes(performance.memory.usedJSHeapSize); }, 5000);
+    // ОПТИМИЗАЦИЯ: RAM monitor — показываем только при наведении
+    let ramMonitorInterval = null;
+    
+    function startRamMonitor() {
+        if (ramMonitorInterval) return;
+        ramMonitorInterval = setInterval(() => {
+            if (performance.memory && !document.hidden) {
+                dom.statusRam.textContent = 'RAM: ' + formatBytes(performance.memory.usedJSHeapSize);
+            }
+        }, 8000);  // Увеличили интервал с 5 до 8 секунд
+    }
+    
+    function stopRamMonitor() {
+        if (ramMonitorInterval) {
+            clearInterval(ramMonitorInterval);
+            ramMonitorInterval = null;
+        }
+    }
+    
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopRamMonitor();
+        else startRamMonitor();
+    });
+    
+    // Показываем RAM при наведении и клик для оптимизации памяти
+    const updateRamDisplay = () => {
+        if (performance.memory && dom.statusRam) {
+            dom.statusRam.textContent = 'RAM: ' + formatBytes(performance.memory.usedJSHeapSize);
+        }
+    };
+    if (dom.statusRamBtn) {
+        dom.statusRamBtn.addEventListener('mouseenter', updateRamDisplay);
+        dom.statusRamBtn.addEventListener('click', () => {
+            dom.statusRamBtn.classList.add('optimizing');
+            setTimeout(() => dom.statusRamBtn.classList.remove('optimizing'), 800);
+            let freed = 0;
+            state.tabs.forEach(t => {
+                if (t.id !== state.activeTabId && !state.frozenTabs.has(t.id)) {
+                    discardTab(t.id);
+                    freed++;
+                }
+            });
+            updateRamDisplay();
+            const isEn = state.settings.language === 'en';
+            toast(freed > 0 
+                ? (isEn ? `RAM: ${freed} вкл. заморожено` : `ОЗУ оптимизировано: выгружено вкладок: ${freed}`)
+                : (isEn ? 'RAM optimized: memory freed' : 'ОЗУ оптимизировано: фоновая память очищена')
+            );
+        });
+    } else if (dom.statusRam) {
+        dom.statusRam.addEventListener('mouseenter', updateRamDisplay);
+    }
+
+    if (dom.statusZoomBtn) {
+        dom.statusZoomBtn.addEventListener('click', () => {
+            resetZoom();
+            const isEn = state.settings.language === 'en';
+            toast(isEn ? 'Zoom reset to 100%' : 'Масштаб сброшен на 100%');
+        });
+    }
+
+    if (dom.statusBrandBtn) {
+        dom.statusBrandBtn.addEventListener('click', () => {
+            createTab(settingsUrl(), { title: t('menuSettings') });
+        });
+    }
+
+    if (dom.statusShieldChip) {
+        dom.statusShieldChip.addEventListener('click', () => {
+            const isEn = state.settings.language === 'en';
+            toast(isEn ? 'Mauzer Shield: 230,000+ filters active' : 'Mauzer Shield: 230 000+ правил активно');
+        });
+    }
+    
+    startRamMonitor();
 
     // ============================================================
     // ============================================================
@@ -2201,10 +2554,6 @@
             setIncognitoMode();
         }
         state.settings = await window.mauzer.settings.load();
-        if (state.settings.searchEngine === 'yandex') {
-            state.settings.searchEngine = 'google';
-            await window.mauzer.settings.save(state.settings);
-        }
         try { 
             _preloadPath = await window.mauzer.app.getPreloadPath(); 
         } catch (e) { 
@@ -2229,6 +2578,13 @@
         bindEvents();
         await initIntro();
         
+        try {
+            const savedDl = await window.mauzer.downloads.get();
+            if (savedDl && Array.isArray(savedDl)) {
+                state.downloadsList = savedDl.slice(0, 50);
+            }
+        } catch (_) {}
+
         // Restore session or create new tab
         const restored = await restoreSessionState();
         if (!restored) {
