@@ -35,6 +35,9 @@ function ensureDb() {
     CREATE INDEX IF NOT EXISTS idx_history_ts ON history(timestamp);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_history_url_ts ON history(url, timestamp);
   `);
+  try {
+    db.prepare("UPDATE history SET title = '' WHERE UPPER(title) = 'MAUZER' AND url NOT LIKE '%newtab.html%'").run();
+  } catch (e) { }
   migrateFromJson();
   return db;
 }
@@ -85,13 +88,38 @@ function search(query, limit = 200) {
 function add(entry) {
   ensureDb();
   try {
+    let cleanTitle = entry.title || '';
+    if (cleanTitle.toUpperCase() === 'MAUZER' && !entry.url.includes('newtab.html')) {
+      cleanTitle = '';
+    }
     // UNIQUE(url, timestamp) silently dedupes same-page navigations
     db.prepare('INSERT OR IGNORE INTO history (id, url, title, favicon, timestamp) VALUES (?, ?, ?, ?, ?)')
-      .run(genId(), entry.url, entry.title || entry.url, entry.favicon || '', Date.now());
+      .run(genId(), entry.url, cleanTitle, entry.favicon || '', Date.now());
   } catch (e) { }
   if (++addCount % 100 === 0) {
     try { prune(); } catch (e) { }
   }
+}
+
+function updateLatest(url, title, favicon) {
+  if (!url) return;
+  ensureDb();
+  try {
+    let cleanTitle = title;
+    if (cleanTitle && cleanTitle.toUpperCase() === 'MAUZER' && !url.includes('newtab.html')) {
+      cleanTitle = '';
+    }
+    if (cleanTitle && favicon) {
+      db.prepare(`UPDATE history SET title = ?, favicon = ?
+        WHERE id = (SELECT id FROM history WHERE url = ? ORDER BY timestamp DESC LIMIT 1)`).run(cleanTitle, favicon, url);
+    } else if (cleanTitle) {
+      db.prepare(`UPDATE history SET title = ?
+        WHERE id = (SELECT id FROM history WHERE url = ? ORDER BY timestamp DESC LIMIT 1)`).run(cleanTitle, url);
+    } else if (favicon) {
+      db.prepare(`UPDATE history SET favicon = ?
+        WHERE id = (SELECT id FROM history WHERE url = ? ORDER BY timestamp DESC LIMIT 1)`).run(favicon, url);
+    }
+  } catch (e) { }
 }
 
 function addMany(items) {
@@ -134,4 +162,4 @@ function close() {
   }
 }
 
-module.exports = { get, search, add, addMany, remove, removeMany, clear, close };
+module.exports = { get, search, add, addMany, updateLatest, remove, removeMany, clear, close };

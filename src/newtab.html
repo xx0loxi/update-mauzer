@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: https: http:; font-src 'self' file: data:; connect-src https://ipapi.co https://ipwho.is https://get.geojs.io https://api.bigdatacloud.net https://api.open-meteo.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: https: http:; font-src 'self' file: data:; connect-src https://ipapi.co https://ipwho.is https://get.geojs.io https://api.bigdatacloud.net https://api.open-meteo.com https://bank.gov.ua https://open.er-api.com; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>MAUZER</title>
     <link rel="stylesheet" href="fonts/inter.css">
     <style>
@@ -232,13 +232,16 @@
 
         /* The widget's backdrop blur re-filters the moving scene behind it
            every frame; on the low tier swap the frost for a solid tint. */
-        html.low-power .weather-widget::before {
+        html.low-power .weather-widget::before,
+        html.low-power .currency-widget::before {
             display: none;
         }
-        html.low-power .weather-widget {
+        html.low-power .weather-widget,
+        html.low-power .currency-widget {
             background: rgba(26, 26, 26, 0.78);
         }
-        html[data-theme="light"].low-power .weather-widget {
+        html[data-theme="light"].low-power .weather-widget,
+        html[data-theme="light"].low-power .currency-widget {
             background: rgba(245, 245, 245, 0.85);
         }
 
@@ -285,12 +288,13 @@
                reachable when the window is narrower than the content —
                plain justify-content:center would clip it (see search bar) */
             margin: auto;
+            transform: translateY(-22px);
         }
 
         /* Local animated glow behind search and widgets */
         .local-glow-bg {
             position: absolute;
-            top: 180px; /* Adjust based on logo height */
+            top: 140px; /* Adjusted to match lifted logo */
             left: 50%;
             transform: translateX(-50%);
             width: 700px;
@@ -317,7 +321,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin-bottom: 24px;
+            margin-bottom: 14px;
         }
 
         .logo {
@@ -331,6 +335,152 @@
         }
 
 
+
+        /* === RECENT SITES (ABOVE SEARCH) === */
+        .recent-sites-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 7px;
+            width: 100%;
+            max-width: 660px;
+            margin-bottom: 16px;
+            z-index: 4;
+            transition: opacity 0.25s ease;
+        }
+
+        .recent-sites-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .recent-sites-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.38);
+            user-select: none;
+        }
+
+        .recent-sites-label svg {
+            opacity: 0.75;
+        }
+
+        .recent-sites-list {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            width: 100%;
+            padding: 2px 0;
+        }
+
+        .recent-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            height: 28px;
+            max-width: 78px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            user-select: none;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            transition: background-color 0.2s ease,
+                        border-color 0.2s ease,
+                        transform 0.2s cubic-bezier(0.2, 0, 0, 1),
+                        box-shadow 0.2s ease;
+        }
+
+        .recent-chip:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.24);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), 0 0 12px rgba(255, 255, 255, 0.05);
+        }
+
+        .recent-chip:active {
+            transform: translateY(0);
+        }
+
+        .recent-chip-icon {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .recent-chip-letter {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.14);
+            font-size: 9.5px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.9);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .recent-chip-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: 0.1px;
+            transition: color 0.2s ease;
+        }
+
+        .recent-chip:hover .recent-chip-title {
+            color: #ffffff;
+        }
+
+        /* Recent Sites Light theme */
+        [data-theme="light"] .recent-sites-label {
+            color: rgba(0, 0, 0, 0.42);
+        }
+
+        [data-theme="light"] .recent-chip {
+            background: rgba(0, 0, 0, 0.04);
+            border-color: rgba(0, 0, 0, 0.09);
+        }
+
+        [data-theme="light"] .recent-chip:hover {
+            background: rgba(0, 0, 0, 0.08);
+            border-color: rgba(0, 0, 0, 0.16);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .recent-chip-title {
+            color: rgba(0, 0, 0, 0.75);
+        }
+
+        [data-theme="light"] .recent-chip:hover .recent-chip-title {
+            color: rgba(0, 0, 0, 0.95);
+        }
+
+        [data-theme="light"] .recent-chip-letter {
+            background: rgba(0, 0, 0, 0.1);
+            color: rgba(0, 0, 0, 0.85);
+        }
 
         /* === SEARCH === */
         .search-wrap {
@@ -346,11 +496,25 @@
             transform: scale(1.015);
         }
 
-        /* === WEATHER WIDGET === */
-        .weather-widget {
+        /* === TOP WIDGETS BAR === */
+        .top-widgets-bar {
             position: absolute;
             top: 16px;
             left: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .top-widgets-bar > * {
+            pointer-events: auto;
+        }
+
+        /* === WEATHER WIDGET === */
+        .weather-widget {
+            position: relative;
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -360,6 +524,8 @@
             border-radius: 14px;
             cursor: pointer;
             overflow: hidden;
+            flex-shrink: 0;
+            box-sizing: border-box;
             transition: width 0.32s cubic-bezier(0.2, 0, 0, 1),
                         padding 0.32s cubic-bezier(0.2, 0, 0, 1),
                         background-color 0.25s ease,
@@ -906,6 +1072,158 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* === CURRENCY WIDGET === */
+        .currency-widget {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 42px;
+            padding: 0 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            overflow: hidden;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            z-index: 100;
+            transition: background-color 0.25s ease,
+                        border-color 0.25s ease,
+                        box-shadow 0.25s ease;
+        }
+
+        .currency-widget::before {
+            content: '';
+            position: absolute;
+            inset: -60px;
+            z-index: -1;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .currency-widget:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .currency-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .currency-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .currency-badge.usd {
+            background: rgba(16, 185, 129, 0.18);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+        }
+
+        .currency-badge.eur {
+            background: rgba(59, 130, 246, 0.18);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.28);
+        }
+
+        .currency-val {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.1px;
+            color: rgba(255, 255, 255, 0.92);
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+
+        .currency-sep {
+            width: 1px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.12);
+            margin: 0 2px;
+        }
+
+        .currency-refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.45);
+            cursor: pointer;
+            margin-left: 2px;
+            transition: color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .currency-refresh-btn:hover {
+            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .currency-refresh-btn.spinning svg {
+            animation: currency-spin 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes currency-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Currency Widget Light Theme */
+        [data-theme="light"] .currency-widget {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .currency-widget:hover {
+            background: rgba(0, 0, 0, 0.08);
+            border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="light"] .currency-val {
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        [data-theme="light"] .currency-badge.usd {
+            background: rgba(16, 185, 129, 0.14);
+            color: #059669;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        [data-theme="light"] .currency-badge.eur {
+            background: rgba(59, 130, 246, 0.14);
+            color: #2563eb;
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+
+        [data-theme="light"] .currency-sep {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .currency-refresh-btn {
+            color: rgba(0, 0, 0, 0.4);
+        }
+
+        [data-theme="light"] .currency-refresh-btn:hover {
+            color: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.06);
+        }
+
         .search-bar {
             width: 100%;
             height: 56px;
@@ -1021,11 +1339,13 @@
         }
 
         body.suggestions-open .weather-widget,
+        body.suggestions-open .currency-widget,
+        body.suggestions-open .recent-sites-wrap,
         body.suggestions-open .quick-link,
         body.suggestions-open .quicklink-menu,
         body.suggestions-open .quicklink-menu-btn {
             pointer-events: none;
-            opacity: 0.7;
+            opacity: 0.6;
         }
 
         /* Scrollbar for suggestions */
@@ -1332,21 +1652,44 @@
             .container {
                 max-width: 620px;
                 padding: 12px 18px;
+                transform: translateY(-16px);
             }
 
             .logo-block {
-                margin-bottom: 16px;
-            }
-
-            .logo {
-                width: 240px;
-                max-height: 95px;
+                margin-bottom: 10px;
             }
 
             .local-glow-bg {
-                top: 110px;
+                top: 85px;
                 width: 500px;
                 height: 240px;
+            }
+
+            .recent-sites-wrap {
+                margin-bottom: 12px;
+                gap: 5px;
+            }
+
+            .recent-chip {
+                padding: 3px 8px;
+                height: 26px;
+                border-radius: 13px;
+                max-width: 120px;
+            }
+
+            .recent-chip-title {
+                font-size: 10.5px;
+            }
+
+            .recent-chip-icon {
+                width: 13px;
+                height: 13px;
+            }
+
+            .recent-chip-letter {
+                width: 14px;
+                height: 14px;
+                font-size: 9px;
             }
 
             .search-wrap {
@@ -1408,11 +1751,43 @@
                 font-size: 11.5px;
             }
 
-            .weather-widget {
+            .top-widgets-bar {
                 top: 10px;
                 left: 14px;
+                gap: 6px;
+            }
+
+            .weather-widget {
                 padding: 6px 10px;
                 border-radius: 10px;
+            }
+
+            .currency-widget {
+                padding: 0 10px;
+                height: 42px;
+                border-radius: 10px;
+                gap: 6px;
+            }
+
+            .currency-badge {
+                width: 17px;
+                height: 17px;
+                font-size: 10px;
+                border-radius: 5px;
+            }
+
+            .currency-val {
+                font-size: 12px;
+            }
+
+            .currency-sep {
+                height: 12px;
+                margin: 0 1px;
+            }
+
+            .currency-refresh-btn {
+                width: 18px;
+                height: 18px;
             }
 
             .weather-icon-svg {
@@ -1987,10 +2362,15 @@
         }
         .chip-dot.youtube { background: #ff0000; box-shadow: 0 0 6px rgba(255, 0, 0, 0.5); }
         .chip-dot.github { background: #f0f6fc; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
-        .chip-dot.telegram { background: #2AABEE; box-shadow: 0 0 6px rgba(42, 171, 238, 0.5); }
-        .chip-dot.twitch { background: #9146FF; box-shadow: 0 0 6px rgba(145, 70, 255, 0.5); }
+        .chip-dot.google { background: #4285F4; box-shadow: 0 0 6px rgba(66, 133, 244, 0.5); }
         .chip-dot.chatgpt { background: #10a37f; box-shadow: 0 0 6px rgba(16, 163, 127, 0.5); }
-        .chip-dot.vk { background: #0077FF; box-shadow: 0 0 6px rgba(0, 119, 255, 0.5); }
+        .chip-dot.facebook { background: #1877F2; box-shadow: 0 0 6px rgba(24, 119, 242, 0.5); }
+        .chip-dot.instagram { background: #E4405F; box-shadow: 0 0 6px rgba(228, 64, 95, 0.5); }
+        .chip-dot.discord { background: #5865F2; box-shadow: 0 0 6px rgba(88, 101, 242, 0.5); }
+        .chip-dot.spotify { background: #1DB954; box-shadow: 0 0 6px rgba(29, 185, 84, 0.5); }
+        .chip-dot.telegram { background: #2AABEE; box-shadow: 0 0 6px rgba(42, 171, 238, 0.5); }
+        .chip-dot.x, .chip-dot.twitter { background: #ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.4); }
+        .chip-dot.twitch { background: #9146FF; box-shadow: 0 0 6px rgba(145, 70, 255, 0.5); }
         .chip-dot.reddit { background: #FF4500; box-shadow: 0 0 6px rgba(255, 69, 0, 0.5); }
 
         /* Actions */
@@ -2262,33 +2642,54 @@
         <canvas id="fx-canvas" aria-hidden="true"></canvas>
     </div>
 
-    <!-- Weather Widget -->
-    <div id="weather-widget" class="weather-widget">
-        <div class="weather-main">
-            <div id="weather-icon" class="weather-icon-svg">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    <!-- Top Left Widgets Bar -->
+    <div class="top-widgets-bar">
+        <!-- Weather Widget -->
+        <div id="weather-widget" class="weather-widget">
+            <div class="weather-main">
+                <div id="weather-icon" class="weather-icon-svg">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </div>
+                <div class="weather-info">
+                    <span id="weather-temp" class="weather-temp">--°</span>
+                    <span id="weather-loc" class="weather-loc" title="Краснокутськ (нажмите, чтобы изменить город)">Краснокутськ</span>
+                </div>
             </div>
-            <div class="weather-info">
-                <span id="weather-temp" class="weather-temp">--°</span>
-                <span id="weather-loc" class="weather-loc" title="Краснокутськ (нажмите, чтобы изменить город)">Краснокутськ</span>
+            <div class="weather-expanded">
+                <div class="weather-expanded-inner">
+                    <div class="weather-details">
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Влажность</span>
+                            <span id="weather-humidity" class="detail-value">--%</span>
+                        </div>
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Ветер</span>
+                            <span id="weather-wind" class="detail-value">-- м/с</span>
+                        </div>
+                    </div>
+                    <div class="weather-section-title">По часам</div>
+                    <div class="weather-hourly" id="weather-hourly"></div>
+                    <div class="weather-section-title">На 3 дня</div>
+                    <div class="weather-forecast" id="weather-forecast"></div>
+                </div>
             </div>
         </div>
-        <div class="weather-expanded">
-            <div class="weather-expanded-inner">
-                <div class="weather-details">
-                    <div class="weather-detail-item">
-                        <span class="detail-label">Влажность</span>
-                        <span id="weather-humidity" class="detail-value">--%</span>
-                    </div>
-                    <div class="weather-detail-item">
-                        <span class="detail-label">Ветер</span>
-                        <span id="weather-wind" class="detail-value">-- м/с</span>
-                    </div>
-                </div>
-                <div class="weather-section-title">По часам</div>
-                <div class="weather-hourly" id="weather-hourly"></div>
-                <div class="weather-section-title">На 3 дня</div>
-                <div class="weather-forecast" id="weather-forecast"></div>
+
+        <!-- Currency Widget (USD / EUR to UAH) -->
+        <div id="currency-widget" class="currency-widget" title="Курс валют НБУ (натисніть для оновлення)">
+            <div class="currency-item" id="currency-usd">
+                <span class="currency-badge usd">$</span>
+                <span class="currency-val" id="currency-usd-val">--.--</span>
+            </div>
+            <div class="currency-sep"></div>
+            <div class="currency-item" id="currency-eur">
+                <span class="currency-badge eur">€</span>
+                <span class="currency-val" id="currency-eur-val">--.--</span>
+            </div>
+            <div class="currency-refresh-btn" id="currency-refresh-btn" title="Оновити курс">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                </svg>
             </div>
         </div>
     </div>
@@ -2299,6 +2700,20 @@
         </div>
 
         <div class="local-glow-bg"></div>
+
+        <!-- Recent Sites (Up to 8 recently opened sites) -->
+        <div class="recent-sites-wrap" id="recent-sites-wrap">
+            <div class="recent-sites-header">
+                <span class="recent-sites-label">
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Недавно открытые
+                </span>
+            </div>
+            <div class="recent-sites-list" id="recent-sites-list"></div>
+        </div>
 
         <div class="search-wrap">
             <input type="text" class="search-bar" id="search-input" placeholder="Искать в интернете или ввести адрес"
@@ -2398,20 +2813,35 @@
                     <button type="button" class="modal-chip" data-url="https://github.com" data-title="GitHub">
                         <span class="chip-dot github"></span>GitHub
                     </button>
-                    <button type="button" class="modal-chip" data-url="https://web.telegram.org" data-title="Telegram">
-                        <span class="chip-dot telegram"></span>Telegram
-                    </button>
-                    <button type="button" class="modal-chip" data-url="https://twitch.tv" data-title="Twitch">
-                        <span class="chip-dot twitch"></span>Twitch
+                    <button type="button" class="modal-chip" data-url="https://google.com" data-title="Google">
+                        <span class="chip-dot google"></span>Google
                     </button>
                     <button type="button" class="modal-chip" data-url="https://chatgpt.com" data-title="ChatGPT">
                         <span class="chip-dot chatgpt"></span>ChatGPT
                     </button>
-                    <button type="button" class="modal-chip" data-url="https://vk.com" data-title="VK">
-                        <span class="chip-dot vk"></span>VK
+                    <button type="button" class="modal-chip" data-url="https://facebook.com" data-title="Facebook">
+                        <span class="chip-dot facebook"></span>Facebook
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://instagram.com" data-title="Instagram">
+                        <span class="chip-dot instagram"></span>Instagram
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://discord.com" data-title="Discord">
+                        <span class="chip-dot discord"></span>Discord
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://spotify.com" data-title="Spotify">
+                        <span class="chip-dot spotify"></span>Spotify
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://web.telegram.org" data-title="Telegram">
+                        <span class="chip-dot telegram"></span>Telegram
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://x.com" data-title="X">
+                        <span class="chip-dot x"></span>X
                     </button>
                     <button type="button" class="modal-chip" data-url="https://reddit.com" data-title="Reddit">
                         <span class="chip-dot reddit"></span>Reddit
+                    </button>
+                    <button type="button" class="modal-chip" data-url="https://twitch.tv" data-title="Twitch">
+                        <span class="chip-dot twitch"></span>Twitch
                     </button>
                 </div>
             </div>
@@ -3006,10 +3436,12 @@
         }
 
         function filterBlocked(links) {
-            const blocked = new Set(['telegram.org', 'www.telegram.org', 'google.com', 'www.google.com', 'reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'github.com', 'www.github.com']);
+            // Strictly exclude Russian services from quick links per user instruction
+            const blocked = new Set(['vk.com', 'www.vk.com', 'yandex.ru', 'www.yandex.ru', 'ya.ru', 'mail.ru', 'www.mail.ru', 'ok.ru', 'www.ok.ru', 'rambler.ru']);
             return links.filter(link => {
                 try {
-                    return !blocked.has(new URL(link.url).hostname);
+                    const host = new URL(link.url).hostname.toLowerCase();
+                    return !blocked.has(host) && !host.endsWith('.ru');
                 } catch (e) {
                     return true;
                 }
@@ -3026,14 +3458,26 @@
             if (hostname.includes('chatgpt.com') || hostname.includes('openai.com')) {
                 return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#10a37f"><path d="M22.28 9.87a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.06 6.06 0 0 0 4.96 4.19a5.98 5.98 0 0 0-3.93 4.14 6.05 6.05 0 0 0 .88 7.1 5.98 5.98 0 0 0 .51 4.92 6.05 6.05 0 0 0 6.52 2.9 6.03 6.03 0 0 0 10.29-2.13 5.98 5.98 0 0 0 3.93-4.14 6.05 6.05 0 0 0-.88-7.11zm-8.8 11.2a4.54 4.54 0 0 1-2.88-.72l.14-.08 4.78-2.76a.79.79 0 0 0 .39-.68v-6.75l2.03 1.17a.08.08 0 0 1 .04.06v5.38a4.56 4.56 0 0 1-4.5 4.38zm-8.62-4.1a4.5 4.5 0 0 1-.54-2.93l.14.08 4.79 2.76a.8.8 0 0 0 .79 0l5.85-3.37v2.35a.08.08 0 0 1-.03.07l-4.66 2.69a4.55 4.55 0 0 1-6.34-1.65zm-1.12-9.67A4.54 4.54 0 0 1 6.08 5.4l-.14.08-4.78 2.76a.79.79 0 0 0-.39.68v6.75L-1.2 14.5a.08.08 0 0 1-.04-.06V9.06a4.56 4.56 0 0 1 4.98-1.76zm13.12 3.8l-5.85 3.38-2.03-1.17a.08.08 0 0 1-.04-.07V7.07l5.85-3.37a.8.8 0 0 0 .4-.68V.67a4.55 4.55 0 0 1 1.67 8.45zm2.84 5.75l-4.78-2.76a.8.8 0 0 0-.79 0l-5.85 3.37v-2.35a.08.08 0 0 1 .03-.07l4.66-2.69a4.55 4.55 0 0 1 6.73 4.5zm-8.15-4.7l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
             }
+            if (hostname.includes('facebook.com') || hostname.includes('fb.com')) {
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>`;
+            }
+            if (hostname.includes('instagram.com')) {
+                return `<svg viewBox="0 0 24 24" width="36" height="36"><defs><radialGradient id="ig-grad" cx="20%" cy="110%" r="130%"><stop offset="0" stop-color="#ffdc80"/><stop offset="0.2" stop-color="#fcaf45"/><stop offset="0.4" stop-color="#f77737"/><stop offset="0.75" stop-color="#f56040"/><stop offset="0.9" stop-color="#fd1d1d"/><stop offset="1" stop-color="#833ab4"/></radialGradient></defs><rect width="24" height="24" rx="6" fill="url(#ig-grad)"/><path fill="#FFFFFF" d="M12 5.838c2.007 0 2.245.008 3.037.044.733.033 1.132.155 1.397.258.351.136.601.298.864.561.263.263.425.513.561.864.103.265.225.664.258 1.397.036.792.044 1.03.044 3.037s-.008 2.245-.044 3.037c-.033.733-.155 1.132-.258 1.397-.136.351-.298.601-.561.864-.263.263-.513.425-.864.561-.265.103-.664.225-1.397.258-.792.036-1.03.044-3.037.044s-2.245-.008-3.037-.044c-.733-.033-1.132-.155-1.397-.258-.351-.136-.601-.298-.864-.561-.263-.263-.425-.513-.561-.864-.103-.265-.225-.664-.258-1.397-.036-.792-.044-1.03-.044-3.037s.008-2.245.044-3.037c.033-.733.155-1.132.258-1.397.136-.351.298-.601.561-.864.263-.263.513-.425.864-.561.265-.103.664-.225 1.397-.258.792-.036 1.03-.044 3.037-.044zm0-1.838c-2.04 0-2.296.009-3.097.045-.8.037-1.348.164-1.827.35-.495.193-.915.45-1.334.869-.419.419-.676.839-.869 1.334-.186.479-.313 1.027-.35 1.827C4.489 9.224 4.48 9.48 4.48 11.52s.009 2.296.045 3.097c.037.8.164 1.348.35 1.827.193.495.45.915.869 1.334.419.419.839.676 1.334.869.479.186 1.027.313 1.827.35.801.036 1.057.045 3.097.045s2.296-.009 3.097-.045c.8-.037 1.348-.164 1.827-.35.495-.193.915-.45 1.334-.869.419-.419.676-.839.869-1.334.186-.479.313-1.027.35-1.827.036-.801.045-1.057.045-3.097s-.009-2.296-.045-3.097c-.037-.8-.164-1.348-.35-1.827-.193-.495-.45-.915-.869-1.334-.419-.419-.839-.676-1.334-.869-.479-.186-1.027-.313-1.827-.35-.801-.036-1.057-.045-3.097-.045zm0 3.65a5.512 5.512 0 1 0 0 11.024 5.512 5.512 0 0 0 0-11.024zm0 9.186a3.674 3.674 0 1 1 0-7.348 3.674 3.674 0 0 1 0 7.348zm6.988-9.452a1.288 1.288 0 1 0 0-2.576 1.288 1.288 0 0 0 0 2.576z"/></svg>`;
+            }
+            if (hostname.includes('discord.com') || hostname.includes('discord.gg')) {
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#5865F2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>`;
+            }
+            if (hostname.includes('spotify.com')) {
+                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#1DB954"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306a.75.75 0 0 1-1.033.248c-2.827-1.728-6.386-2.119-10.578-1.162a.75.75 0 1 1-.334-1.462c4.587-1.047 8.52-.607 11.697 1.343.348.213.46.666.248 1.033zm1.467-3.262a.938.938 0 0 1-1.291.31c-3.236-1.99-8.169-2.565-11.996-1.402a.938.938 0 0 1-.552-1.794c4.373-1.328 9.808-.686 13.529 1.595.434.267.575.834.31 1.291zm.126-3.41c-3.88-2.304-10.28-2.516-13.987-1.39a1.125 1.125 0 0 1-.652-2.153c4.258-1.293 11.325-1.043 15.795 1.61a1.125 1.125 0 1 1-1.156 1.933z"/></svg>`;
+            }
+            if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+                return `<svg viewBox="0 0 24 24" width="34" height="34" fill="#FFFFFF"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
+            }
             if (hostname.includes('github.com')) {
                 return `<svg viewBox="0 0 24 24" width="36" height="36" fill="white"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
             }
             if (hostname.includes('telegram.org') || hostname.includes('t.me')) {
                 return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#2AABEE"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.56 8.16l-1.97 9.28c-.15.65-.53.81-1.08.51l-3-2.21-1.45 1.39c-.16.16-.3.3-.61.3l.22-3.05 5.56-5.02c.24-.22-.05-.34-.38-.13l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.13-.95l11.58-4.46c.54-.19 1.01.13.83.92z"/></svg>`;
-            }
-            if (hostname.includes('vk.com')) {
-                return `<svg viewBox="0 0 24 24" width="36" height="36" fill="#0077FF"><path d="M12.78 17.5c-6.19 0-9.73-4.24-9.87-11.3h3.09c.1 5.18 2.38 7.37 4.2 7.82V6.2h2.91v4.46c1.78-.19 3.65-2.23 4.29-4.46h2.91c-.5 2.76-2.54 4.8-3.98 5.64 1.44.68 3.76 2.45 4.67 5.66h-3.21c-.72-2.23-2.5-3.96-4.88-4.2v4.2z"/></svg>`;
             }
             if (hostname.includes('twitch.tv')) {
                 return `<svg viewBox="0 0 24 24" width="34" height="34" fill="#9146FF"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>`;
@@ -3198,7 +3642,9 @@
             'telegram.org': 'Telegram',
             't.me': 'Telegram',
             'web.telegram.org': 'Telegram',
-            'vk.com': 'VK',
+            'facebook.com': 'Facebook',
+            'fb.com': 'Facebook',
+            'instagram.com': 'Instagram',
             'twitch.tv': 'Twitch',
             'chatgpt.com': 'ChatGPT',
             'openai.com': 'OpenAI',
@@ -3208,11 +3654,9 @@
             'discord.gg': 'Discord',
             'twitter.com': 'Twitter',
             'x.com': 'X',
-            'wikipedia.org': 'Википедия',
-            'yandex.ru': 'Яндекс',
-            'mail.ru': 'Mail.ru',
             'spotify.com': 'Spotify',
             'netflix.com': 'Netflix',
+            'wikipedia.org': 'Википедия',
             'steamcommunity.com': 'Steam',
             'store.steampowered.com': 'Steam'
         };
@@ -3883,7 +4327,286 @@
             window.addEventListener('resize', measureNatural);
         }
 
+        // === CURRENCY LOGIC (USD & EUR to UAH) ===
+        async function initCurrency() {
+            const widget = document.getElementById('currency-widget');
+            if (!widget) return;
+
+            const usdValEl = document.getElementById('currency-usd-val');
+            const eurValEl = document.getElementById('currency-eur-val');
+            const refreshBtn = document.getElementById('currency-refresh-btn');
+
+            const CACHE_KEY = 'mauzer_currency_rates_v1';
+            let cached = null;
+            try {
+                const raw = localStorage.getItem(CACHE_KEY);
+                if (raw) cached = JSON.parse(raw);
+            } catch (e) { }
+
+            function updateDisplay(usd, eur, dateStr) {
+                if (usd && !isNaN(usd)) {
+                    usdValEl.textContent = Number(usd).toFixed(2);
+                }
+                if (eur && !isNaN(eur)) {
+                    eurValEl.textContent = Number(eur).toFixed(2);
+                }
+                const titleText = `Курс НБУ: 1 USD = ${Number(usd).toFixed(2)} ₴ · 1 EUR = ${Number(eur).toFixed(2)} ₴` +
+                    (dateStr ? ` (${dateStr})` : '') + '\nНатисніть для оновлення';
+                widget.title = titleText;
+            }
+
+            // 1. Instant render from cached rates
+            if (cached && cached.usd && cached.eur) {
+                updateDisplay(cached.usd, cached.eur, cached.date);
+            }
+
+            let isFetching = false;
+            async function fetchRates(force = false) {
+                if (isFetching) return;
+
+                // If cache is fresh (under 30 mins) and not forced, skip network fetch
+                if (!force && cached && cached.timestamp && (Date.now() - cached.timestamp < 30 * 60 * 1000)) {
+                    return;
+                }
+
+                isFetching = true;
+                if (refreshBtn) refreshBtn.classList.add('spinning');
+
+                try {
+                    let usdRate = null;
+                    let eurRate = null;
+                    let dateStr = '';
+
+                    // 1. Official NBU API
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 6000);
+                        const res = await fetch('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json', {
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const list = await res.json();
+                            if (Array.isArray(list)) {
+                                const usdItem = list.find(c => c.cc === 'USD');
+                                const eurItem = list.find(c => c.cc === 'EUR');
+                                if (usdItem && usdItem.rate) usdRate = usdItem.rate;
+                                if (eurItem && eurItem.rate) eurRate = eurItem.rate;
+                                if (usdItem && usdItem.exchangedate) dateStr = usdItem.exchangedate;
+                            }
+                        }
+                    } catch (nbuErr) {
+                        console.warn('NBU currency fetch error:', nbuErr);
+                    }
+
+                    // 2. Fallback to OpenER API if NBU is unreachable
+                    if (!usdRate || !eurRate) {
+                        try {
+                            const fbRes = await fetch('https://open.er-api.com/v6/latest/USD');
+                            if (fbRes.ok) {
+                                const fbData = await fbRes.json();
+                                if (fbData && fbData.rates && fbData.rates.UAH) {
+                                    usdRate = fbData.rates.UAH;
+                                    if (fbData.rates.EUR) {
+                                        eurRate = fbData.rates.UAH / fbData.rates.EUR;
+                                    }
+                                    dateStr = 'оновлено';
+                                }
+                            }
+                        } catch (fbErr) {
+                            console.warn('Fallback currency fetch error:', fbErr);
+                        }
+                    }
+
+                    if (usdRate && eurRate) {
+                        updateDisplay(usdRate, eurRate, dateStr);
+                        const data = {
+                            usd: usdRate,
+                            eur: eurRate,
+                            date: dateStr,
+                            timestamp: Date.now()
+                        };
+                        cached = data;
+                        try {
+                            localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                        } catch (e) { }
+                    }
+                } catch (err) {
+                    console.error('Currency update error:', err);
+                } finally {
+                    isFetching = false;
+                    setTimeout(() => {
+                        if (refreshBtn) refreshBtn.classList.remove('spinning');
+                    }, 650);
+                }
+            }
+
+            // Click on widget to refresh rates
+            widget.addEventListener('click', () => {
+                fetchRates(true);
+            });
+
+            // Initial fetch in background
+            await fetchRates();
+
+            // Refresh periodically every 30 minutes
+            setInterval(() => fetchRates(), 30 * 60 * 1000);
+        }
+
+        // === RECENT SITES LOGIC (Up to 8 recently opened sites) ===
+        async function initRecentSites() {
+            const wrapEl = document.getElementById('recent-sites-wrap');
+            const listEl = document.getElementById('recent-sites-list');
+            if (!wrapEl || !listEl) return;
+
+            let historyList = [];
+            try {
+                if (window.mauzer && window.mauzer.history && window.mauzer.history.get) {
+                    historyList = await window.mauzer.history.get();
+                }
+            } catch (e) { }
+
+            // Deduplicate by host and filter invalid/internal URLs
+            const seenHosts = new Set();
+            const recentSites = [];
+
+            if (Array.isArray(historyList)) {
+                for (const item of historyList) {
+                    if (!item || !item.url) continue;
+                    try {
+                        const parsed = new URL(item.url);
+                        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') continue;
+                        const host = parsed.hostname.replace(/^www\./, '');
+                        if (!host || seenHosts.has(host)) continue;
+                        seenHosts.add(host);
+
+                        let title = (item.title || '').trim();
+                        if (!title || title === item.url || title.toLowerCase() === 'mauzer' || title.startsWith('http://') || title.startsWith('https://')) {
+                            title = host;
+                        }
+
+                        recentSites.push({
+                            url: item.url,
+                            title: title,
+                            host: host,
+                            favicon: item.favicon || ''
+                        });
+
+                        if (recentSites.length >= 8) break;
+                    } catch (e) { }
+                }
+            }
+
+            const knownNames = {
+                'youtube': 'YouTube',
+                'google': 'Google',
+                'chatgpt': 'ChatGPT',
+                'github': 'GitHub',
+                'reddit': 'Reddit',
+                'wikipedia': 'Wikipedia',
+                'discord': 'Discord',
+                'twitch': 'Twitch',
+                'facebook': 'Facebook',
+                'instagram': 'Instagram',
+                'spotify': 'Spotify',
+                'twitter': 'X'
+            };
+
+            const knownColors = {
+                'youtube': '#ff0000',
+                'google': '#4285f4',
+                'chatgpt': '#10a37f',
+                'github': '#8b5cf6',
+                'reddit': '#ff4500',
+                'wikipedia': '#64748b',
+                'discord': '#5865f2',
+                'twitch': '#9146ff',
+                'facebook': '#1877f2',
+                'instagram': '#e4405f',
+                'spotify': '#1ed760'
+            };
+
+            // Fallback sites if history has fewer items or is empty
+            if (recentSites.length === 0) {
+                const defaults = [
+                    { title: 'YouTube', host: 'youtube.com', url: 'https://youtube.com', color: '#ff0000' },
+                    { title: 'Google', host: 'google.com', url: 'https://google.com', color: '#4285f4' },
+                    { title: 'ChatGPT', host: 'chatgpt.com', url: 'https://chatgpt.com', color: '#10a37f' },
+                    { title: 'GitHub', host: 'github.com', url: 'https://github.com', color: '#8b5cf6' },
+                    { title: 'Wikipedia', host: 'wikipedia.org', url: 'https://wikipedia.org', color: '#64748b' },
+                    { title: 'Reddit', host: 'reddit.com', url: 'https://reddit.com', color: '#ff4500' },
+                    { title: 'Discord', host: 'discord.com', url: 'https://discord.com', color: '#5865f2' },
+                    { title: 'Twitch', host: 'twitch.tv', url: 'https://twitch.tv', color: '#9146ff' }
+                ];
+                for (const d of defaults) {
+                    recentSites.push(d);
+                    if (recentSites.length >= 8) break;
+                }
+            }
+
+            listEl.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+
+            for (const site of recentSites) {
+                const a = document.createElement('a');
+                a.className = 'recent-chip';
+                a.href = site.url;
+
+                const hostKey = (site.host || '').replace(/\.(com|org|net|io|ua|app|dev|co|uk|tv)$/i, '').toLowerCase();
+                let displayTitle = site.title;
+                if (!displayTitle || displayTitle === site.url || displayTitle === site.host || displayTitle.toLowerCase() === 'mauzer' || displayTitle.startsWith('http')) {
+                    displayTitle = knownNames[hostKey] || (hostKey.charAt(0).toUpperCase() + hostKey.slice(1));
+                }
+
+                a.title = `${displayTitle}\n${site.url}`;
+
+                const brandColor = site.color || knownColors[hostKey] || null;
+
+                let iconEl;
+                if (site.favicon) {
+                    const img = document.createElement('img');
+                    img.className = 'recent-chip-icon';
+                    img.src = site.favicon;
+                    img.alt = '';
+                    img.loading = 'lazy';
+                    img.onerror = () => {
+                        img.replaceWith(createFallbackLetter(displayTitle || site.host, brandColor));
+                    };
+                    iconEl = img;
+                } else {
+                    iconEl = createFallbackLetter(displayTitle || site.host, brandColor);
+                }
+
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'recent-chip-title';
+                titleSpan.textContent = displayTitle;
+
+                a.appendChild(iconEl);
+                a.appendChild(titleSpan);
+
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = site.url;
+                });
+
+                fragment.appendChild(a);
+            }
+
+            listEl.appendChild(fragment);
+
+            function createFallbackLetter(text, dotColor) {
+                const letter = (text || '?').charAt(0).toUpperCase();
+                const span = document.createElement('span');
+                span.className = 'recent-chip-letter';
+                if (dotColor) span.style.background = dotColor;
+                span.textContent = letter;
+                return span;
+            }
+        }
+
         initWeather();
+        initCurrency();
+        initRecentSites();
     </script>
 </body>
 

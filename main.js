@@ -414,6 +414,12 @@ function addHistoryEntry(entry) {
   historyDb.add(entry);
 }
 
+function updateHistoryEntry(entry) {
+  if (entry && entry.url && historyDb.updateLatest) {
+    historyDb.updateLatest(entry.url, entry.title, entry.favicon);
+  }
+}
+
 function clearHistory() {
   historyDb.clear();
 }
@@ -2242,6 +2248,7 @@ ipcMain.handle('app:getPreloadPath', () => path.join(__dirname, 'preload.js'));
 // consumer of the full 5000)
 ipcMain.handle('history:get', (_, query) => query ? searchHistory(query) : historyDb.get(200));
 ipcMain.handle('history:add', (_, entry) => { addHistoryEntry(entry); return true; });
+ipcMain.handle('history:update', (_, entry) => { updateHistoryEntry(entry); return true; });
 ipcMain.handle('history:clear', () => { clearHistory(); return true; });
 ipcMain.handle('history:remove', (_, id) => { removeHistoryEntry(id); return true; });
 ipcMain.handle('history:removeMany', (_, ids) => { removeHistoryEntries(ids); return true; });

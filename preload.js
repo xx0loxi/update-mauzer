@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('mauzer', {
     history: {
         get: (query) => ipcRenderer.invoke('history:get', query),
         add: (entry) => ipcRenderer.invoke('history:add', entry),
+        update: (entry) => ipcRenderer.invoke('history:update', entry),
         clear: () => ipcRenderer.invoke('history:clear'),
         remove: (id) => ipcRenderer.invoke('history:remove', id),
         removeMany: (ids) => ipcRenderer.invoke('history:removeMany', ids),

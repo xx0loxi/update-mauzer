@@ -691,8 +691,10 @@
             }
             updateNav();
             const ov = document.getElementById('crash-overlay-' + id); if (ov) ov.remove();
-            if (!t?.incognito && !e.url.includes('newtab.html') && !e.url.includes('incognito.html'))
-                window.mauzer.history.add({ url: e.url, title: t?.title, favicon: t?.favicon });
+            if (!t?.incognito && !e.url.includes('newtab.html') && !e.url.includes('incognito.html')) {
+                const navTitle = (t?.title && t.title !== 'MAUZER') ? t.title : '';
+                window.mauzer.history.add({ url: e.url, title: navTitle, favicon: t?.favicon });
+            }
             saveSessionState();
         });
 
@@ -705,12 +707,31 @@
 
         wv.addEventListener('page-title-updated', (e) => {
             const t = state.tabs.find(x => x.id === id);
-            if (t) { t.title = e.title; const el = document.getElementById('tab-title-' + id); if (el) el.textContent = e.title; saveSessionState(); }
+            if (t) {
+                t.title = e.title;
+                const el = document.getElementById('tab-title-' + id);
+                if (el) el.textContent = e.title;
+                saveSessionState();
+                if (!t?.incognito && e.title && e.title !== 'MAUZER' && !t.url?.includes('newtab.html') && !t.url?.includes('incognito.html')) {
+                    if (window.mauzer?.history?.update) {
+                        window.mauzer.history.update({ url: t.url, title: e.title, favicon: t.favicon });
+                    }
+                }
+            }
         });
 
         wv.addEventListener('page-favicon-updated', (e) => {
             const t = state.tabs.find(x => x.id === id);
-            if (t && e.favicons?.length) { t.favicon = e.favicons[0]; const el = document.getElementById('tab-fav-' + id); if (el) { el.src = e.favicons[0]; el.style.display = ''; saveSessionState(); } }
+            if (t && e.favicons?.length) {
+                t.favicon = e.favicons[0];
+                const el = document.getElementById('tab-fav-' + id);
+                if (el) { el.src = e.favicons[0]; el.style.display = ''; saveSessionState(); }
+                if (!t?.incognito && !t.url?.includes('newtab.html') && !t.url?.includes('incognito.html')) {
+                    if (window.mauzer?.history?.update) {
+                        window.mauzer.history.update({ url: t.url, favicon: e.favicons[0] });
+                    }
+                }
+            }
         });
 
         wv.addEventListener('did-fail-load', (e) => {
@@ -908,7 +929,8 @@
     function openSidebar(panel) {
         if (panel) state.sidebarPanel = panel;
         
-        if (!state.sidebarOpen) {
+        const wasClosed = !state.sidebarOpen;
+        if (wasClosed) {
             state.sidebarOpen = true;
             dom.sidebar.style.display = '';
             requestAnimationFrame(() => {
@@ -916,7 +938,7 @@
             });
         }
         
-        renderSidebarPanel(state.sidebarPanel);
+        renderSidebarPanel(state.sidebarPanel, wasClosed);
     }
 
     function closeSidebar() {
@@ -934,13 +956,16 @@
         else openSidebar();
     }
 
-    // Wrapper: re-triggers the slide-in animation after every panel render
-    async function renderSidebarPanel(panel) {
+    // Wrapper: re-triggers the slide-in animation after every panel switch (smoothly, no layout thrash)
+    async function renderSidebarPanel(panel, isInitialOpen = false) {
         await renderSidebarPanelInner(panel);
         const c = dom.sidebarPanel;
-        c.classList.remove('anim');
-        void c.offsetWidth; // restart CSS animation
-        c.classList.add('anim');
+        if (!isInitialOpen) {
+            c.classList.remove('anim');
+            requestAnimationFrame(() => {
+                c.classList.add('anim');
+            });
+        }
     }
 
     async function renderSidebarPanelInner(panel) {
@@ -953,14 +978,16 @@
             const bms = await window.mauzer.bookmarks.get();
             c.innerHTML = '<div class="sidebar-panel-title">Закладки</div>';
             if (!bms.length) { c.innerHTML += '<div class="sidebar-empty">Нет закладок</div>'; return; }
+            const frag = document.createDocumentFragment();
             bms.forEach(b => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
                 it.innerHTML = `<img src="${favicon(b.url)}"><span class="sidebar-item-title">${escapeHtml(b.title)}</span><span class="sidebar-item-delete" data-id="${escapeHtml(b.id)}">✕</span>`;
                 hideBrokenImage(it);
                 it.addEventListener('click', (e) => { if (!e.target.closest('.sidebar-item-delete')) createTab(b.url); });
                 it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.bookmarks.remove(b.id); renderSidebarPanel('bookmarks'); });
-                c.appendChild(it);
+                frag.appendChild(it);
             });
+            c.appendChild(frag);
         } else if (panel === 'history') {
             const h = await window.mauzer.history.get();
             const lang = state.settings.language || 'ru';
@@ -993,12 +1020,13 @@
             // Sort groups newest first
             const sortedKeys = Object.keys(groups).sort((a, b) => groups[b].dateMs - groups[a].dateMs);
 
+            const frag = document.createDocumentFragment();
             sortedKeys.forEach(label => {
                 const group = groups[label];
                 const header = document.createElement('div');
                 header.className = 'sidebar-date-header';
                 header.innerHTML = `<span>${escapeHtml(label)}</span><button class="sidebar-clear-day-btn" title="${escapeHtml(clearDayLbl)} ${escapeHtml(label)}">${escapeHtml(clearDayLbl)}</button>`;
-                c.appendChild(header);
+                frag.appendChild(header);
 
                 header.querySelector('.sidebar-clear-day-btn').addEventListener('click', async () => {
                     const ids = group.items.map(entry => entry.id).filter(Boolean);
@@ -1026,9 +1054,10 @@
                         if (entry.id) await window.mauzer.history.remove(entry.id);
                         it.remove();
                     });
-                    c.appendChild(it);
+                    frag.appendChild(it);
                 });
             });
+            c.appendChild(frag);
 
             c.querySelector('#history-clear-all').addEventListener('click', async () => {
                 if (confirm(lang === 'en' ? 'Clear all browsing history?' : 'Очистить всю историю?')) {
@@ -1042,6 +1071,7 @@
             const d = await window.mauzer.downloads.get();
             c.innerHTML = '<div class="sidebar-panel-title">Загрузки</div>';
             if (!d.length) { c.innerHTML += '<div class="sidebar-empty">Пусто</div>'; return; }
+            const frag = document.createDocumentFragment();
             d.forEach(dl => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
                 it.innerHTML = `
@@ -1060,20 +1090,23 @@
                 it.addEventListener('click', () => {
                     if (dl.path) window.mauzer.downloads.showInFolder(dl.path);
                 });
-                c.appendChild(it);
+                frag.appendChild(it);
             });
+            c.appendChild(frag);
         } else if (panel === 'readinglist') {
             const rl = await window.mauzer.readinglist.get();
             c.innerHTML = '<div class="sidebar-panel-title">Отложенное</div>';
             if (!rl.length) { c.innerHTML += '<div class="sidebar-empty">Пусто</div>'; return; }
+            const frag = document.createDocumentFragment();
             rl.forEach(r => {
                 const it = document.createElement('div'); it.className = 'sidebar-item';
                 it.innerHTML = `<img src="${favicon(r.url)}"><span class="sidebar-item-title">${escapeHtml(r.title)}</span><span class="sidebar-item-delete">✕</span>`;
                 hideBrokenImage(it);
                 it.addEventListener('click', (e) => { if (!e.target.closest('.sidebar-item-delete')) createTab(r.url); });
                 it.querySelector('.sidebar-item-delete').addEventListener('click', async () => { await window.mauzer.readinglist.remove(r.id); renderSidebarPanel('readinglist'); });
-                c.appendChild(it);
+                frag.appendChild(it);
             });
+            c.appendChild(frag);
         } else {
             // Default fallback to history
             renderSidebarPanel('history');
